@@ -85,7 +85,7 @@ def __getattr__(name: str) -> object:
 
         return _Router
     if name == "AdaptiveRefinement":
-        from avqa.refinement import (  # type: ignore[import-not-found]
+        from avqa.refinement import (  # type: ignore[attr-defined]
             AdaptiveRefinement as _AdaptiveRefinement,
         )
 
@@ -99,7 +99,7 @@ def __getattr__(name: str) -> object:
 
         return _KVCache
     if name == "Backend":
-        from avqa.backend import Backend as _Backend  # type: ignore[import-not-found]
+        from avqa.backend import Backend as _Backend
 
         return _Backend
     if name == "Profiler":

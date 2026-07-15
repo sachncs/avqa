@@ -127,7 +127,6 @@ class TestSpecRegistries:
         "registry",
         [
             SCHEDULER_REGISTRY,
-            BACKEND_REGISTRY,
             PROFILER_REGISTRY,
             VISUALIZER_REGISTRY,
         ],
@@ -152,6 +151,10 @@ class TestSpecRegistries:
         assert "weighted" in MERGE_REGISTRY
         assert "logit" in MERGE_REGISTRY
         assert "normalized" in MERGE_REGISTRY
+
+    def test_backend_registry_populated_by_backend(self) -> None:
+        """BACKEND_REGISTRY is populated by avqa.backend at import time."""
+        assert "torch" in BACKEND_REGISTRY
 
 
 class TestRegistryIsolation:
