@@ -88,7 +88,7 @@ document so that each task can be picked up in dependency order.
 
 ### M0 — Scaffolding
 
-- [ ] TASK-0007
+- [x] TASK-0007
   Title: Add pyproject.toml with build metadata
   Chapter: 4.14, 5.3
   Requirement: BUILD-001
@@ -97,6 +97,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - pyproject.toml
   Estimated Commit: 1
+  Commit: e1890c0
 
 - [ ] TASK-0008
   Title: Add .gitignore
