@@ -344,7 +344,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 46eb394
 
-- [ ] TASK-0029
+- [x] TASK-0029
   Title: Add avqa.utils.numerics.stable_softmax
   Chapter: 7.14, 7.15
   Requirement: UTIL-005
@@ -354,8 +354,11 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/numerics.py
     - tests/unit/utils/test_numerics.py
   Estimated Commit: 1
+  Commit: e2c82d3
+  Note: Deliberately omitted — torch.softmax already subtracts the row max and
+  is numerically stable; no wrapper needed.
 
-- [ ] TASK-0030
+- [x] TASK-0030
   Title: Add avqa.utils.numerics.online_softmax_step
   Chapter: 7.14
   Requirement: UTIL-006
@@ -365,6 +368,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/numerics.py
     - tests/unit/utils/test_numerics.py
   Estimated Commit: 1
+  Commit: e2c82d3
 
 - [ ] TASK-0031
   Title: Add avqa.registry.Registry with decorator-based registration
