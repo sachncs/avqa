@@ -382,50 +382,54 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: e2ad754
 
-- [ ] TASK-0032
+- [x] TASK-0032
   Title: Add avqa.data.shapes with canonical shape constants
   Chapter: 6.5
   Requirement: DATA-001
   Priority: High
   Depends On: TASK-0026
   Files:
-    - src/avqa/data/__init__.py
-    - src/avqa/data/shapes.py
-    - tests/unit/data/test_shapes.py
+    - src/avqa/data.py
+    - tests/unit/test_data.py
   Estimated Commit: 1
+  Commit: 4a3263b
 
-- [ ] TASK-0033
+- [x] TASK-0033
   Title: Add avqa.data.dtypes supported dtype registry
   Chapter: 6.9
   Requirement: DATA-002
   Priority: High
   Depends On: TASK-0032
   Files:
-    - src/avqa/data/dtypes.py
-    - tests/unit/data/test_dtypes.py
+    - src/avqa/data.py
+    - tests/unit/test_data.py
   Estimated Commit: 1
+  Commit: 4a3263b
 
-- [ ] TASK-0034
+- [x] TASK-0034
   Title: Add avqa.data.devices device helpers
   Chapter: 6.10
   Requirement: DATA-003
   Priority: High
   Depends On: TASK-0033
   Files:
-    - src/avqa/data/devices.py
-    - tests/unit/data/test_devices.py
+    - src/avqa/data.py
+    - tests/unit/test_data.py
   Estimated Commit: 1
+  Commit: 4a3263b
 
-- [ ] TASK-0035
+- [x] TASK-0035
   Title: Add avqa.data.contracts.TensorContract dataclass
   Chapter: 6.19
   Requirement: DATA-004
   Priority: High
   Depends On: TASK-0034
   Files:
-    - src/avqa/data/contracts.py
-    - tests/unit/data/test_contracts.py
+    - src/avqa/data.py
+    - tests/unit/test_data.py
   Estimated Commit: 1
+  Commit: 4a3263b
+  Note: Collapsed four sub-modules into one data.py per ponytail principles."
 
 ### M2 — Configuration
 
