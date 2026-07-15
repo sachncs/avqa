@@ -308,7 +308,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: b0ba7bb
 
-- [ ] TASK-0026
+- [x] TASK-0026
   Title: Add avqa.utils.validation.validate_shape
   Chapter: 6.12, 6.13
   Requirement: UTIL-002
@@ -318,8 +318,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/validation.py
     - tests/unit/utils/test_validation.py
   Estimated Commit: 1
+  Commit: 46eb394
 
-- [ ] TASK-0027
+- [x] TASK-0027
   Title: Add avqa.utils.validation.validate_dtype
   Chapter: 6.12, 6.9
   Requirement: UTIL-003
@@ -329,8 +330,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/validation.py
     - tests/unit/utils/test_validation.py
   Estimated Commit: 1
+  Commit: 46eb394
 
-- [ ] TASK-0028
+- [x] TASK-0028
   Title: Add avqa.utils.validation.validate_device
   Chapter: 6.10, 6.12
   Requirement: UTIL-004
@@ -340,6 +342,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/validation.py
     - tests/unit/utils/test_validation.py
   Estimated Commit: 1
+  Commit: 46eb394
 
 - [ ] TASK-0029
   Title: Add avqa.utils.numerics.stable_softmax
