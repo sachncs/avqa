@@ -99,7 +99,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: e1890c0
 
-- [ ] TASK-0008
+- [x] TASK-0008
   Title: Add .gitignore
   Chapter: N/A
   Requirement: BUILD-002
@@ -108,6 +108,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - .gitignore
   Estimated Commit: 1
+  Commit: 0503bf6
 
 - [ ] TASK-0009
   Title: Add .ruff.toml configuration
