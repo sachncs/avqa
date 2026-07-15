@@ -143,7 +143,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 2a974ed
 
-- [ ] TASK-0012
+- [x] TASK-0012
   Title: Add GitHub Actions CI workflow (CPU matrix)
   Chapter: 8.13
   Requirement: BUILD-006
@@ -152,6 +152,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - .github/workflows/ci-cpu.yml
   Estimated Commit: 1
+  Commit: 30d81b1
 
 - [ ] TASK-0013
   Title: Add GitHub Actions CI workflow (GPU matrix)
