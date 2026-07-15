@@ -95,7 +95,7 @@ def __getattr__(name: str) -> object:
 
         return _Scheduler
     if name == "KVCache":
-        from avqa.cache import KVCache as _KVCache  # type: ignore[import-not-found]
+        from avqa.cache import KVCache as _KVCache
 
         return _KVCache
     if name == "Backend":
