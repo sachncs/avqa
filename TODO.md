@@ -154,7 +154,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 30d81b1
 
-- [ ] TASK-0013
+- [x] TASK-0013
   Title: Add GitHub Actions CI workflow (GPU matrix)
   Chapter: 8.13
   Requirement: BUILD-007
@@ -163,6 +163,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - .github/workflows/ci-gpu.yml
   Estimated Commit: 1
+  Commit: b40875b
 
 - [ ] TASK-0014
   Title: Add README with project overview and disclaimer
