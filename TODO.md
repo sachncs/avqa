@@ -211,7 +211,7 @@ document so that each task can be picked up in dependency order.
 
 ### M1 — Foundations (Exceptions, Logging, Utils, Data, Registry)
 
-- [ ] TASK-0018
+- [x] TASK-0018
   Title: Add AVQAError exception base class
   Chapter: 5.13
   Requirement: ERR-001
@@ -221,8 +221,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
-- [ ] TASK-0019
+- [x] TASK-0019
   Title: Add ConfigurationError exception
   Chapter: 5.13
   Requirement: ERR-002
@@ -232,8 +233,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
-- [ ] TASK-0020
+- [x] TASK-0020
   Title: Add BackendError exception
   Chapter: 5.13
   Requirement: ERR-003
@@ -243,8 +245,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
-- [ ] TASK-0021
+- [x] TASK-0021
   Title: Add RoutingError exception
   Chapter: 5.13
   Requirement: ERR-004
@@ -254,8 +257,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
-- [ ] TASK-0022
+- [x] TASK-0022
   Title: Add CodebookError exception
   Chapter: 5.13
   Requirement: ERR-005
@@ -265,8 +269,9 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
-- [ ] TASK-0023
+- [x] TASK-0023
   Title: Add ShapeError, DtypeError, DeviceError, NotInitializedError
   Chapter: 5.13, 6.12
   Requirement: ERR-006
@@ -276,6 +281,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/exceptions.py
     - tests/unit/test_exceptions.py
   Estimated Commit: 1
+  Commit: cff1f21
 
 - [ ] TASK-0024
   Title: Add avqa.logging module with configure_logger and get_logger
