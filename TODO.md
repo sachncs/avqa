@@ -916,128 +916,148 @@ document so that each task can be picked up in dependency order.
 
 ### M6 — Merge + Correction
 
-- [ ] TASK-0073
+- [x] TASK-0073
   Title: Add MergeStrategy abstract interface
   Chapter: 4.7, 3.11
   Requirement: MG-001
   Priority: High
   Depends On: TASK-0031
   Files:
-    - src/avqa/merge/__init__.py
-    - src/avqa/merge/base.py
-    - tests/unit/merge/test_base.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: M6 absorbed into single commit de51f00.
 
-- [ ] TASK-0074
+- [x] TASK-0074
   Title: Add ProbabilityMerge implementation
   Chapter: 3.11
   Requirement: MG-002
   Priority: High
   Depends On: TASK-0073
   Files:
-    - src/avqa/merge/probability.py
-    - tests/unit/merge/test_probability.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6.
 
-- [ ] TASK-0075
+- [x] TASK-0075
   Title: Add WeightedMerge implementation
   Chapter: 3.11
   Requirement: MG-003
   Priority: High
   Depends On: TASK-0073
   Files:
-    - src/avqa/merge/weighted.py
-    - tests/unit/merge/test_weighted.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6.
 
-- [ ] TASK-0076
+- [x] TASK-0076
   Title: Add LogitMerge implementation
   Chapter: 3.11
   Requirement: MG-004
   Priority: High
   Depends On: TASK-0073
   Files:
-    - src/avqa/merge/logit.py
-    - tests/unit/merge/test_logit.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6.
 
-- [ ] TASK-0077
+- [x] TASK-0077
   Title: Add NormalizedMerge implementation
   Chapter: 3.11
   Requirement: MG-005
   Priority: High
   Depends On: TASK-0073
   Files:
-    - src/avqa/merge/normalized.py
-    - tests/unit/merge/test_normalized.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6.
 
-- [ ] TASK-0078
+- [x] TASK-0078
   Title: Add merge strategy registry hook
   Chapter: 5.10
   Requirement: MG-006
   Priority: Medium
   Depends On: TASK-0073
   Files:
-    - src/avqa/merge/__init__.py
-    - tests/unit/merge/test_registry.py
+    - src/avqa/merge.py
+    - tests/unit/test_merge.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (MERGE_REGISTRY auto-populated at import).
 
-- [ ] TASK-0079
+- [x] TASK-0079
   Title: Add OnlineSoftmaxState accumulator
   Chapter: 7.14, 9.11
   Requirement: OS-001
   Priority: High
   Depends On: TASK-0030
   Files:
-    - src/avqa/attention/__init__.py
-    - src/avqa/attention/online_softmax.py
-    - tests/unit/attention/test_online_softmax.py
+    - src/avqa/attention.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6.
 
-- [ ] TASK-0080
+- [x] TASK-0080
   Title: Add online softmax tile update
   Chapter: 7.14
   Requirement: OS-002
   Priority: High
   Depends On: TASK-0079
   Files:
-    - src/avqa/attention/online_softmax.py
-    - tests/unit/attention/test_online_softmax.py
+    - src/avqa/attention.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (OnlineSoftmaxState.merge).
 
-- [ ] TASK-0081
+- [x] TASK-0081
   Title: Add online softmax empty-codeword handling
   Chapter: 7.15, 9.12
   Requirement: OS-003
   Priority: High
   Depends On: TASK-0080
   Files:
-    - src/avqa/attention/online_softmax.py
-    - tests/unit/attention/test_empty_codewords.py
+    - src/avqa/attention.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (test_empty_tile_no_op).
 
-- [ ] TASK-0082
+- [x] TASK-0082
   Title: Add CorrectionOperator for replacing parent contributions
   Chapter: 7.13, 9.9
   Requirement: COR-001
   Priority: High
   Depends On: TASK-0080
   Files:
-    - src/avqa/attention/correction.py
-    - tests/unit/attention/test_correction.py
+    - src/avqa/attention.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (correct_parent_contribution).
 
-- [ ] TASK-0083
+- [x] TASK-0083
   Title: Add parent logit recovery from children logits
   Chapter: 7.12, 9.10
   Requirement: COR-002
   Priority: High
   Depends On: TASK-0082
   Files:
-    - src/avqa/attention/correction.py
-    - tests/unit/attention/test_parent_recovery.py
+    - src/avqa/attention.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (recover_parent_logits).
 
 - [ ] TASK-0084
   Title: Add correction-without-materialization invariant test
