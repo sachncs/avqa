@@ -165,7 +165,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: b40875b
 
-- [ ] TASK-0014
+- [x] TASK-0014
   Title: Add README with project overview and disclaimer
   Chapter: 1
   Requirement: DOC-001
@@ -174,6 +174,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - README.md
   Estimated Commit: 1
+  Commit: c5399e4
 
 - [ ] TASK-0015
   Title: Add LICENSE (Apache 2.0)
