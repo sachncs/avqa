@@ -42,17 +42,17 @@ Example:
 from avqa._version import __version__
 
 __all__ = [
-    "__version__",
     "AVQAttention",
     "AVQConfig",
-    "VectorQuantizer",
-    "HierarchicalCodebook",
-    "Router",
     "AdaptiveRefinement",
-    "Scheduler",
-    "KVCache",
     "Backend",
+    "HierarchicalCodebook",
+    "KVCache",
     "Profiler",
+    "Router",
+    "Scheduler",
+    "VectorQuantizer",
+    "__version__",
 ]
 
 __version_info__ = tuple(int(part) for part in __version__.split(".") if part.isdigit())
@@ -65,47 +65,45 @@ def __getattr__(name: str) -> object:
     and avoid forcing every optional dependency at module load time.
     """
     if name == "AVQAttention":
-        from avqa.attention.module import AVQAttention as _AVQAttention  # type: ignore[import-not-found]
+        from avqa.attention import AVQAttention as _AVQAttention  # type: ignore[import-not-found]
 
         return _AVQAttention
     if name == "AVQConfig":
-        from avqa.config.avq import AVQConfig as _AVQConfig  # type: ignore[import-not-found]
+        from avqa.config import AVQConfig as _AVQConfig
 
         return _AVQConfig
     if name == "VectorQuantizer":
-        from avqa.quantizer.base import VectorQuantizer as _VectorQuantizer  # type: ignore[import-not-found]
+        from avqa.quantizer import VectorQuantizer as _VectorQuantizer
 
         return _VectorQuantizer
     if name == "HierarchicalCodebook":
-        from avqa.codebook.hierarchical import (  # type: ignore[import-not-found]
-            HierarchicalCodebook as _HierarchicalCodebook,
-        )
+        from avqa.codebook import HierarchicalCodebook as _HierarchicalCodebook
 
         return _HierarchicalCodebook
     if name == "Router":
-        from avqa.routing.base import Router as _Router  # type: ignore[import-not-found]
+        from avqa.routing import Router as _Router  # type: ignore[import-not-found]
 
         return _Router
     if name == "AdaptiveRefinement":
-        from avqa.refinement.adaptive import (  # type: ignore[import-not-found]
-            AdaptiveRefinement as _AdaptiveRefinement,
+        from avqa.refinement import (
+            AdaptiveRefinement as _AdaptiveRefinement,  # type: ignore[import-not-found]
         )
 
         return _AdaptiveRefinement
     if name == "Scheduler":
-        from avqa.scheduler.base import Scheduler as _Scheduler  # type: ignore[import-not-found]
+        from avqa.scheduler import Scheduler as _Scheduler  # type: ignore[import-not-found]
 
         return _Scheduler
     if name == "KVCache":
-        from avqa.cache.base import KVCache as _KVCache  # type: ignore[import-not-found]
+        from avqa.cache import KVCache as _KVCache  # type: ignore[import-not-found]
 
         return _KVCache
     if name == "Backend":
-        from avqa.backend.base import Backend as _Backend  # type: ignore[import-not-found]
+        from avqa.backend import Backend as _Backend  # type: ignore[import-not-found]
 
         return _Backend
     if name == "Profiler":
-        from avqa.profiling.base import Profiler as _Profiler  # type: ignore[import-not-found]
+        from avqa.profiling import Profiler as _Profiler  # type: ignore[import-not-found]
 
         return _Profiler
     msg = f"module {__name__!r} has no attribute {name!r}"

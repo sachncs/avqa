@@ -61,14 +61,14 @@ def seed_everything(seed: int = _DEFAULT_SEED, *, deterministic: bool = False) -
     _logger.debug("Set PYTHONHASHSEED=%d", seed)
 
     try:
-        import numpy as np  # noqa: PLC0415
+        import numpy as np
     except ImportError:
         _logger.debug("NumPy not installed; skipping NumPy seeding")
     else:
         np.random.seed(seed)
         _logger.debug("Seeded NumPy with seed=%d", seed)
 
-    import torch  # noqa: PLC0415
+    import torch
 
     torch.manual_seed(seed)
     _logger.debug("Seeded torch CPU RNG with seed=%d", seed)

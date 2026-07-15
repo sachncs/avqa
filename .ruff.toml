@@ -47,10 +47,23 @@ ignore = [
   "PLR2004", # magic values in tests
   "PT011",   # pytest.raises too broad
   "S101",    # assert (pytest convention)
+  "N806",    # canonical tensor notation (B/H/T/D/N/C) is uppercase
 ]
 "examples/**/*.py" = [
   "E402",  # imports not at top
   "T201",  # print (examples use print)
+]
+"src/avqa/**/*.py" = [
+  "N806",    # Variable B/H/T/D/N/C in function should be lowercase
+             # — canonical tensor notation (spec §6.3) uses uppercase.
+  "ARG002",  # Unused method argument for documenting contract parameters
+             # that are part of the public interface.
+  "PLR0911", # Too many return statements (lazy __getattr__ has many branches)
+  "PLR0912", # Too many branches
+  "PLC0415", # Lazy imports inside functions are intentional in __init__.py
+             # (lazy __getattr__) and in subsystem modules (deferred heavy
+             # deps like torch).
+  "TC001",   # Type-checking block import — acceptable for forward refs.
 ]
 
 [lint.isort]
