@@ -691,104 +691,122 @@ document so that each task can be picked up in dependency order.
 
 ### M4 — Quantization
 
-- [ ] TASK-0056
+- [x] TASK-0056
   Title: Add VectorQuantizer abstract interface
   Chapter: 4.7, 5.10
   Requirement: VQ-001
   Priority: High
   Depends On: TASK-0031, TASK-0049
   Files:
-    - src/avqa/quantizer/__init__.py
-    - src/avqa/quantizer/base.py
-    - tests/unit/quantizer/test_base.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: M4 absorbed into single commit 2073498.
 
-- [ ] TASK-0057
+- [x] TASK-0057
   Title: Add Euclidean distance assignment implementation
   Chapter: 7.5
   Requirement: VQ-002
   Priority: High
   Depends On: TASK-0056
   Files:
-    - src/avqa/quantizer/euclidean.py
-    - tests/unit/quantizer/test_euclidean.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
 
-- [ ] TASK-0058
+- [x] TASK-0058
   Title: Add two-stage hierarchical assignment (parent then child)
   Chapter: 8.5
   Requirement: VQ-003
   Priority: High
   Depends On: TASK-0057
   Files:
-    - src/avqa/quantizer/hierarchical.py
-    - tests/unit/quantizer/test_hierarchical.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
 
-- [ ] TASK-0059
+- [x] TASK-0059
   Title: Add value aggregation during assignment (fused precompute)
   Chapter: 8.6, 8.7
   Requirement: VQ-004
   Priority: High
   Depends On: TASK-0058
   Files:
-    - src/avqa/quantizer/hierarchical.py
-    - tests/unit/quantizer/test_aggregation.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
 
-- [ ] TASK-0060
+- [x] TASK-0060
   Title: Add assignment count accumulation
   Chapter: 8.4
   Requirement: VQ-005
   Priority: High
   Depends On: TASK-0059
   Files:
-    - src/avqa/quantizer/hierarchical.py
-    - tests/unit/quantizer/test_aggregation.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
 
-- [ ] TASK-0061
+- [x] TASK-0061
   Title: Add EMA codebook update from assignments
   Chapter: 8.9
   Requirement: VQ-006
   Priority: High
   Depends On: TASK-0052, TASK-0060
   Files:
-    - src/avqa/quantizer/ema.py
-    - tests/unit/quantizer/test_ema.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: EMA update is implemented on HierarchicalCodebook itself (TASK-0052/M3).
 
-- [ ] TASK-0062
+- [x] TASK-0062
   Title: Add assignment statistics (utilization, dead-code reporting)
   Chapter: 8.13
   Requirement: VQ-007
   Priority: Medium
   Depends On: TASK-0060
   Files:
-    - src/avqa/quantizer/stats.py
-    - tests/unit/quantizer/test_stats.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: CodebookStats dataclass covers this requirement (M3).
 
-- [ ] TASK-0063
+- [x] TASK-0063
   Title: Add deterministic assignment mode
   Chapter: 8.13
   Requirement: VQ-008
   Priority: High
   Depends On: TASK-0058
   Files:
-    - src/avqa/quantizer/hierarchical.py
-    - tests/unit/quantizer/test_deterministic.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
 
-- [ ] TASK-0064
+- [x] TASK-0064
   Title: Add quantizer registry hook
   Chapter: 5.10
   Requirement: VQ-009
   Priority: Medium
   Depends On: TASK-0056
   Files:
-    - src/avqa/quantizer/__init__.py
-    - tests/unit/quantizer/test_registry.py
+    - src/avqa/quantizer.py
+    - tests/unit/test_quantizer.py
+  Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4.
   Estimated Commit: 1
 
 - [ ] TASK-0065
