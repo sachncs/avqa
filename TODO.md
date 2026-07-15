@@ -176,7 +176,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: c5399e4
 
-- [ ] TASK-0015
+- [x] TASK-0015
   Title: Add LICENSE (Apache 2.0)
   Chapter: N/A
   Requirement: LEGAL-001
@@ -185,6 +185,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - LICENSE
   Estimated Commit: 1
+  Commit: 6f79a42
 
 - [ ] TASK-0016
   Title: Add src/avqa/__init__.py public API surface
