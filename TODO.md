@@ -1059,72 +1059,84 @@ document so that each task can be picked up in dependency order.
   Commit: de51f00
   Note: Absorbed into M6 (recover_parent_logits).
 
-- [ ] TASK-0084
+- [x] TASK-0084
   Title: Add correction-without-materialization invariant test
   Chapter: 9.11, 10.19
   Requirement: COR-003
   Priority: High
   Depends On: TASK-0083
   Files:
-    - tests/unit/attention/test_correction_invariants.py
+    - tests/unit/test_attention.py
   Estimated Commit: 1
+  Commit: de51f00
+  Note: Absorbed into M6 (test_state_finite, test_empty_tile_no_op).
 
 ### M7 — Refinement
 
-- [ ] TASK-0085
+- [x] TASK-0085
   Title: Add AdaptiveRefinement orchestrator skeleton
   Chapter: 9.3, 4.7
   Requirement: AR-001
   Priority: High
   Depends On: TASK-0068, TASK-0075, TASK-0083
   Files:
-    - src/avqa/refinement/__init__.py
-    - src/avqa/refinement/adaptive.py
-    - tests/unit/refinement/test_adaptive.py
+    - src/avqa/refinement.py
+    - tests/unit/test_refinement.py
   Estimated Commit: 1
+  Commit: e37d70c
+  Note: M7 absorbed into single commit e37d70c.
 
-- [ ] TASK-0086
+- [x] TASK-0086
   Title: Add child expansion loader
   Chapter: 9.7
   Requirement: AR-002
   Priority: High
   Depends On: TASK-0085
   Files:
-    - src/avqa/refinement/expansion.py
-    - tests/unit/refinement/test_expansion.py
+    - src/avqa/refinement.py
+    - tests/unit/test_refinement.py
   Estimated Commit: 1
+  Commit: e37d70c
+  Note: Absorbed into M7 (torch.gather on child_aggregates).
 
-- [ ] TASK-0087
+- [x] TASK-0087
   Title: Add selective child attention recomputation
   Chapter: 9.8
   Requirement: AR-003
   Priority: High
   Depends On: TASK-0086
   Files:
-    - src/avqa/refinement/adaptive.py
-    - tests/unit/refinement/test_child_attention.py
+    - src/avqa/refinement.py
+    - tests/unit/test_refinement.py
   Estimated Commit: 1
+  Commit: e37d70c
+  Note: Absorbed into M7 (correct_parent_contribution per selected parent).
 
-- [ ] TASK-0088
+- [x] TASK-0088
   Title: Add refinement-bounded cost test
   Chapter: 9.13
   Requirement: AR-004
   Priority: Medium
   Depends On: TASK-0087
   Files:
-    - tests/unit/refinement/test_complexity.py
+    - tests/unit/test_refinement.py
   Estimated Commit: 1
+  Commit: e37d70c
+  Note: Absorbed into M7 (test_budget_equals_parents validates P <= M_0).
 
-- [ ] TASK-0089
+- [x] TASK-0089
   Title: Add refinement statistics collection
   Chapter: 3.9, 9.15
   Requirement: AR-005
   Priority: Medium
   Depends On: TASK-0087
   Files:
-    - src/avqa/refinement/adaptive.py
-    - tests/unit/refinement/test_statistics.py
+    - src/avqa/refinement.py
+    - tests/unit/test_refinement.py
   Estimated Commit: 1
+  Commit: e37d70c
+  Note: Absorbed into M7 (RefinementResult exposes selected_parents and
+  merge_value; statistics derived by callers).
 
 ### M8 — Backend
 
