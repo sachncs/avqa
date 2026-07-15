@@ -91,7 +91,7 @@ def __getattr__(name: str) -> object:
 
         return _AdaptiveRefinement
     if name == "Scheduler":
-        from avqa.scheduler import Scheduler as _Scheduler  # type: ignore[import-not-found]
+        from avqa.scheduler import Scheduler as _Scheduler
 
         return _Scheduler
     if name == "KVCache":

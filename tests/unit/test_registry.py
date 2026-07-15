@@ -126,7 +126,6 @@ class TestSpecRegistries:
     @pytest.mark.parametrize(
         "registry",
         [
-            SCHEDULER_REGISTRY,
             PROFILER_REGISTRY,
             VISUALIZER_REGISTRY,
         ],
@@ -155,6 +154,11 @@ class TestSpecRegistries:
     def test_backend_registry_populated_by_backend(self) -> None:
         """BACKEND_REGISTRY is populated by avqa.backend at import time."""
         assert "torch" in BACKEND_REGISTRY
+
+    def test_scheduler_registry_populated_by_scheduler(self) -> None:
+        """SCHEDULER_REGISTRY is populated by avqa.scheduler at import time."""
+        assert "default" in SCHEDULER_REGISTRY
+        assert "adaptive" in SCHEDULER_REGISTRY
 
 
 class TestRegistryIsolation:
