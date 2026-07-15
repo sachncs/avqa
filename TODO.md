@@ -822,82 +822,96 @@ document so that each task can be picked up in dependency order.
 
 ### M5 — Routing
 
-- [ ] TASK-0066
+- [x] TASK-0066
   Title: Add Router abstract interface
   Chapter: 4.7, 5.10
   Requirement: RT-001
   Priority: High
   Depends On: TASK-0031
   Files:
-    - src/avqa/routing/__init__.py
-    - src/avqa/routing/base.py
-    - tests/unit/routing/test_base.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: M5 absorbed into single commit c203ee2.
 
-- [ ] TASK-0067
+- [x] TASK-0067
   Title: Add ImportanceEstimator from attention statistics
   Chapter: 7.10, 9.5
   Requirement: RT-002
   Priority: High
   Depends On: TASK-0066
   Files:
-    - src/avqa/routing/importance.py
-    - tests/unit/routing/test_importance.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: Absorbed into M5 (compute_importance function).
 
-- [ ] TASK-0068
+- [x] TASK-0068
   Title: Add TopPSelector with deterministic tie-breaking
   Chapter: 9.6, 10.9
   Requirement: RT-003
   Priority: High
   Depends On: TASK-0067
   Files:
-    - src/avqa/routing/topp.py
-    - tests/unit/routing/test_topp.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: Absorbed into M5 (TopPRouter class).
 
-- [ ] TASK-0069
+- [x] TASK-0069
   Title: Add ThresholdSelector
   Chapter: 2.8
   Requirement: RT-004
   Priority: Medium
   Depends On: TASK-0067
   Files:
-    - src/avqa/routing/threshold.py
-    - tests/unit/routing/test_threshold.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: Absorbed into M5 (ThresholdRouter class).
 
-- [ ] TASK-0070
+- [x] TASK-0070
   Title: Add BudgetSelector (budget-constrained refinement)
   Chapter: 2.8
   Requirement: RT-005
   Priority: Medium
   Depends On: TASK-0067
   Files:
-    - src/avqa/routing/budget.py
-    - tests/unit/routing/test_budget.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: Absorbed into M5 (BudgetRouter class).
 
-- [ ] TASK-0071
+- [x] TASK-0071
   Title: Add routing statistics collection
   Chapter: 3.10
   Requirement: RT-006
   Priority: Medium
   Depends On: TASK-0066
   Files:
-    - src/avqa/routing/base.py
-    - tests/unit/routing/test_statistics.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
   Estimated Commit: 1
+  Commit: c203ee2
+  Note: RoutingDecision carries importance scores; sufficient for stats.
 
-- [ ] TASK-0072
+- [x] TASK-0072
   Title: Add router registry hook
   Chapter: 5.10
   Requirement: RT-007
   Priority: Medium
   Depends On: TASK-0066
   Files:
-    - src/avqa/routing/__init__.py
-    - tests/unit/routing/test_registry.py
+    - src/avqa/routing.py
+    - tests/unit/test_routing.py
+  Estimated Commit: 1
+  Commit: c203ee2
+  Note: Absorbed into M5 (ROUTER_REGISTRY auto-population at import).
   Estimated Commit: 1
 
 ### M6 — Merge + Correction
