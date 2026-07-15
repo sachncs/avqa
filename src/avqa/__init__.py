@@ -81,7 +81,7 @@ def __getattr__(name: str) -> object:
 
         return _HierarchicalCodebook
     if name == "Router":
-        from avqa.routing import Router as _Router  # type: ignore[import-not-found]
+        from avqa.routing import Router as _Router
 
         return _Router
     if name == "AdaptiveRefinement":
