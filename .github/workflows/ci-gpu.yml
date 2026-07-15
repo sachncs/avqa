@@ -1,0 +1,93 @@
+name: ci-gpu
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-gpu:
+    name: GPU tests
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'gpu')
+    runs-on: [self-hosted, gpu]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Verify CUDA
+        run: |
+          python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'"
+          nvidia-smi
+      - name: Install torch (CUDA)
+        run: pip install "torch>=2.1"
+      - name: Install avqa (editable) with GPU extras
+        run: pip install -e ".[triton,viz]"
+      - name: Install dev dependencies
+        run: |
+          pip install "pytest>=7" "pytest-cov>=4" "pytest-benchmark>=4" \
+            "hypothesis>=6" "ruff>=0.5" "mypy>=1.10" "matplotlib>=3.7"
+      - name: Run GPU-tagged tests
+        run: pytest tests/unit tests/integration tests/performance -q -m "gpu or not gpu" --timeout=600
+      - name: Run benchmark suite
+        run: pytest tests/performance -q --benchmark-only --benchmark-sort=mean
+
+  test-gpu-vllm:
+    name: GPU vLLM integration
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'gpu-vllm')
+    runs-on: [self-hosted, gpu, vllm]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Verify CUDA
+        run: python -c "import torch; assert torch.cuda.is_available()"
+      - name: Install torch and vllm
+        run: |
+          pip install "torch>=2.1"
+          pip install "vllm>=0.5"
+      - name: Install avqa with extras
+        run: pip install -e ".[vllm]"
+      - name: Run vLLM integration tests
+        run: pytest tests/integration/integrations/test_vllm_*.py -q --timeout=900
+
+  test-gpu-flash:
+    name: GPU FlashAttention integration
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'gpu-flash')
+    runs-on: [self-hosted, gpu, flash]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Verify CUDA
+        run: python -c "import torch; assert torch.cuda.is_available()"
+      - name: Install torch and flash-attn
+        run: |
+          pip install "torch>=2.1"
+          pip install "flash-attn>=2.5" --no-build-isolation
+      - name: Install avqa with extras
+        run: pip install -e ".[flash-attn]"
+      - name: Run FlashAttention integration tests
+        run: pytest tests/integration/integrations/test_fa_*.py -q --timeout=600
