@@ -65,44 +65,48 @@ def __getattr__(name: str) -> object:
     and avoid forcing every optional dependency at module load time.
     """
     if name == "AVQAttention":
-        from avqa.attention.module import AVQAttention
+        from avqa.attention.module import AVQAttention as _AVQAttention  # type: ignore[import-not-found]
 
-        return AVQAttention
+        return _AVQAttention
     if name == "AVQConfig":
-        from avqa.config.avq import AVQConfig
+        from avqa.config.avq import AVQConfig as _AVQConfig  # type: ignore[import-not-found]
 
-        return AVQConfig
+        return _AVQConfig
     if name == "VectorQuantizer":
-        from avqa.quantizer.base import VectorQuantizer
+        from avqa.quantizer.base import VectorQuantizer as _VectorQuantizer  # type: ignore[import-not-found]
 
-        return VectorQuantizer
+        return _VectorQuantizer
     if name == "HierarchicalCodebook":
-        from avqa.codebook.hierarchical import HierarchicalCodebook
+        from avqa.codebook.hierarchical import (  # type: ignore[import-not-found]
+            HierarchicalCodebook as _HierarchicalCodebook,
+        )
 
-        return HierarchicalCodebook
+        return _HierarchicalCodebook
     if name == "Router":
-        from avqa.routing.base import Router
+        from avqa.routing.base import Router as _Router  # type: ignore[import-not-found]
 
-        return Router
+        return _Router
     if name == "AdaptiveRefinement":
-        from avqa.refinement.adaptive import AdaptiveRefinement
+        from avqa.refinement.adaptive import (  # type: ignore[import-not-found]
+            AdaptiveRefinement as _AdaptiveRefinement,
+        )
 
-        return AdaptiveRefinement
+        return _AdaptiveRefinement
     if name == "Scheduler":
-        from avqa.scheduler.base import Scheduler
+        from avqa.scheduler.base import Scheduler as _Scheduler  # type: ignore[import-not-found]
 
-        return Scheduler
+        return _Scheduler
     if name == "KVCache":
-        from avqa.cache.base import KVCache
+        from avqa.cache.base import KVCache as _KVCache  # type: ignore[import-not-found]
 
-        return KVCache
+        return _KVCache
     if name == "Backend":
-        from avqa.backend.base import Backend
+        from avqa.backend.base import Backend as _Backend  # type: ignore[import-not-found]
 
-        return Backend
+        return _Backend
     if name == "Profiler":
-        from avqa.profiling.base import Profiler
+        from avqa.profiling.base import Profiler as _Profiler  # type: ignore[import-not-found]
 
-        return Profiler
+        return _Profiler
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
