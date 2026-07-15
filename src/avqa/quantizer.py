@@ -180,7 +180,13 @@ codebook: HierarchicalCodebook,
         # Stage 1: parent assignment via pairwise Euclidean distance
         # ``[B, H, N, M_0]`` where M_0 corresponds to parents[H, M_0, D].
         keys_flat = keys.reshape(B * H, N, D)
-        parents_flat = codebook.parents.reshape(H, M0, D)
+        # Repeat parents across the batch dimension so each (b, h) pair
+        # sees the head's codebook. Shape [B*H, M_0, D].
+        parents_flat = (
+            codebook.parents.unsqueeze(0)
+            .expand(B, H, M0, D)
+            .reshape(B * H, M0, D)
+        )
         # Compute squared distances via ||k||^2 - 2 k.p^T + ||p||^2.
         # argmin of squared == argmin of L2, so we skip the sqrt.
         k_sq = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)            # [B*H, N, 1]
@@ -190,12 +196,15 @@ codebook: HierarchicalCodebook,
         parent_assign = dist_sq.argmin(dim=-1)                               # [B*H, N]
         parent_assign = parent_assign.reshape(B, H, N)
 
-        # Stage 2: child assignment restricted to each key's parent.
+# Stage 2: child assignment restricted to each key's parent.
         # For each key, gather that key's parent's children: [B*H, N, C, D].
-        children = codebook.children                                          # [H, M_0, C, D]
         child_assign = torch.empty(B, H, N, dtype=parent_assign.dtype, device=keys.device)
         # Expand children to per-batch: [B*H, M_0, C, D]
-        children_flat = children.unsqueeze(0).expand(B, H, M0, C, D).reshape(B * H, M0, C, D)
+        children_flat = (
+            codebook.children.unsqueeze(0)
+            .expand(B, H, M0, C, D)
+            .reshape(B * H, M0, C, D)
+        )
         # Index per-key: parent_assign.reshape(B*H, N) -> gather over M_0.
         idx = parent_assign.reshape(B * H, N).unsqueeze(-1).unsqueeze(-1).expand(B * H, N, C, D)
         gathered = torch.gather(children_flat, 1, idx)                        # [B*H, N, C, D]

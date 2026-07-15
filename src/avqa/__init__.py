@@ -65,7 +65,7 @@ def __getattr__(name: str) -> object:
     and avoid forcing every optional dependency at module load time.
     """
     if name == "AVQAttention":
-        from avqa.attention import AVQAttention as _AVQAttention  # type: ignore[attr-defined]
+        from avqa.attention_module import AVQAttention as _AVQAttention
 
         return _AVQAttention
     if name == "AVQConfig":

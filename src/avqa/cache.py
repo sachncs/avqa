@@ -120,7 +120,8 @@ class InMemoryKVCache(KVCache):
         if self.max_size > 0 and self.size > self.max_size:
             # Drop the oldest tokens.
             excess = self.size - self.max_size
-            assert self._key is not None and self._value is not None
+            assert self._key is not None
+            assert self._value is not None
             self._key = self._key[..., excess:, :]
             self._value = self._value[..., excess:, :]
 

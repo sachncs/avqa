@@ -95,9 +95,15 @@ def refine(
     children = torch.gather(child_aggregates, 2, parent_idx)          # [B, H, P, C, D_v]
 
     # Gather parent logits and value. The index needs the same rank as
-    # the input, so we unsqueeze once for the gather on dim=-1.
+    # the input, so we add a singleton T dim for the gather on dim=-1.
     parent_logit_gathered = parent_probs.gather(-1, selected.unsqueeze(-2).expand(B, H, T, P))
-    parent_value_gathered = parent_value.gather(-2, selected.unsqueeze(-1).expand(B, H, T, P, D_v))
+    # For the gather along the parent axis (dim=-2), the index needs
+    # shape [B, H, T, P, D_v]. Insert a T axis (unsqueeze at -2) and a
+    # D_v axis (unsqueeze at -1), then expand.
+    parent_value_gathered = parent_value.gather(
+        -2,
+        selected.unsqueeze(-2).unsqueeze(-1).expand(B, H, T, P, D_v),
+    )
 
     # Recover parent logits from children (spec §7.12: parent = mean(children)
     # in codeword space, so logits after Q . C^T preserve this).
