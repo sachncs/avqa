@@ -370,7 +370,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: e2c82d3
 
-- [ ] TASK-0031
+- [x] TASK-0031
   Title: Add avqa.registry.Registry with decorator-based registration
   Chapter: 5.10
   Requirement: REG-001
@@ -380,6 +380,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/registry.py
     - tests/unit/test_registry.py
   Estimated Commit: 1
+  Commit: e2ad754
 
 - [ ] TASK-0032
   Title: Add avqa.data.shapes with canonical shape constants
