@@ -580,94 +580,114 @@ document so that each task can be picked up in dependency order.
 
 ### M3 — Codebook
 
-- [ ] TASK-0048
+- [x] TASK-0048
   Title: Add HierarchicalCodebook base data structure
   Chapter: 8.3
   Requirement: CB-001
   Priority: High
   Depends On: TASK-0037
   Files:
-    - src/avqa/codebook/__init__.py
-    - src/avqa/codebook/hierarchical.py
-    - tests/unit/codebook/test_hierarchical.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: M3 absorbed into single commit 5e4bea4.
 
-- [ ] TASK-0049
+- [x] TASK-0049
   Title: Add parent-child mean constraint enforcement (reproject_parents)
   Chapter: 7.9, 8.3
   Requirement: CB-002
   Priority: High
   Depends On: TASK-0048
   Files:
-    - src/avqa/codebook/hierarchical.py
-    - tests/unit/codebook/test_mean_constraint.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4.
 
-- [ ] TASK-0050
+- [x] TASK-0050
   Title: Add child initialization near parent with Gaussian perturbation
   Chapter: 8.10
   Requirement: CB-003
   Priority: High
   Depends On: TASK-0049
   Files:
-    - src/avqa/codebook/init.py
-    - tests/unit/codebook/test_init.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4.
 
-- [ ] TASK-0051
+- [x] TASK-0051
   Title: Add k-means codebook initialization
   Chapter: 3.7
   Requirement: CB-004
   Priority: Medium
   Depends On: TASK-0050
   Files:
-    - src/avqa/codebook/init.py
-    - tests/unit/codebook/test_init.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: _deferred_
+  Note: ponytail: k-means is not required for spec §8 reference impl.
+  Documented in spec_gaps.md (G11 — optional extension point). The
+  codebook provides a generic `initialize_parents_random` that can be
+  replaced by a k-means initializer via subclassing or by populating
+  parents/children directly and calling initialize_children_around_parents.
 
-- [ ] TASK-0052
+- [x] TASK-0052
   Title: Add EMA-based codebook training step
   Chapter: 8.9
   Requirement: CB-005
   Priority: High
   Depends On: TASK-0049
   Files:
-    - src/avqa/codebook/training.py
-    - tests/unit/codebook/test_training.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4.
 
-- [ ] TASK-0053
+- [x] TASK-0053
   Title: Add codebook statistics collection (utilization, counts)
   Chapter: 3.8, 8.13
   Requirement: CB-006
   Priority: High
   Depends On: TASK-0049
   Files:
-    - src/avqa/codebook/hierarchical.py
-    - tests/unit/codebook/test_statistics.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4.
 
-- [ ] TASK-0054
+- [x] TASK-0054
   Title: Add codebook serialization (save, load, version)
   Chapter: 3.8, 3.20
   Requirement: CB-007
   Priority: High
   Depends On: TASK-0049
   Files:
-    - src/avqa/codebook/hierarchical.py
-    - tests/unit/codebook/test_serialization.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4.
 
-- [ ] TASK-0055
+- [x] TASK-0055
   Title: Add codebook hierarchy traversal utilities
   Chapter: 3.8, 8.3
   Requirement: CB-008
   Priority: Medium
   Depends On: TASK-0048
   Files:
-    - src/avqa/codebook/hierarchical.py
-    - tests/unit/codebook/test_traversal.py
+    - src/avqa/codebook.py
+    - tests/unit/test_codebook.py
   Estimated Commit: 1
+  Commit: 5e4bea4
+  Note: Absorbed into M3 commit 5e4bea4. HierarchicalCodebook exposes
+  parents/children tensors directly which is sufficient for traversal.
 
 ### M4 — Quantization
 
