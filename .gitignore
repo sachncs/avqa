@@ -1,0 +1,82 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+downloads/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright_cache/
+coverage.xml
+*.cover
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Type stubs
+*.pyi
+
+# Distribution archives
+*.tar.gz
+*.whl
+
+# Profiling / benchmark artifacts
+prof/
+.prof
+*.lprof
+*.prof
+
+# Documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+site/
+
+# Local secrets / configs
+*.local.toml
+*.local.yaml
+*.local.json
+secrets.toml
+
+# Build / cache for Hatch
+.hatch/
+
+# VS Code workspace
+*.code-workspace
+
+# Pyre type checker
+.pyre/
+
+# Benchmarking artifacts
+.benchmark/
+.benchmarks/
