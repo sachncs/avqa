@@ -110,7 +110,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 0503bf6
 
-- [ ] TASK-0009
+- [x] TASK-0009
   Title: Add .ruff.toml configuration
   Chapter: Phase 4 Verification
   Requirement: BUILD-003
@@ -119,6 +119,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - .ruff.toml
   Estimated Commit: 1
+  Commit: b6b2439
 
 - [ ] TASK-0010
   Title: Add .mypy.ini configuration
