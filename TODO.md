@@ -187,7 +187,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 6f79a42
 
-- [ ] TASK-0016
+- [x] TASK-0016
   Title: Add src/avqa/__init__.py public API surface
   Chapter: 5.3, 5.5
   Requirement: API-001
@@ -196,8 +196,9 @@ document so that each task can be picked up in dependency order.
   Files:
     - src/avqa/__init__.py
   Estimated Commit: 1
+  Commit: 0b673a7
 
-- [ ] TASK-0017
+- [x] TASK-0017
   Title: Add src/avqa/_version.py
   Chapter: 5.19
   Requirement: API-002
@@ -206,6 +207,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - src/avqa/_version.py
   Estimated Commit: 1
+  Commit: 0b673a7
 
 ### M1 — Foundations (Exceptions, Logging, Utils, Data, Registry)
 
