@@ -132,7 +132,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 1a8052a
 
-- [ ] TASK-0011
+- [x] TASK-0011
   Title: Add pytest.ini configuration
   Chapter: Phase 4 Verification
   Requirement: BUILD-005
@@ -141,6 +141,7 @@ document so that each task can be picked up in dependency order.
   Files:
     - pytest.ini
   Estimated Commit: 1
+  Commit: 2a974ed
 
 - [ ] TASK-0012
   Title: Add GitHub Actions CI workflow (CPU matrix)
