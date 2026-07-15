@@ -65,7 +65,7 @@ def __getattr__(name: str) -> object:
     and avoid forcing every optional dependency at module load time.
     """
     if name == "AVQAttention":
-        from avqa.attention import AVQAttention as _AVQAttention  # type: ignore[import-not-found]
+        from avqa.attention import AVQAttention as _AVQAttention  # type: ignore[attr-defined]
 
         return _AVQAttention
     if name == "AVQConfig":
@@ -85,8 +85,8 @@ def __getattr__(name: str) -> object:
 
         return _Router
     if name == "AdaptiveRefinement":
-        from avqa.refinement import (
-            AdaptiveRefinement as _AdaptiveRefinement,  # type: ignore[import-not-found]
+        from avqa.refinement import (  # type: ignore[import-not-found]
+            AdaptiveRefinement as _AdaptiveRefinement,
         )
 
         return _AdaptiveRefinement
