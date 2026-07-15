@@ -295,7 +295,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: 2a12338
 
-- [ ] TASK-0025
+- [x] TASK-0025
   Title: Add avqa.utils.seed module with seed_everything
   Chapter: 5.4
   Requirement: UTIL-001
@@ -306,6 +306,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/utils/seed.py
     - tests/unit/utils/test_seed.py
   Estimated Commit: 1
+  Commit: b0ba7bb
 
 - [ ] TASK-0026
   Title: Add avqa.utils.validation.validate_shape
