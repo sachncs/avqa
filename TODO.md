@@ -283,7 +283,7 @@ document so that each task can be picked up in dependency order.
   Estimated Commit: 1
   Commit: cff1f21
 
-- [ ] TASK-0024
+- [x] TASK-0024
   Title: Add avqa.logging module with configure_logger and get_logger
   Chapter: 5.14
   Requirement: LOG-001
@@ -293,6 +293,7 @@ document so that each task can be picked up in dependency order.
     - src/avqa/logging.py
     - tests/unit/test_logging.py
   Estimated Commit: 1
+  Commit: 2a12338
 
 - [ ] TASK-0025
   Title: Add avqa.utils.seed module with seed_everything
