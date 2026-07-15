@@ -126,8 +126,6 @@ class TestSpecRegistries:
     @pytest.mark.parametrize(
         "registry",
         [
-            ROUTER_REGISTRY,
-            MERGE_REGISTRY,
             SCHEDULER_REGISTRY,
             BACKEND_REGISTRY,
             PROFILER_REGISTRY,
@@ -141,6 +139,19 @@ class TestSpecRegistries:
     def test_quantizer_registry_populated_by_codebook(self) -> None:
         """QUANTIZER_REGISTRY is populated by avqa.codebook at import time."""
         assert "hierarchical_codebook" in QUANTIZER_REGISTRY
+
+    def test_router_registry_populated_by_routing(self) -> None:
+        """ROUTER_REGISTRY is populated by avqa.routing at import time."""
+        assert "topp" in ROUTER_REGISTRY
+        assert "threshold" in ROUTER_REGISTRY
+        assert "budget" in ROUTER_REGISTRY
+
+    def test_merge_registry_populated_by_merge(self) -> None:
+        """MERGE_REGISTRY is populated by avqa.merge at import time."""
+        assert "probability" in MERGE_REGISTRY
+        assert "weighted" in MERGE_REGISTRY
+        assert "logit" in MERGE_REGISTRY
+        assert "normalized" in MERGE_REGISTRY
 
 
 class TestRegistryIsolation:
