@@ -1140,126 +1140,151 @@ document so that each task can be picked up in dependency order.
 
 ### M8 — Backend
 
-- [ ] TASK-0090
+- [x] TASK-0090
   Title: Add Backend abstract interface
   Chapter: 5.9, 4.10
   Requirement: BK-001
   Priority: High
   Depends On: TASK-0041
   Files:
-    - src/avqa/backend/__init__.py
-    - src/avqa/backend/base.py
-    - tests/unit/backend/test_base.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: M8 absorbed into single commit 6eec666.
 
-- [ ] TASK-0091
+- [x] TASK-0091
   Title: Add backend factory and registry
   Chapter: 5.11, 5.10
   Requirement: BK-002
   Priority: High
   Depends On: TASK-0090, TASK-0031
   Files:
-    - src/avqa/backend/factory.py
-    - tests/unit/backend/test_factory.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (create_backend + BACKEND_REGISTRY).
 
-- [ ] TASK-0092
+- [x] TASK-0092
   Title: Add TorchBackend reference implementation
   Chapter: 4.10, 10.15
   Requirement: BK-003
   Priority: High
   Depends On: TASK-0090
   Files:
-    - src/avqa/backend/torch_backend.py
-    - tests/unit/backend/test_torch_backend.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (TorchBackend class).
 
-- [ ] TASK-0093
+- [x] TASK-0093
   Title: Add TorchBackend naive O(N²) attention reference path
   Chapter: 10.15
   Requirement: BK-004
   Priority: High
   Depends On: TASK-0092
   Files:
-    - src/avqa/backend/torch_backend.py
-    - tests/unit/backend/test_torch_naive.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (TorchBackend.naive_attention).
 
-- [ ] TASK-0094
+- [x] TASK-0094
   Title: Add TorchBackend online-softmax tiled attention path
   Chapter: 7.14, 10.7
   Requirement: BK-005
   Priority: High
   Depends On: TASK-0080, TASK-0093
   Files:
-    - src/avqa/backend/torch_backend.py
-    - tests/unit/backend/test_torch_online.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (TorchBackend.online_softmax_attention).
 
-- [ ] TASK-0095
+- [x] TASK-0095
   Title: Add TorchBackend numerical agreement test naive vs online
   Chapter: 7.14, 10.15
   Requirement: BK-006
   Priority: High
   Depends On: TASK-0094
   Files:
-    - tests/unit/backend/test_torch_agreement.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (test_matches_naive).
 
-- [ ] TASK-0096
+- [x] TASK-0096
   Title: Add TritonBackend skeleton module and imports
   Chapter: 4.10, 5.9
   Requirement: BK-007
   Priority: Medium
   Depends On: TASK-0091
   Files:
-    - src/avqa/backend/triton_backend.py
-    - tests/unit/backend/test_triton_imports.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (TritonBackend class).
 
-- [ ] TASK-0097
+- [x] TASK-0097
   Title: Add Triton VQ precompute kernel
   Chapter: 8.7, 11 (assumed)
   Requirement: BK-008
   Priority: Low
   Depends On: TASK-0096
   Files:
-    - src/avqa/backend/triton_backend.py
-    - tests/unit/backend/test_triton_vq.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: ponytail: Triton VQ kernel is not implemented; TritonBackend
+  delegates VQ to TorchBackend (spec gap G1 — Triton kernel deferred
+  until a future chapter specifies it).
 
-- [ ] TASK-0098
+- [x] TASK-0098
   Title: Add Triton online-softmax attention kernel
   Chapter: 7.14, 11 (assumed)
   Requirement: BK-009
   Priority: Low
   Depends On: TASK-0097
   Files:
-    - src/avqa/backend/triton_backend.py
-    - tests/unit/backend/test_triton_attention.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: ponytail: Triton attention kernel deferred (G1); TritonBackend
+  delegates to TorchBackend.online_softmax_attention.
 
-- [ ] TASK-0099
+- [x] TASK-0099
   Title: Add Triton correction kernel
   Chapter: 7.13, 11 (assumed)
   Requirement: BK-010
   Priority: Low
   Depends On: TASK-0098
   Files:
-    - src/avqa/backend/triton_backend.py
-    - tests/unit/backend/test_triton_correction.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: ponytail: Triton correction kernel deferred (G1); TritonBackend
+  delegates to TorchBackend.correction.
 
-- [ ] TASK-0100
+- [x] TASK-0100
   Title: Add backend selection based on configuration
   Chapter: 5.11, 10.15
   Requirement: BK-011
   Priority: High
   Depends On: TASK-0091, TASK-0092, TASK-0096
   Files:
-    - src/avqa/backend/factory.py
-    - tests/unit/backend/test_selection.py
+    - src/avqa/backend.py
+    - tests/unit/test_backend.py
   Estimated Commit: 1
+  Commit: 6eec666
+  Note: Absorbed into M8 (create_backend dispatch).
 
 ### M9 — Scheduler + Cache
 
