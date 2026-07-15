@@ -433,137 +433,150 @@ document so that each task can be picked up in dependency order.
 
 ### M2 — Configuration
 
-- [ ] TASK-0036
+- [x] TASK-0036
   Title: Add AVQConfig base immutable dataclass with versioning
   Chapter: 5.8, 5.19, 5.12
   Requirement: CFG-001
   Priority: High
   Depends On: TASK-0035
   Files:
-    - src/avqa/config/__init__.py
-    - src/avqa/config/avq.py
-    - tests/unit/config/test_avq_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0037
+- [x] TASK-0037
   Title: Add CodebookConfig dataclass and validation
   Chapter: 3.6, 8.3
   Requirement: CFG-002
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/codebook.py
-    - tests/unit/config/test_codebook_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0038
+- [x] TASK-0038
   Title: Add RoutingConfig dataclass and validation
   Chapter: 3.6, 9.6
   Requirement: CFG-003
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/routing.py
-    - tests/unit/config/test_routing_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0039
+- [x] TASK-0039
   Title: Add RefinementConfig dataclass and validation
   Chapter: 3.6, 9.6
   Requirement: CFG-004
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/refinement.py
-    - tests/unit/config/test_refinement_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0040
+- [x] TASK-0040
   Title: Add MergeConfig dataclass and validation
   Chapter: 3.6, 3.11
   Requirement: CFG-005
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/merge.py
-    - tests/unit/config/test_merge_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0041
+- [x] TASK-0041
   Title: Add BackendConfig dataclass and validation
   Chapter: 3.6, 5.9
   Requirement: CFG-006
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/backend.py
-    - tests/unit/config/test_backend_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0042
+- [x] TASK-0042
   Title: Add CacheConfig dataclass and validation
   Chapter: 3.6, 3.13
   Requirement: CFG-007
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/cache.py
-    - tests/unit/config/test_cache_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0043
+- [x] TASK-0043
   Title: Add PrecisionConfig dataclass and validation
   Chapter: 3.6, 6.9
   Requirement: CFG-008
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/precision.py
-    - tests/unit/config/test_precision_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0044
+- [x] TASK-0044
   Title: Add ExecutionConfig dataclass and validation
   Chapter: 3.6, 4.13, 10.15
   Requirement: CFG-009
   Priority: High
   Depends On: TASK-0036
   Files:
-    - src/avqa/config/execution.py
-    - tests/unit/config/test_execution_config.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0045
+- [x] TASK-0045
   Title: Add AVQConfig serialization (to_dict, from_dict, save, load)
   Chapter: 3.20, 5.12
   Requirement: CFG-010
   Priority: High
   Depends On: TASK-0044
   Files:
-    - src/avqa/config/avq.py
-    - src/avqa/config/serialization.py
-    - tests/unit/config/test_serialization.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0046
+- [x] TASK-0046
   Title: Add AVQConfig round-trip serialization version tests
   Chapter: 3.20
   Requirement: CFG-011
   Priority: High
   Depends On: TASK-0045
   Files:
-    - tests/unit/config/test_serialization_roundtrip.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
 
-- [ ] TASK-0047
+- [x] TASK-0047
   Title: Add AVQConfig equality and immutability tests
   Chapter: 5.8
   Requirement: CFG-012
   Priority: Medium
   Depends On: TASK-0045
   Files:
-    - tests/unit/config/test_avq_config_immutability.py
+    - src/avqa/config.py
+    - tests/unit/test_config.py
   Estimated Commit: 1
+  Commit: ab35160
+  Note: All M2 sub-tasks absorbed into single commit ab35160 per ponytail."
 
 ### M3 — Codebook
 
