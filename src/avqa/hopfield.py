@@ -138,7 +138,7 @@ def hopfield_logits(
         )
         raise ValueError(msg)
     # ``[B, H, N, 1] * [B, H, N, M_0]`` broadcasts over the M_0 axis.
-    return per_query_beta.unsqueeze(-1) * base_logits * float(parent_beta)
+    return per_query_beta.unsqueeze(-1) * base_logits * parent_beta
 
 
 __all__ = [
