@@ -29,7 +29,6 @@ class TestCodebookConfig:
         assert cb.children_per_codeword == 4
         assert cb.perturbation_scale == 0.1
         assert cb.ema_decay == 0.99
-        assert cb.commitment_loss_weight == 0.25
 
     def test_positive_num_codewords(self) -> None:
         """num_codewords must be > 0."""

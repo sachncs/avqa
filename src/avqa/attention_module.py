@@ -141,13 +141,45 @@ class AVQAttention(nn.Module):
     # Forward
     # ------------------------------------------------------------------
 
-    def forward(  # noqa: PLR0915
+    def forward(
         self,
         query: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
         mask: torch.Tensor | None = None,
         kv_cache: KVCache | None = None,
+    ) -> torch.Tensor:
+        """Run the AVQ-Attention forward pass.
+
+        Args:
+            query: ``[B, T_q, E]`` queries.
+            key: ``[B, T_k, E]`` keys.
+            value: ``[B, T_k, E]`` values.
+            mask: Optional ``[T_q, T_k]`` boolean mask (True = attend). When
+                ``config.causal`` is True and ``mask`` is None, a causal
+                mask is built automatically.
+            kv_cache: Optional cache to extend with the new K/V tensors.
+
+        Returns:
+            ``[B, T_q, E]`` attention output.
+        """
+        # ISSUE-0017: wrap in autocast when enabled (spec §3.4).
+        autocast_enabled = self.config.precision.autocast
+        autocast_dtype = getattr(torch, self.config.precision.dtype, torch.float32)
+        with torch.autocast(
+            device_type=query.device.type,
+            enabled=autocast_enabled,
+            dtype=autocast_dtype,
+        ):
+            return self._forward_impl(query, key, value, mask, kv_cache)
+
+    def _forward_impl(  # noqa: PLR0915  # noqa: PLR0915
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor | None,
+        kv_cache: KVCache | None,
     ) -> torch.Tensor:
         """Run the AVQ-Attention forward pass.
 
@@ -184,8 +216,10 @@ class AVQAttention(nn.Module):
         if mask is None and self.config.causal:
             mask = self._causal_mask(q.shape[-2], q.device)
 
-        # Branch 1: refinement disabled — plain attention via the backend.
-        if self.scheduler is None:
+        # ISSUE-0018: execution mode controls pipeline selection (spec §4.13, §10.15).
+        # "reference" always uses naive attention; "optimized"/"research" use AVQ.
+        use_naive = self.scheduler is None or self.config.execution.mode == "reference"
+        if use_naive:
             attn_out = self.backend.naive_attention(q, k, v, mask=mask)
             out = self._merge_heads(attn_out)
             out = self.out_proj(out)
@@ -287,6 +321,15 @@ class AVQAttention(nn.Module):
             child_logits=child_logits,
         )
         attn_out = refinement.merge_value
+
+        # ISSUE-0018: research mode emits diagnostics (spec §10.15).
+        if self.config.execution.mode == "research":
+            _logger.debug(
+                "avq_pipeline: budget=%d selected=%s utilization=%.2f",
+                budget,
+                refinement.selected_parents.shape[-1],
+                (result.parent_counts > 0).float().mean().item(),
+            )
 
         out = self._merge_heads(attn_out)
         out = self.out_proj(out)

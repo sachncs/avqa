@@ -100,19 +100,27 @@ class WeightedMerge(MergeStrategy):
 
 
 class LogitMerge(MergeStrategy):
-    """Logit-space merge: combine parent and child logits before re-softmax.
+    """Logit-space merge: combine parent and child logits before re-softmax (spec §3.11.2).
 
-    In logit-space, ``parent_logit + child_logit_sum`` approximates the
-    corrected logit. Final output is computed by softmax-normalizing the
-    merged logit against the value tensor.
+    Concatenates the parent logit with the child logits, applies
+    log-softmax to get normalized weights, then computes the weighted
+    sum of parent and child values.  This differs from
+    :class:`ProbabilityMerge` in that the normalization is joint over
+    parent + children rather than a subtract-parent / add-children delta.
     """
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
-        # ponytail: the logit transform is mathematically equivalent to
-        # ProbabilityMerge up to a normalization constant. We use the
-        # simpler "subtract parent, add children" delta.
-        delta_value = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
-        return inputs.parent_value + delta_value
+        # Log-probabilities: parent [B,H,T,P,1] and children [B,H,T,P,C].
+        parent_log = inputs.parent_probs.clamp_min(1e-12).log()
+        child_log = inputs.child_probs.clamp_min(1e-12).log()
+        # Concatenate and softmax: [B,H,T,P, 1+C].
+        combined = torch.cat([parent_log, child_log], dim=-1)
+        weights = combined.softmax(dim=-1)
+        parent_weight = weights[..., :1]                                  # [B,H,T,P,1]
+        child_weight = weights[..., 1:]                                   # [B,H,T,P,C]
+        parent_contrib = parent_weight * inputs.parent_value
+        child_contrib = (child_weight.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
+        return parent_contrib + child_contrib
 
 
 class NormalizedMerge(MergeStrategy):

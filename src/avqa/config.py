@@ -24,7 +24,6 @@ SCHEMA_VERSION: str = "1"
 
 # Spec §8.9 — default EMA decay for codebook training.
 DEFAULT_EMA_DECAY: float = 0.99
-DEFAULT_COMMITMENT_LOSS_WEIGHT: float = 0.25
 
 
 def _require_positive(value: float, field_name: str) -> None:
@@ -60,7 +59,6 @@ class CodebookConfig:
         perturbation_scale: Std of the Gaussian noise used to initialize
             children near their parent (spec §8.10).
         ema_decay: EMA decay for codebook training (spec §8.9).
-        commitment_loss_weight: Commitment loss weight (spec §8.9).
 
     Example:
         >>> cb = CodebookConfig()
@@ -72,14 +70,12 @@ class CodebookConfig:
     children_per_codeword: int = 4
     perturbation_scale: float = 0.1
     ema_decay: float = DEFAULT_EMA_DECAY
-    commitment_loss_weight: float = DEFAULT_COMMITMENT_LOSS_WEIGHT
 
     def __post_init__(self) -> None:
         _require_positive(self.num_codewords, "num_codewords")
         _require_positive(self.children_per_codeword, "children_per_codeword")
         _require_positive(self.perturbation_scale, "perturbation_scale")
         _require_in_range(self.ema_decay, 0.0, 1.0, "ema_decay")
-        _require_in_range(self.commitment_loss_weight, 0.0, 1.0, "commitment_loss_weight")
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,7 +192,7 @@ class ExecutionConfig:
         seed: Optional RNG seed applied at module init.
     """
 
-    mode: str = "reference"
+    mode: str = "optimized"
     deterministic: bool = False
     seed: int = 0
 
@@ -384,7 +380,6 @@ def _to_primitive(value: object) -> object:
 
 
 __all__ = [
-    "DEFAULT_COMMITMENT_LOSS_WEIGHT",
     "DEFAULT_EMA_DECAY",
     "SCHEMA_VERSION",
     "AVQConfig",
