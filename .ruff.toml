@@ -86,6 +86,13 @@ ignore = [
   "TC004",
   "TC006",
 ]
+"tests/integration/**/*.py" = [
+  "PLC0415",  # Lazy imports of optional CUDA-only deps in GPU-gated tests
+  "F401",     # imports under _skip_if_unavailable guards
+  "T201",     # print() diagnostic is acceptable in test diagnostics
+  "ARG001",   # unused fixture args
+  "ARG002",   # unused method args
+]
 
 [lint.isort]
 known-first-party = ["avqa"]
@@ -101,9 +108,3 @@ max-branches = 15
 max-returns = 8
 max-statements = 60
 
-[format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "lf"
-docstring-code-format = true
