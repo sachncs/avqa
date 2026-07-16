@@ -146,11 +146,14 @@ class TorchBackend(Backend):
             tile_max = tile_logits.amax(dim=-1)                             # [B, H, T]
             tile_max = torch.maximum(m, tile_max)
             alpha = torch.exp(m - tile_max)
-            beta = torch.exp(tile_logits - tile_max.unsqueeze(-1))
-            tile_denom = beta.sum(dim=-1)
-            new_denom = alpha * denom + tile_denom
-            tile_num = torch.matmul(beta.unsqueeze(-2), v_tile).squeeze(-2)
-            num = alpha.unsqueeze(-1) * num + tile_num
+            beta = torch.exp(tile_logits - tile_max.unsqueeze(-1))          # [B, H, T, B_n]
+            tile_denom = beta.sum(dim=-1)                                  # [B, H, T]
+            new_denom = alpha * denom + tile_denom                          # [B, H, T]
+            # tile_num = sum_n beta[t, n] * v[n, d] — contract over B_n.
+            # beta is [B, H, T, B_n] and v_tile is [B, H, B_n, D_v];
+            # matmul on the last two dims contracts over B_n correctly.
+            tile_num = beta @ v_tile                                         # [B, H, T, D_v]
+            num = alpha.unsqueeze(-1) * num + tile_num                      # [B, H, T, D_v]
             m = tile_max
             denom = new_denom
 
