@@ -131,15 +131,23 @@ def make_hf_attention_replacement(
 
 
 def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None:
-    """Copy Q/K/V/Output weights from a HF attention module to AVQAttention.
+    """Copy Q/K/V/Output weights AND biases from a HF attention module.
 
-    Handles common HF naming conventions (query/key/value/out or
-    q_proj/k_proj/v_proj/o_proj) and both with/without bias.
+    Handles common HF naming conventions (``query`` / ``key`` / ``value`` /
+    ``q_proj`` / ``k_proj`` / ``v_proj`` and ``dense`` / ``out`` /
+    ``o_proj``) and both with/without bias. The slice ``[:embed_dim, :embed_dim]``
+    handles GQA where the host model stores a fused embedding even when
+    only one head's projection is needed.
+
+    Args:
+        src: Original HF attention module.
+        dst: :class:`AVQAttention` already instantiated with the
+            correct ``embed_dim``.
+        embed_dim: Embedding dimension shared by the host and AVQA.
     """
     # Map source parameter names to destination.
     src_params = dict(src.named_parameters())
 
-    # Try common HF naming: query.weight, key.weight, value.weight
     weight_map = {
         "query": "q_proj",
         "q_proj": "q_proj",
@@ -154,19 +162,29 @@ def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None
         "dense": "out_proj",
     }
 
-    for src_name, dst_name in weight_map.items():
+    def _copy(src_name: str, dst_attr: str, *, with_bias: bool) -> bool:
         w_key = f"{src_name}.weight"
-        if w_key in src_params:
-            dst_param = getattr(dst, dst_name)
-            if hasattr(dst_param, "weight"):
-                dst_param.weight.data.copy_(src_params[w_key][:embed_dim, :embed_dim])
+        b_key = f"{src_name}.bias"
+        if w_key not in src_params:
+            return False
+        weight = src_params[w_key]
+        dst_param = getattr(dst, dst_attr)
+        if hasattr(dst_param, "weight") and dst_param.weight is not None:
+            dst_param.weight.data.copy_(weight[:embed_dim, :embed_dim])
+        if (
+            with_bias
+            and hasattr(dst_param, "bias")
+            and dst_param.bias is not None
+            and b_key in src_params
+        ):
+            bias = src_params[b_key]
+            dst_param.bias.data[:embed_dim].copy_(bias[:embed_dim])
+        return True
 
+    for src_name, dst_name in weight_map.items():
+        _copy(src_name, dst_name, with_bias=True)
     for src_name, dst_name in out_map.items():
-        w_key = f"{src_name}.weight"
-        if w_key in src_params:
-            dst_param = getattr(dst, dst_name)
-            if hasattr(dst_param, "weight"):
-                dst_param.weight.data.copy_(src_params[w_key][:embed_dim, :embed_dim])
+        _copy(src_name, dst_name, with_bias=True)
 
 
 class _HFAttentionWrapper(nn.Module):
