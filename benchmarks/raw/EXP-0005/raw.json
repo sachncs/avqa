@@ -1,0 +1,37 @@
+{
+  "config": {
+    "batch": 2,
+    "children_per_codeword": 4,
+    "head_dim": 16,
+    "heads": 4,
+    "num_codewords": 16,
+    "refinement_budget": 4,
+    "reps": 10,
+    "seq_len": 64,
+    "warmup": 3
+  },
+  "rows": {
+    "acmpr_passes_4_decay_0_5_gated": {
+      "max_ms": 2.155833994038403,
+      "mean_ms": 1.2746960012009367,
+      "median_ms": 1.1714794964063913,
+      "min_ms": 1.0445420048199594,
+      "stdev_ms": 0.32649133934419555
+    },
+    "gated_vs_paper_max_abs_diff": 0.0,
+    "paper_single_pass": {
+      "max_ms": 1.7201250011567026,
+      "mean_ms": 1.0767918021883816,
+      "median_ms": 1.0138130019186065,
+      "min_ms": 0.900166982319206,
+      "stdev_ms": 0.24001738764204672
+    },
+    "sdpa": {
+      "max_ms": 0.03600001218728721,
+      "mean_ms": 0.03363769792485982,
+      "median_ms": 0.033438001992180943,
+      "min_ms": 0.030875002266839147,
+      "stdev_ms": 0.0014273025665916962
+    }
+  }
+}

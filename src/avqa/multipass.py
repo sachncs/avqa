@@ -1,21 +1,28 @@
 """Multi-pass refinement (SPEC \u00a715, ACMPR / OPT-0004).
 
-Runs the existing ``refine`` step multiple times per forward call, with
-a geometric budget decay across passes. Theorem 15.1 of SPEC \u00a715
-guarantees the residual after ``k`` passes is bounded by ``\u03b1^k \u00b7
-||\u0394_0||`` for some ``\u03b1 < 1`` depending on the attention
-dispersion, so ``k = \u230alog \u03c1\u207b\u00b9 \u00b7 log 1/\u03b5\u230b`` passes drive
-the residual below ``\u03b5`` (SPEC \u00a715.2).
+**Status (2026-07-16).** The ``passes=1`` path is the paper-equivalent
+contract and ships today. The ``passes>1`` path is **disabled by
+default and mathematically non-trivial**: the existing
+``refine`` operator re-applies ``state - parent + child`` each pass, so
+calling it twice yields ``state_0 + 2*(child - parent)`` which
+**diverges from the all-children oracle rather than converging**
+(validated by ``tests/unit/test_multipass.py::test_passes_4_returns_four_residuals``
+which only checks that the residual is non-negative, not that it
+decreases). A correct multi-pass refinement would require either a
+second-order residual update on the running state or a re-derived
+child_logits with a fresh budget each pass; that is a separate
+algorithmic contribution (tracked as a future work item in
+``RESEARCH.md``).
 
-Total work is bounded above by ``2 \u00b7 P \u00b7 C`` for \u03c1 \u2264 0.5 (SPEC
-\u00a715.4 acceptance criterion) and at \u03c1 = 1.0 (default) the
-budget is held constant across passes so the work is exactly
-``k \u00b7 P \u00b7 C`` \u2014 identical to the paper's single-pass work
-when ``k = 1`` (the default).
+This module therefore ships a **strict no-op wrapper when
+``passes=1``** and the budget-decay helper for downstream adoption.
+The integration in ``AVQAttention.forward`` only invokes this class
+when ``refinement.passes > 1`` and the future-work item is closed.
 
-When ``passes = 1`` (the default) the module is a no-op wrapper that
-returns the input state unchanged; this is the paper-equivalence
-contract.
+Residual-norms: when the ``refine`` operator is invoked, we record
+``||cur_attn - prev_attn||`` as a diagnostic. With ``passes=1`` this is
+``[0.0]`` by construction; with ``passes>1`` it is **not** the
+paper-valid residual bound and the integration is gated off.
 """
 
 from __future__ import annotations

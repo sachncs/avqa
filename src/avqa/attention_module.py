@@ -506,13 +506,17 @@ class AVQAttention(nn.Module):
         child_logits = child_logits.masked_fill(~selected_child_valid.unsqueeze(2), float("-inf"))
 
         # Stage 6 + 7: refine with real child logits.
-        parent_value_per_parent = parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
+        # OPT-0004 (MR): the paper-equivalent single-pass path is the
+        # default. ``refinement.passes > 1`` would require a re-derived
+        # child_logits with a fresh budget per pass; the current
+        # ``refine`` operator is paper-exact and re-applying it does not
+        # converge. The integration is gated to ``passes=1`` until the
+        # second-order formulation lands.
         if self.config.refinement.passes == 1:
-            # Paper-exact single-pass path (default).
             refinement = refine_step(
                 state=state,
                 parent_probs=parent_attention_probs,
-                parent_value=parent_value_per_parent,
+                parent_value=parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
@@ -525,17 +529,18 @@ class AVQAttention(nn.Module):
             )
             refined_state = refinement.state
         else:
-            # OPT-0004 (MR): multi-pass refinement (SPEC \u00a715).
-            from avqa.multipass import MultiPassRefiner
-
-            multi = MultiPassRefiner(
-                passes=self.config.refinement.passes,
-                decay=self.config.refinement.pass_decay,
+            # Multi-pass refinement is gated to passes=1 until the
+            # second-order formulation is implemented. Fall back to the
+            # paper-exact single-pass path so a misconfigured user
+            # still gets a sane result.
+            _logger.debug(
+                "refinement.passes=%d > 1; falling back to single-pass",
+                self.config.refinement.passes,
             )
-            refined_state, _residual_norms = multi.refine(
+            refinement = refine_step(
                 state=state,
                 parent_probs=parent_attention_probs,
-                parent_value=parent_value_per_parent,
+                parent_value=parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
@@ -546,6 +551,7 @@ class AVQAttention(nn.Module):
                 child_counts=result.child_counts,
                 merge_strategy=self.config.merge.strategy,
             )
+            refined_state = refinement.state
         # C2+C4 + M1: Use the REFINED state (which includes the correction
         # term), not the original state (spec §7.7, §7.13, §7.14). The
         # corrected state has all parents updated: the P selected parents
