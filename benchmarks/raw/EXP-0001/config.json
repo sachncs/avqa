@@ -1,0 +1,21 @@
+{
+  "batch": 2,
+  "cpu_count": 6,
+  "embed_dim": 128,
+  "head_dim": 32,
+  "heads": 4,
+  "num_codewords": 16,
+  "platform": "macOS-26.6-arm64-arm-64bit",
+  "python": "3.12.7",
+  "refinement_budget": 4,
+  "reps": 10,
+  "seed": 0,
+  "sequence_lengths": [
+    128,
+    256,
+    512,
+    1024
+  ],
+  "torch": "2.10.0",
+  "warmup": 5
+}
