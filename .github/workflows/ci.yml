@@ -21,6 +21,8 @@ jobs:
       - run: pip install ruff
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
+      - run: pip install black
+      - run: black --check --diff src/ tests/ benchmarks/ examples/ scripts/
 
   typecheck:
     name: Type-check

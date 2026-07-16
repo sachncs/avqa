@@ -82,3 +82,18 @@ include = [
 [tool.hatch.version]
 path = "src/avqa/_version.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.venv
+  | build
+  | dist
+  | docs/_build
+  | src/avqa/_version\.py
+)/
+'''

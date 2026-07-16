@@ -164,12 +164,14 @@ class InMemoryKVCache(KVCache):
             "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
             "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
-            "cache_key": self.cache_key.detach().clone()
-            if self.cache_key is not None
-            else torch.zeros(0),
-            "cache_value": self.cache_value.detach().clone()
-            if self.cache_value is not None
-            else torch.zeros(0),
+            "cache_key": (
+                self.cache_key.detach().clone() if self.cache_key is not None else torch.zeros(0)
+            ),
+            "cache_value": (
+                self.cache_value.detach().clone()
+                if self.cache_value is not None
+                else torch.zeros(0)
+            ),
         }
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
