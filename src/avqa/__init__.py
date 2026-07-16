@@ -103,7 +103,7 @@ def __getattr__(name: str) -> object:
 
         return _Backend
     if name == "Profiler":
-        from avqa.profiling import Profiler as _Profiler  # type: ignore[import-not-found]
+        from avqa.profiling import Profiler as _Profiler
 
         return _Profiler
     msg = f"module {__name__!r} has no attribute {name!r}"

@@ -125,10 +125,7 @@ class TestSpecRegistries:
 
     @pytest.mark.parametrize(
         "registry",
-        [
-            PROFILER_REGISTRY,
-            VISUALIZER_REGISTRY,
-        ],
+        [],
     )
     def test_registry_empty_until_subsystem_registered(self, registry: Registry) -> None:
         """Each registry starts empty until subsystems register."""
@@ -159,6 +156,14 @@ class TestSpecRegistries:
         """SCHEDULER_REGISTRY is populated by avqa.scheduler at import time."""
         assert "default" in SCHEDULER_REGISTRY
         assert "adaptive" in SCHEDULER_REGISTRY
+
+    def test_profiler_registry_populated_by_profiling(self) -> None:
+        """PROFILER_REGISTRY is populated by avqa.profiling at import time."""
+        assert "default" in PROFILER_REGISTRY
+
+    def test_visualizer_registry_populated_by_visualization(self) -> None:
+        """VISUALIZER_REGISTRY is populated by avqa.visualization at import time."""
+        assert "json" in VISUALIZER_REGISTRY
 
 
 class TestRegistryIsolation:
