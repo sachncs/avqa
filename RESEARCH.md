@@ -422,11 +422,18 @@ Maintain all future ideas.
 
 Example
 
-| ID       | Title                        | Priority     | Status   |
-| -------- | ---------------------------- | ------------ | -------- |
-| OPT-0001 | Adaptive refinement budget   | High         | Proposed |
-| OPT-0002 | Residual vector quantization | Medium       | Proposed |
-| OPT-0003 | Learned hierarchy            | Experimental | Proposed |
+| ID       | Title                                   | Priority     | Status   |
+| -------- | --------------------------------------- | ------------ | -------- |
+| OPT-0001 | Triton VQ + online-softmax kernels      | High         | Proposed |
+| OPT-0002 | torch.compile() opt-in for AVQAttention  | High         | Proposed |
+| OPT-0003 | Adaptive refinement budget (entropy-driven) | High      | Proposed |
+| OPT-0004 | Residual vector quantization             | Medium       | Proposed |
+| OPT-0005 | Learned hierarchy                        | Experimental | Proposed |
+
+Note: the historical backlog in this table predates the 2026-07-16
+engineering cycle; ``OPT-0001`` is now reused for the Triton kernel
+bundle implemented in commit ``bb660fd``. ``OPT-0002–OPT-0005`` are
+new proposals born from the cycle that captured EXP-0001 and EXP-0002.
 
 The backlog SHALL always remain prioritized.
 
@@ -449,6 +456,16 @@ Document:
 Explain any discrepancies.
 
 Optimization SHALL NOT begin until the baseline has been validated.
+
+CPU measurements already captured for the v0.1.0 reference pipeline:
+
+- EXP-0001: the pre-Triton baseline.
+- EXP-0002: post-governance CPU baseline; AVQA at seq=1024 dropped from
+  22.215 ms to 19.618 ms after the quantizer scatter-add fix and
+  adapter hardening (governance-refresh commit `f6c257c`).
+
+GPU measurements will be appended once the CUDA-matrix CI runner
+lands.
 
 ---
 
@@ -517,3 +534,74 @@ AVQA should evolve through disciplined, reproducible research rather than ad hoc
 `RESEARCH.md` serves as the institutional memory of the project. It records not only successful ideas, but also failed hypotheses, experimental evidence, and the rationale behind every architectural decision.
 
 A future contributor should be able to reconstruct the entire research history of AVQA—from the original paper reproduction to subsequent optimizations—using only this document, the associated benchmarks, and the linked implementation tasks.
+
+---
+
+## OPT-0002
+
+### Title
+
+`torch.compile()` opt-in for `AVQAttention.forward_impl`.
+
+### Status
+
+Proposed.
+
+### Priority
+
+High.
+
+### Related SPEC Sections
+
+SPEC §10 (Attention Execution Pipeline), §11.8 (Autotuning).
+
+### Motivation
+
+CPU measurements (EXP-0001, EXP-0002) show ~5× slowdown vs SDPA at
+seq=1024. The reference Python pipeline is bound by per-element
+Python overhead (`mul`, `add`, `sub` account for >76 % of self-CPU time)
+rather than by the underlying tensor operations. `torch.compile`
+collapses the Python overhead into a single fused graph for static
+shapes, leaving SDPA-class performance on the attention pipeline
+without sacrificing the Triton-backend escape hatch.
+
+### Hypothesis
+
+Compiling `AVQAttention.forward_impl` with `mode="reduce-overhead"`
+and `dynamic=False` (gated on a new ``ExecutionConfig.compile_enabled``
+flag) reduces per-call latency by ≥50 % at seq=1024 on CPU, bringing
+the ratio within 2× of SDPA. The Triton backend is unaffected and
+remains the recommended path on CUDA.
+
+### Baseline
+
+EXP-0002 (CPU): seq=1024 = 19.618 ms (AVQA) vs 3.140 ms (SDPA) —
+6.25× slower.
+
+### Literature Review
+
+`torch.compile` and `torch._dynamo` are described in
+`inductor` documentation. Existing PyTorch-native attention modules
+such as `transformers.models.llama.modeling_llama.LlamaModel` ship
+with a `compile_forward` opt-in.
+
+### Implementation Plan
+
+1. Add a `compile` field to `ExecutionConfig`.
+2. Pass the flag into `AVQAttention.__init__`.
+3. When `True`, in `__init__` replace `self._forward_impl_unbound`
+   with `torch.compile(self.forward_impl, dynamic=False,
+   mode="reduce-overhead")`.
+4. Document the limitation: only stable-shape inputs benefit.
+
+### Verification Plan
+
+- Add CPU-runnable unit tests for the compile-on / compile-off paths.
+- Numerical-equivalence test vs the eager pipeline within FP32
+  tolerance.
+- Benchmark under `benchmarks/repro_cpu.py` to validate hypothesis.
+
+### Acceptance Criteria
+
+- CPU seq=1024 latency ≤ 10 ms (i.e. ≤ 3× SDPA).
+- No numerical regression (within FP32 tolerance).
