@@ -215,32 +215,44 @@ codebook: HierarchicalCodebook,
         child_assign = dist_sq_c.argmin(dim=-1).reshape(B, H, N)
 
         # Aggregate values and counts in a fused pass.
-        parent_aggregates = torch.zeros(B, H, M0, D, device=values.device, dtype=values.dtype)
-        child_aggregates = torch.zeros(B, H, M0, C, D, device=values.device, dtype=values.dtype)
-        parent_counts = torch.zeros(B, H, M0, device=values.device, dtype=values.dtype)
-        child_counts = torch.zeros(B, H, M0, C, device=values.device, dtype=values.dtype)
-
-        # Use index_add_ which fuses the scatter-add.
+        # ponytail: vectorized across B*H using offset flat indices instead
+        # of a Python for-loop. Each (b,h) pair gets a unique index range
+        # so scatter-add works in a single call.
         parent_assign_flat = parent_assign.reshape(B * H, N)
         child_assign_flat = child_assign.reshape(B * H, N)
         values_flat = values.reshape(B * H, N, D)
-        for bh in range(B * H):
-            parent_aggregates.view(B * H, M0, D)[bh].index_add_(
-                0, parent_assign_flat[bh], values_flat[bh]
-            )
-            parent_counts.view(B * H, M0)[bh].index_add_(
-                0, parent_assign_flat[bh], torch.ones_like(parent_assign_flat[bh], dtype=values.dtype)
-            )
-            # Combine parent+child into a flat M_0*C index for child scatter.
-            flat_child_idx = parent_assign_flat[bh] * C + child_assign_flat[bh]
-            child_aggregates.view(B * H, M0 * C, D)[bh].index_add_(
-                0, flat_child_idx, values_flat[bh]
-            )
-            child_counts.view(B * H, M0 * C)[bh].index_add_(
-                0,
-                flat_child_idx,
-                torch.ones_like(flat_child_idx, dtype=values.dtype),
-            )
+
+        # Offset per-(b,h) group to make indices unique across the batch.
+        bh_offset = torch.arange(B * H, device=keys.device).unsqueeze(1)  # [B*H, 1]
+        parent_idx = parent_assign_flat + bh_offset * M0                   # [B*H, N]
+
+        # Parent aggregates: scatter-add into [B*H*M0, D].
+        parent_agg = torch.zeros(B * H * M0, D, device=values.device, dtype=values.dtype)
+        parent_agg.index_add_(0, parent_idx.reshape(-1), values_flat.reshape(-1, D))
+        parent_aggregates = parent_agg.view(B, H, M0, D)
+
+        # Parent counts.
+        parent_cnt = torch.zeros(B * H * M0, device=values.device, dtype=values.dtype)
+        parent_cnt.index_add_(
+            0, parent_idx.reshape(-1),
+            torch.ones(B * H * N, device=values.device, dtype=values.dtype),
+        )
+        parent_counts = parent_cnt.view(B, H, M0)
+
+        # Child aggregates: combine parent+child into flat M_0*C index.
+        flat_child_idx = parent_assign_flat * C + child_assign_flat       # [B*H, N]
+        child_idx = flat_child_idx + bh_offset * M0 * C                   # [B*H, N]
+        child_agg = torch.zeros(B * H * M0 * C, D, device=values.device, dtype=values.dtype)
+        child_agg.index_add_(0, child_idx.reshape(-1), values_flat.reshape(-1, D))
+        child_aggregates = child_agg.view(B, H, M0, C, D)
+
+        # Child counts.
+        child_cnt = torch.zeros(B * H * M0 * C, device=values.device, dtype=values.dtype)
+        child_cnt.index_add_(
+            0, child_idx.reshape(-1),
+            torch.ones(B * H * N, device=values.device, dtype=values.dtype),
+        )
+        child_counts = child_cnt.view(B, H, M0, C)
 
         return QuantizationResult(
             parent_assignments=parent_assign,

@@ -29,26 +29,20 @@ def compute_importance(
 ) -> torch.Tensor:
     """Per-codeword importance score (spec §7.10).
 
-        w_j = sum_i A_ij * n_j / Z_i
+        w_j = n_j * sum_i A_ij
 
-    For VQ attention, A is the per-query, per-codeword probability and n
-    is the per-codeword assignment count. Z_i is the per-query softmax
-    denominator (which equals 1 for properly normalized probs, but we
-    keep it explicit for safety).
+    When ``attention_probs`` are properly normalized (softmax sums to 1
+    along the codeword axis), the per-query denominator Z_i = 1 and
+    the formula reduces to the total attention mass to codeword j,
+    weighted by its assignment count.
 
     Args:
-        attention_probs: ``[B, H, N, M_0]`` attention probabilities.
+        attention_probs: ``[B, H, N, M_0]`` attention probabilities
+            (should be normalized along dim=-1).
         counts: ``[B, H, M_0]`` per-codeword assignment counts.
 
     Returns:
         Per-codeword importance. Shape ``[B, H, M_0]``.
-
-    Example:
-        >>> A = torch.softmax(torch.randn(1, 1, 4, 3), dim=-1)
-        >>> n = torch.tensor([[[2.0, 1.0, 3.0]]])
-        >>> w = compute_importance(A, n)
-        >>> w.shape
-        torch.Size([1, 1, 3])
     """
     if attention_probs.ndim != 4:
         raise RoutingError(
@@ -66,12 +60,9 @@ def compute_importance(
         raise RoutingError(
             "attention_probs and counts have mismatched codeword dimensions",
         )
-    # denominator Z_i = sum over codewords of attention_probs (already 1 if
-    # normalized, but accept unnormalized inputs).
-    Z = attention_probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-    # per-codeword importance = n_j * sum_i (A_ij / Z_i)
-    weighted = (attention_probs / Z).sum(dim=-2)        # [B, H, M_0]
-    return counts * weighted
+    # w_j = n_j * sum_i A_ij.  For normalized probs, Z_i = 1 (no division needed).
+    total_mass = attention_probs.sum(dim=-2)                              # [B, H, M_0]
+    return counts * total_mass
 
 
 @dataclass

@@ -178,8 +178,12 @@ class HierarchicalCodebook:
                 msg = f"perturbation shape {tuple(perturbation.shape)} != expected {expected_shape}"
                 raise CodebookError(msg)
         # Subtract mean to keep parent == mean(children) after construction.
+        # ponytail: spec §8.10 says C_{p,c} = C_p - 0.1*epsilon; sign
+        # doesn't matter since epsilon ~ N(0,I) is symmetric.
         perturbation = perturbation - perturbation.mean(dim=2, keepdim=True)
         self.children = self.parents.unsqueeze(2) + self.perturbation_scale * perturbation
+        # Enforce the constraint exactly (float rounding can drift).
+        self.reproject_parents()
 
     def initialize_parents_random(
         self,
