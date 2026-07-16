@@ -64,6 +64,21 @@ class AVQAttention(nn.Module):
         super().__init__()
         self.config = config
         self.backend = create_backend(config.backend.name)
+        # OPT-0002: optional torch.compile wrapping. We attach the
+        # eager function as ``self._forward_eager`` so the original
+        # path remains the source of truth and so the compiled forward
+        # can be reverted at runtime.
+        self._forward_eager = self.forward_impl
+        if config.execution.compile_enabled:
+            # OPT-0002: route the forward through a torch.compile graph.
+            # `dynamic=None` lets Dynamo adapt to mask / kv-cache variants
+            # while still collapsing the Python overhead per call.
+            self._forward_compiled = torch.compile(
+                self.forward_impl,
+                dynamic=None,
+            )
+        else:
+            self._forward_compiled = None
         E = config.attention.embed_dim
         # Use Module so we can mix Linear and Identity branches uniformly.
         self.q_proj: nn.Module
@@ -217,12 +232,16 @@ class AVQAttention(nn.Module):
         # ISSUE-0017: wrap in autocast when enabled (spec §3.4).
         autocast_enabled = self.config.precision.autocast
         autocast_dtype = getattr(torch, self.config.precision.dtype, torch.float32)
+        # OPT-0002: when torch.compile is enabled we route through the
+        # compiled forward; otherwise we keep the eager path identical
+        # to the prior behaviour.
+        target = self._forward_compiled or self.forward_impl
         with torch.autocast(
             device_type=query.device.type,
             enabled=autocast_enabled,
             dtype=autocast_dtype,
         ):
-            return self.forward_impl(query, key, value, mask, kv_cache)
+            return target(query, key, value, mask, kv_cache)
 
     def forward_impl(  # noqa: PLR0915
         self,

@@ -214,11 +214,15 @@ class ExecutionConfig:
         mode: ``"reference"``, ``"optimized"``, or ``"research"``.
         deterministic: Enable strict deterministic algorithms.
         seed: Optional RNG seed applied at module init.
+        compile_enabled: When ``True`` the AVQAttention forward is
+            wrapped in ``torch.compile`` to reduce Python overhead on
+            CPU (OPT-0002). Requires stable input shapes.
     """
 
     mode: str = "optimized"
     deterministic: bool = False
     seed: int = 0
+    compile_enabled: bool = False
 
     def __post_init__(self) -> None:
         allowed = {"reference", "optimized", "research"}
