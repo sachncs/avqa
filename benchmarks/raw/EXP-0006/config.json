@@ -1,0 +1,11 @@
+{
+  "batch": 2,
+  "children_per_codeword": 4,
+  "head_dim": 16,
+  "heads": 4,
+  "num_codewords": 16,
+  "refinement_budget": 4,
+  "reps": 10,
+  "seq_len": 64,
+  "warmup": 3
+}
