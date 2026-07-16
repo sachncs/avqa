@@ -68,6 +68,10 @@ ignore = [
              # deps like torch).
   "TC001",   # Type-checking block import — acceptable for forward refs.
   "TC002",   # torch is a runtime dep, not just a type-hint dep.
+  "UP037",   # Quoted type annotations kept on purpose for forward refs to
+             # optional imports (transformers, vllm, xformers, flash_attn).
+  "F821",    # Forward references to optional deps; acceptable in
+             # integrations.py where the dep may not be installed.
 ]
 
 [lint.isort]
