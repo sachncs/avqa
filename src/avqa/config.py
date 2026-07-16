@@ -167,14 +167,18 @@ class BackendConfig:
     """Backend selection (spec §3.12, §5.9).
 
     Attributes:
-        name: Backend identifier (e.g., ``"torch"``, ``"triton"``).
+        name: ``"torch"`` or ``"triton"``.
         enable_autotune: Whether to autotune kernel parameters when supported.
         skip_validation: Disable runtime tensor validation (spec §6.12).
+        hopfield: When ``True`` AVQAttention applies the HVAQ
+            temperature schedule (SPEC §16) to the parent attention
+            logits. Default ``False`` keeps the paper-exact softmax.
     """
 
     name: str = "torch"
     enable_autotune: bool = False
     skip_validation: bool = False
+    hopfield: bool = False
 
     def __post_init__(self) -> None:
         allowed = {"torch", "triton"}
@@ -243,6 +247,40 @@ class ExecutionConfig:
             msg = f"execution.mode must be one of {sorted(allowed)}, got {self.mode!r}"
             raise ConfigurationError(msg, {"execution.mode": self.mode})
         require_non_negative(self.seed, "execution.seed")
+
+
+@dataclass(frozen=True, slots=True)
+class HopfieldConfig:
+    """Hopfield-VQ-Attention (HVAQ) configuration (SPEC §16).
+
+    Attributes:
+        enabled: When ``True`` AVQAttention applies the HVAQ
+            temperature schedule to the parent attention logits.
+            ``BackendConfig.hopfield`` is the user-facing master
+            switch; this attribute exists for forward compatibility.
+        beta_init: Base temperature ``β_0``. The paper uses
+            ``1 / √d``; the HVAQ schedules scale around this
+            base. ``0.0`` (default) auto-derives from the attention
+            head dimension so the schedule is paper-exact when
+            ``adaptive="none"``.
+        adaptive: ``"none"`` (constant β_0), ``"entropy"``
+            (β_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
+            (β_0 · (1 + α · H_top)).
+        alpha: Slope of the linear schedule; HVAQ-LIN only.
+    """
+
+    enabled: bool = False
+    beta_init: float = 0.0
+    adaptive: str = "none"
+    alpha: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.beta_init < 0.0:
+            msg = f"hopfield.beta_init must be >= 0, got {self.beta_init}"
+            raise ConfigurationError(msg, {"hopfield.beta_init": self.beta_init})
+        if self.alpha < 0.0:
+            msg = f"hopfield.alpha must be >= 0, got {self.alpha}"
+            raise ConfigurationError(msg, {"hopfield.alpha": self.alpha})
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +357,7 @@ class AVQConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     precision: PrecisionConfig = field(default_factory=PrecisionConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    hopfield: HopfieldConfig = field(default_factory=HopfieldConfig)
     dropout: float = 0.0
     causal: bool = False
     tolerance_atol: float = 1e-5

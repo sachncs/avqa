@@ -439,6 +439,42 @@ class AVQAttention(nn.Module):
         # Empty codewords excluded from softmax (spec §7.15).
         parent_logits = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
 
+        # OPT-0005 (HVAQ): per-query adaptive temperature schedule
+        # (SPEC §16). When disabled this block is a no-op and the
+        # logits above are the paper-exact parent attention. When
+        # enabled we compute the per-query temperature \u03b2_q from the
+        # paper-equivalent parent attention mass and rescale the logits
+        # by \u03b2_q / (1/\u221ad). With ``adaptive=\"none\"`` and
+        # ``\u03b2_init = 1/\u221ad`` the rescaling is the identity and the
+        # result is bit-identical to the paper (Theorem 16.1).
+        if self.config.backend.hopfield and self.config.hopfield.adaptive != "none":
+            from avqa.hopfield import paper_beta, per_query_beta
+
+            beta_init = self.config.hopfield.beta_init
+            if beta_init <= 0.0:
+                beta_init = paper_beta(D)
+            # Compute the paper's parent attention mass for the schedule.
+            # The masked_fill above sets empty-codeword logits to -inf, so
+            # we treat their mass as zero and the entropy is well-defined
+            # on the remaining (non-empty) parents.
+            base_for_entropy = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
+            paper_probs = base_for_entropy.softmax(dim=-1)
+            # Drop the masked-out probability mass to keep entropy well-defined.
+            paper_probs = paper_probs * valid.unsqueeze(2).to(paper_probs.dtype)
+            denom = paper_probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+            paper_probs = paper_probs / denom
+            beta_q = per_query_beta(
+                paper_probs,
+                beta_init=beta_init,
+                adaptive=self.config.hopfield.adaptive,
+                alpha=self.config.hopfield.alpha,
+            )
+            # The HVAQ temperature is the per-query scaling of the
+            # paper's 1/\u221ad normalisation; ``beta_q`` carries that
+            # factor already.
+            scale = beta_q * (D**0.5)  # undo the paper's /sqrt(D)
+            parent_logits = parent_logits * scale.unsqueeze(-1)
+
         # Build running online-softmax state from parent attention.
         # tile_max: amax over M_0 parents → [B, H, T_q, 1].
         tile_max = parent_logits.amax(dim=-1, keepdim=True)
