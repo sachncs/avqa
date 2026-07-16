@@ -13,6 +13,9 @@
 Quantized Attention (AVQ-Attention) as a drop-in attention backend for
 PyTorch-based Transformer architectures.
 
+The full engineering specification lives in [SPEC.md](SPEC.md); the
+implementation tracker is [TODO.md](TODO.md).
+
 > **Disclaimer**
 >
 > This is an independent, community-driven implementation. The author of this
