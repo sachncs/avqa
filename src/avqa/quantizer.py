@@ -184,10 +184,13 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
         # sees the head's codebook. Shape [B*H, M_0, D].
         parents_flat = codebook.parents.unsqueeze(0).expand(B, H, M0, D).reshape(B * H, M0, D)
         # Compute squared distances via ||k||^2 - 2 k.p^T + ||p||^2.
-        # argmin of squared == argmin of L2, so we skip the sqrt.
+        # argmin of squared == argmin of L2, so we skip the sqrt. We
+        # use ``torch.matmul`` rather than ``torch.einsum`` to avoid a
+        # subtle broadcasting quirk in the latter (see CI-VQ
+        # implementation note in src/avqa/streaming_vq.py).
         k_sq = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)  # [B*H, N, 1]
-        p_sq = (parents_flat * parents_flat).sum(dim=-1).unsqueeze(1)  # [H, 1, M_0]
-        cross = torch.einsum("bnd,hmd->bnm", keys_flat, parents_flat)  # [B*H, N, M_0]
+        p_sq = (parents_flat * parents_flat).sum(dim=-1).unsqueeze(1)  # [B*H, 1, M_0]
+        cross = torch.matmul(keys_flat, parents_flat.transpose(-1, -2))  # [B*H, N, M_0]
         dist_sq = k_sq + p_sq - 2.0 * cross  # [B*H, N, M_0]
         parent_assign = dist_sq.argmin(dim=-1)  # [B*H, N]
         parent_assign = parent_assign.reshape(B, H, N)
