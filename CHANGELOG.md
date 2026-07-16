@@ -143,3 +143,21 @@ All notable changes to AVQA are documented here. Versions follow
 - SPEC_COMPLIANCE.md refresh — RTM with per-module coverage, v2 ledger, and 14-commit audit trail (`5af9e28`).
 - OPTIMIZATIONS.md seed — OPT-0001 tracked as Proposed pending GPU acceptance (`d642e10`).
 - PUBLICATION.md readiness score + outstanding-gap list (`f88c78a`).
+
+## Unreleased (BCAR — first algorithmic contribution)
+
+### Algorithmic extension (OPT-0003)
+
+- **BCAR (Bias-Corrected Online Codebook Adaptation)** ships.
+  Per-codeword EMA on inference-time K/V assignments, with the
+  parent-child mean constraint (SPEC §7.9) preserved exactly via a
+  post-step reprojection. Configured via
+  `CodebookConfig(bcar_enabled=True, bcar_decay=0.99)`.
+- SPEC §13 documents the algorithm, math, and acceptance plan.
+- Four unit tests in `tests/unit/test_online_adaptation.py`
+  validate mean preservation, empty-cell no-explode, decay API
+  guard, and synthetic-stream convergence.
+- EXP-0004 (CPU) closes 60.7 % of the static-to-oracle VQ-loss gap
+  in 1024 streaming updates; ablation over decay recorded.
+- Publication candidate `PUB-0001` staged; multi-seed statistical
+  validation is the next gate on the CUDA-matrix runner.
