@@ -11,9 +11,9 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.codebook import HierarchicalCodebook
-from avqa.config import AVQConfig, AttentionShapeConfig, CodebookConfig, RoutingConfig
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.refinement import refine
+from avqa.routing import TopPRouter, compute_importance
 
 
 def _make_pipeline(
@@ -32,7 +32,6 @@ def _make_pipeline(
     result = quantizer.precompute(keys, values, cb)
 
     # Build parent attention probs via softmax over parent logits.
-    parent_keys = cb.parents.unsqueeze(0).expand(B, H, M0, D)
     parent_logits = torch.randn(B, H, N, M0)  # use random logits for simplicity
     parent_probs = torch.softmax(parent_logits, dim=-1)
 
@@ -75,7 +74,7 @@ class TestHierarchyInvariant:
 
     def test_hierarchy_survives_quantization(self) -> None:
         """Invariant holds after a precompute pass (codebook not mutated)."""
-        result, _, cb, _, _ = _make_pipeline()
+        _, _, cb, _, _ = _make_pipeline()
         # precompute should not modify the codebook
         cb.validate_mean_constraint(atol=1e-5)
 
@@ -102,6 +101,8 @@ class TestAttentionInvariant:
         )  # [B, H, T, M0, D_v]
 
         state = OnlineSoftmaxState.empty(1, H, T, D_v, D_v)
+        importance = compute_importance(parent_probs, result.parent_counts)
+        decision = TopPRouter().select(importance, budget=2)
         refinement = refine(
             state=state,
             parent_probs=parent_probs,
@@ -109,7 +110,7 @@ class TestAttentionInvariant:
             parent_aggregates=result.parent_aggregates,
             child_aggregates=result.child_aggregates,
             children_per_parent=C,
-            budget=2,
+            decision=decision,
             attention_probs=parent_probs,
             parent_counts=result.parent_counts,
         )
@@ -148,7 +149,7 @@ class TestAssignmentInvariant:
     def test_exactly_one_assignment_per_key(self) -> None:
         """Each key has exactly one parent assignment."""
         result, _, _, _, _ = _make_pipeline(N=64)
-        B, H, N = result.parent_assignments.shape
+        _, _, N = result.parent_assignments.shape
         # Every entry must be in [0, M0).
         assert result.parent_assignments.min().item() >= 0
         assert result.parent_assignments.max().item() < 8  # M0=8

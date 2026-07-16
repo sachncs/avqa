@@ -16,7 +16,7 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.merge import MergeInputs, ProbabilityMerge
-from avqa.routing import RoutingDecision, TopPRouter, compute_importance
+from avqa.routing import RoutingDecision
 
 
 @dataclass
@@ -109,20 +109,18 @@ def refine(
     parent_aggregates: torch.Tensor,  # noqa: ARG001  (documented contract)
     child_aggregates: torch.Tensor,
     children_per_parent: int,
-    budget: int,
-    attention_probs: torch.Tensor,
-    parent_counts: torch.Tensor,
+    decision: RoutingDecision,
+    attention_probs: torch.Tensor,  # noqa: ARG001  (documented contract)
+    parent_counts: torch.Tensor,  # noqa: ARG001  (documented contract)
     child_logits: torch.Tensor | None = None,
 ) -> RefinementResult:
     """Run one refinement step (spec §9.7, §9.11).
 
     Pipeline:
 
-    1. Compute importance from attention statistics (spec §7.10).
-    2. Select top-P parents (spec §9.6, G14).
-    3. Gather child aggregates for selected parents.
-    4. Apply the correction operator to the running state.
-    5. Apply a merge strategy to produce the refined value.
+    1. Gather child aggregates for selected parents.
+    2. Apply the correction operator to the running state.
+    3. Apply a merge strategy to produce the refined value.
 
     Args:
         state: Running :class:`OnlineSoftmaxState` from the parent pass.
@@ -131,7 +129,7 @@ def refine(
         parent_aggregates: ``[B, H, M_0, D_v]`` parent value aggregates.
         child_aggregates: ``[B, H, M_0, C, D_v]`` child value aggregates.
         children_per_parent: Number of children per parent (C).
-        budget: Number of parents to refine (P).
+        decision: Pre-computed :class:`RoutingDecision` from the orchestrator.
         attention_probs: ``[B, H, T, M_0]`` attention probabilities.
         parent_counts: ``[B, H, M_0]`` per-parent assignment counts.
         child_logits: Optional ``[B, H, T, M_0, C]`` real child attention
@@ -142,15 +140,14 @@ def refine(
         :class:`RefinementResult` with the updated state, selected parent
         indices, and the merge value tensor.
     """
+    selected = decision.selected_indices                              # [B, H, P]
+    budget = selected.shape[-1]
     if budget <= 0:
         raise ValueError(f"budget must be > 0, got {budget}")
     if budget > parent_probs.shape[-1]:
         raise ValueError(
             f"budget ({budget}) exceeds number of parents ({parent_probs.shape[-1]})",
         )
-
-    importance = compute_importance(attention_probs, parent_counts)
-    decision: RoutingDecision = TopPRouter().select(importance, budget)
 
     B, H, T, _, D_v = parent_value.shape
     C = children_per_parent

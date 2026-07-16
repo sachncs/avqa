@@ -7,6 +7,7 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.refinement import RefinementResult, refine
+from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
 
 def _setup(
@@ -32,15 +33,22 @@ def _setup(
     return state, parent_probs, parent_value, parent_aggregates, child_aggregates, attention_probs, parent_counts, child_logits
 
 
+def _make_decision(attention_probs: torch.Tensor, parent_counts: torch.Tensor, budget: int) -> RoutingDecision:
+    """Build a RoutingDecision for testing."""
+    importance = compute_importance(attention_probs, parent_counts)
+    return TopPRouter().select(importance, budget)
+
+
 class TestRefine:
     """Tests for the refine() orchestrator (spec §9.7)."""
 
     def test_returns_refinement_result(self) -> None:
         """Result is a RefinementResult with the right types."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup()
+        decision = _make_decision(ap, pc, budget=4)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=4, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert isinstance(result, RefinementResult)
@@ -49,9 +57,10 @@ class TestRefine:
     def test_selected_parents_count(self) -> None:
         """Number of selected parents equals budget."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup(M0=8)
+        decision = _make_decision(ap, pc, budget=3)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=3, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert result.selected_parents.shape == (1, 1, 3)
@@ -59,9 +68,10 @@ class TestRefine:
     def test_selected_in_range(self) -> None:
         """Selected parent indices are valid (in [0, M_0))."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup(M0=8)
+        decision = _make_decision(ap, pc, budget=5)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=5, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert result.selected_parents.min().item() >= 0
@@ -70,9 +80,10 @@ class TestRefine:
     def test_merge_value_shape(self) -> None:
         """merge_value has shape [B, H, T, D_v]."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup(Dv=16)
+        decision = _make_decision(ap, pc, budget=4)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=4, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert result.merge_value.shape == (1, 1, 4, 16)
@@ -80,9 +91,10 @@ class TestRefine:
     def test_state_finite(self) -> None:
         """Running state remains finite after refinement."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup()
+        decision = _make_decision(ap, pc, budget=4)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=4, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert torch.isfinite(result.state.running_max).all()
@@ -92,29 +104,38 @@ class TestRefine:
     def test_invalid_budget_zero(self) -> None:
         """budget=0 raises."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup()
+        decision = RoutingDecision(
+            selected_indices=torch.zeros(1, 1, 0, dtype=torch.long),
+            importance=torch.ones(1, 1, 8),
+        )
         with pytest.raises(ValueError, match="budget"):
             refine(
                 state, pp, pv, pa, ca,
-                children_per_parent=4, budget=0, attention_probs=ap, parent_counts=pc,
+                children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
                 child_logits=cl,
             )
 
     def test_invalid_budget_too_large(self) -> None:
         """budget > num_parents raises."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup(M0=4)
+        decision = RoutingDecision(
+            selected_indices=torch.zeros(1, 1, 10, dtype=torch.long),
+            importance=torch.ones(1, 1, 4),
+        )
         with pytest.raises(ValueError, match="exceeds"):
             refine(
                 state, pp, pv, pa, ca,
-                children_per_parent=4, budget=10, attention_probs=ap, parent_counts=pc,
+                children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
                 child_logits=cl,
             )
 
     def test_budget_equals_parents(self) -> None:
         """budget == num_parents refines everything."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup(M0=6)
+        decision = _make_decision(ap, pc, budget=6)
         result = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=6, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         assert result.selected_parents.shape == (1, 1, 6)
@@ -123,15 +144,16 @@ class TestRefine:
     def test_correction_changes_state(self) -> None:
         """Refinement with real child logits changes the running state."""
         state, pp, pv, pa, ca, ap, pc, cl = _setup()
+        decision = _make_decision(ap, pc, budget=4)
         # Run with child_logits=None (approximation).
         result_approx = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=4, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
         )
         # Run with real child_logits.
         result_real = refine(
             state, pp, pv, pa, ca,
-            children_per_parent=4, budget=4, attention_probs=ap, parent_counts=pc,
+            children_per_parent=4, decision=decision, attention_probs=ap, parent_counts=pc,
             child_logits=cl,
         )
         # The two should differ (real logits ≠ approximation).

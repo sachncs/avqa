@@ -293,7 +293,7 @@ class AVQAttention(nn.Module):
             out = self.out_proj(out)
             out = self.dropout(out)
             return out  # type: ignore[no-any-return]
-        self.router.select(importance, budget)
+        decision = self.router.select(importance, budget)
 
         # Stage 6 (spec §10.10): child attention — compute real Q · C_c^T
         # for the children of all parents (selected ones will be used).
@@ -315,7 +315,7 @@ class AVQAttention(nn.Module):
             parent_aggregates=parent_values,
             child_aggregates=result.child_aggregates,
             children_per_parent=C,
-            budget=budget,
+            decision=decision,
             attention_probs=parent_attention_probs,
             parent_counts=result.parent_counts,
             child_logits=child_logits,
