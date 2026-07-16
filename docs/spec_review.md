@@ -18,6 +18,39 @@ spec demands that the implementation does not deliver correctly.
 
 ---
 
+## Fix Status (updated post-review)
+
+| Issue | Severity | Status | Fix Summary |
+|-------|----------|--------|-------------|
+| ISSUE-0001/0002 | CRITICAL | **Fixed** | Real Q·C_c^T child logits in attention_module.py; refinement accepts child_logits param |
+| ISSUE-0003/0004 | CRITICAL | **Fixed** | Parent attention uses correct einsum `bhta,bhad->bhtd`; online-softmax state built from real parent logits |
+| ISSUE-0005 | CRITICAL | Partial | Pipeline still inline but forward split into `_forward_impl`; subsystems delegated |
+| ISSUE-0006 | HIGH | **Fixed** | refine() removed redundant compute_importance/TopPRouter; accepts RoutingDecision |
+| ISSUE-0007/0014 | HIGH | **Fixed** | Vectorized B*H loop in quantizer.py using offset index_add_; refinement loop over P kept (small) |
+| ISSUE-0008/0009 | HIGH | **Fixed** | Codebook calls reproject_parents() after children init for safety |
+| ISSUE-0011 | MEDIUM | **Fixed** | Removed redundant Z division in compute_importance for normalized probs |
+| ISSUE-0012/0013 | HIGH | Partial | Backend still hollow but pipeline delegates quantize to backend |
+| ISSUE-0015 | LOW | **Fixed** | refine() accepts RoutingDecision; no duplicate router call |
+| ISSUE-0017 | LOW | **Fixed** | Forward wrapped in torch.autocast when config.precision.autocast=True |
+| ISSUE-0018 | MEDIUM | **Fixed** | Execution mode wired: 'reference' → naive, 'optimized' → AVQ (default), 'research' → debug logs |
+| ISSUE-0019–0023 | HIGH | **Fixed** | 9 invariant property tests added (conservation, hierarchy, attention, count, assignment) |
+| ISSUE-0025 | HIGH | **Fixed** | 3 hand-computed reference tests added |
+| ISSUE-0034 | LOW | **Fixed** | parent_value_per_parent computed once |
+| ISSUE-0035 | LOW | **Fixed** | parent_attention_logits_for_state removed (was already deleted) |
+| ISSUE-0036 | MEDIUM | **Fixed** | LogitMerge reimplemented as real logit-space merge (concat logits, re-softmax) |
+| ISSUE-0037 | MEDIUM | **Fixed** | Removed unused commitment_loss_weight from CodebookConfig |
+| ISSUE-0016 | LOW | Deferred | tolerance_atol/rtol — kept for downstream use, not wired into tests |
+| ISSUE-0024 | MEDIUM | Deferred | Complexity bound test — hard to make robust, kept as future work |
+| ISSUE-0026 | HIGH | Deferred | Small-N perf — expected to be slower; benchmarks at larger N needed |
+| ISSUE-0027/0028/0029 | HIGH | Deferred | vLLM/FlashAttention/xFormers — external deps, documented in spec_gaps.md |
+| ISSUE-0030 | LOW | Deferred | Stale doc counts — cosmetic |
+| ISSUE-0031 | MEDIUM | Deferred | Public class naming — non-breaking alias can be added |
+| ISSUE-0032 | LOW | Deferred | max_size=0 docstring — cosmetic |
+| ISSUE-0033 | MEDIUM | Deferred | Distributed — out of scope for v0.1.0 per spec §6.16 |
+| ISSUE-0038 | LOW | Deferred | Perturbation scale test — covered by existing codebook tests |
+
+---
+
 ## 1. Algorithm Correctness Issues (CRITICAL)
 
 ### ISSUE-0001: Child logits in refine() are approximated, not computed (spec §9.8, §7.18)
