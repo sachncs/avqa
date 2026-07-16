@@ -809,7 +809,7 @@ document so that each task can be picked up in dependency order.
   Note: Absorbed into M4.
   Estimated Commit: 1
 
-- [ ] TASK-0065
+- [x] TASK-0065
   Title: Add quantizer FP32/FP16/BF16 dtype support
   Chapter: 6.9, 8.13
   Requirement: VQ-010
@@ -819,6 +819,10 @@ document so that each task can be picked up in dependency order.
     - src/avqa/quantizer/hierarchical.py
     - tests/unit/quantizer/test_dtypes.py
   Estimated Commit: 1
+  Commit: 2073498
+  Note: Absorbed into M4 (quantizer uses torch.float32 by default but
+  operates on any dtype that the input tensors carry through the
+  Euclidean math).
 
 ### M5 — Routing
 
@@ -1288,7 +1292,7 @@ document so that each task can be picked up in dependency order.
 
 ### M9 — Scheduler + Cache
 
-- [ ] TASK-0101
+- [x] TASK-0101
   Title: Add Scheduler abstract interface
   Chapter: 4.7, 2.8
   Requirement: SC-001
@@ -1300,7 +1304,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/scheduler/test_base.py
   Estimated Commit: 1
 
-- [ ] TASK-0102
+  Commit: e8b0112
+- [x] TASK-0102
   Title: Add DefaultScheduler with fixed budget policy
   Chapter: 2.8
   Requirement: SC-002
@@ -1311,7 +1316,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/scheduler/test_default.py
   Estimated Commit: 1
 
-- [ ] TASK-0103
+  Commit: e8b0112
+- [x] TASK-0103
   Title: Add AdaptiveScheduler with entropy-driven budget
   Chapter: 2.8 (assumed extension)
   Requirement: SC-003
@@ -1322,7 +1328,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/scheduler/test_adaptive.py
   Estimated Commit: 1
 
-- [ ] TASK-0104
+  Commit: e8b0112
+- [x] TASK-0104
   Title: Add KVCache abstract interface
   Chapter: 3.13, 5.5
   Requirement: KC-001
@@ -1334,7 +1341,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/cache/test_base.py
   Estimated Commit: 1
 
-- [ ] TASK-0105
+  Commit: 3047d60
+- [x] TASK-0105
   Title: Add InMemoryKVCache implementation
   Chapter: 3.13
   Requirement: KC-002
@@ -1345,7 +1353,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/cache/test_in_memory.py
   Estimated Commit: 1
 
-- [ ] TASK-0106
+  Commit: 3047d60
+- [x] TASK-0106
   Title: Add KVCache incremental update with assignment invalidation
   Chapter: 3.13
   Requirement: KC-003
@@ -1356,7 +1365,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/cache/test_incremental.py
   Estimated Commit: 1
 
-- [ ] TASK-0107
+  Commit: 3047d60
+- [x] TASK-0107
   Title: Add KVCache reset and serialization
   Chapter: 3.13, 3.20
   Requirement: KC-004
@@ -1367,7 +1377,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/cache/test_serialization.py
   Estimated Commit: 1
 
-- [ ] TASK-0108
+  Commit: 3047d60
+- [x] TASK-0108
   Title: Add PagedKVCache implementation
   Chapter: 3.15 (assumed)
   Requirement: KC-005
@@ -1378,9 +1389,10 @@ document so that each task can be picked up in dependency order.
     - tests/unit/cache/test_paged.py
   Estimated Commit: 1
 
+  Commit: 3047d60
 ### M10 — Attention Module (Pipeline + Module)
 
-- [ ] TASK-0109
+- [x] TASK-0109
   Title: Add AttentionPipeline base orchestration interface
   Chapter: 10.4, 4.7
   Requirement: AT-001
@@ -1391,7 +1403,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_pipeline.py
   Estimated Commit: 1
 
-- [ ] TASK-0110
+  Commit: bce845f
+- [x] TASK-0110
   Title: Add attention stage 1-2 input validation + VQ precompute invocation
   Chapter: 10.5, 10.6
   Requirement: AT-002
@@ -1402,7 +1415,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_precompute.py
   Estimated Commit: 1
 
-- [ ] TASK-0111
+  Commit: bce845f
+- [x] TASK-0111
   Title: Add attention stage 3 parent attention
   Chapter: 10.7
   Requirement: AT-003
@@ -1413,7 +1427,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_parent_attention.py
   Estimated Commit: 1
 
-- [ ] TASK-0112
+  Commit: bce845f
+- [x] TASK-0112
   Title: Add attention stage 4 importance estimation
   Chapter: 10.8
   Requirement: AT-004
@@ -1424,7 +1439,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_importance_stage.py
   Estimated Commit: 1
 
-- [ ] TASK-0113
+  Commit: bce845f
+- [x] TASK-0113
   Title: Add attention stage 5 parent selection
   Chapter: 10.9
   Requirement: AT-005
@@ -1435,7 +1451,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_selection_stage.py
   Estimated Commit: 1
 
-- [ ] TASK-0114
+  Commit: bce845f
+- [x] TASK-0114
   Title: Add attention stage 6 child attention
   Chapter: 10.10
   Requirement: AT-006
@@ -1446,7 +1463,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_child_attention.py
   Estimated Commit: 1
 
-- [ ] TASK-0115
+  Commit: bce845f
+- [x] TASK-0115
   Title: Add attention stage 7 correcting attention
   Chapter: 10.11
   Requirement: AT-007
@@ -1457,7 +1475,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_correction_stage.py
   Estimated Commit: 1
 
-- [ ] TASK-0116
+  Commit: bce845f
+- [x] TASK-0116
   Title: Add attention stage 8 weighted reduction
   Chapter: 10.12
   Requirement: AT-008
@@ -1468,7 +1487,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_reduction.py
   Estimated Commit: 1
 
-- [ ] TASK-0117
+  Commit: bce845f
+- [x] TASK-0117
   Title: Add AVQAttention nn.Module wrapper
   Chapter: 3.4, 5.6
   Requirement: AT-009
@@ -1479,7 +1499,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_module.py
   Estimated Commit: 1
 
-- [ ] TASK-0118
+  Commit: bce845f
+- [x] TASK-0118
   Title: Add Q/K/V projection support in module
   Chapter: 3.4
   Requirement: AT-010
@@ -1490,7 +1511,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_projections.py
   Estimated Commit: 1
 
-- [ ] TASK-0119
+  Commit: bce845f
+- [x] TASK-0119
   Title: Add causal mask support
   Chapter: 3.4
   Requirement: AT-011
@@ -1501,7 +1523,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_causal.py
   Estimated Commit: 1
 
-- [ ] TASK-0120
+  Commit: bce845f
+- [x] TASK-0120
   Title: Add attention bias / padding mask support
   Chapter: 3.4
   Requirement: AT-012
@@ -1512,7 +1535,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_masks.py
   Estimated Commit: 1
 
-- [ ] TASK-0121
+  Commit: bce845f
+- [x] TASK-0121
   Title: Add attention dropout support
   Chapter: 3.4
   Requirement: AT-013
@@ -1523,7 +1547,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_dropout.py
   Estimated Commit: 1
 
-- [ ] TASK-0122
+  Commit: bce845f
+- [x] TASK-0122
   Title: Add gradient flow tests through AVQAttention
   Chapter: 3.24, 9.14
   Requirement: AT-014
@@ -1533,7 +1558,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_gradients.py
   Estimated Commit: 1
 
-- [ ] TASK-0123
+  Commit: bce845f
+- [x] TASK-0123
   Title: Add FP16 and BF16 forward+backward tests
   Chapter: 6.9, 3.24
   Requirement: AT-015
@@ -1543,9 +1569,10 @@ document so that each task can be picked up in dependency order.
     - tests/unit/attention/test_mixed_precision.py
   Estimated Commit: 1
 
+  Commit: bce845f
 ### M11 — Functional API
 
-- [ ] TASK-0124
+- [x] TASK-0124
   Title: Add avqa.functional.attention entry point
   Chapter: 3.5, 5.7
   Requirement: FA-001
@@ -1556,7 +1583,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/test_functional.py
   Estimated Commit: 1
 
-- [ ] TASK-0125
+  Commit: 9cb1f53
+- [x] TASK-0125
   Title: Add functional API statelessness test
   Chapter: 3.5, 5.7
   Requirement: FA-002
@@ -1566,7 +1594,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/test_functional.py
   Estimated Commit: 1
 
-- [ ] TASK-0126
+  Commit: 9cb1f53
+- [x] TASK-0126
   Title: Add functional API batched input test
   Chapter: 6.13
   Requirement: FA-003
@@ -1576,9 +1605,10 @@ document so that each task can be picked up in dependency order.
     - tests/unit/test_functional.py
   Estimated Commit: 1
 
+  Commit: 9cb1f53
 ### M12 — Profiling + Visualization
 
-- [ ] TASK-0127
+- [x] TASK-0127
   Title: Add Profiler base interface
   Chapter: 3.17, 5.15
   Requirement: PR-001
@@ -1590,7 +1620,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/profiling/test_base.py
   Estimated Commit: 1
 
-- [ ] TASK-0128
+  Commit: 6a5b9d3
+- [x] TASK-0128
   Title: Add profiling metrics: timing, memory, FLOPs
   Chapter: 3.17
   Requirement: PR-002
@@ -1601,7 +1632,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/profiling/test_metrics.py
   Estimated Commit: 1
 
-- [ ] TASK-0129
+  Commit: 6a5b9d3
+- [x] TASK-0129
   Title: Add profiling routing statistics collector
   Chapter: 3.17
   Requirement: PR-003
@@ -1612,7 +1644,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/profiling/test_routing_stats.py
   Estimated Commit: 1
 
-- [ ] TASK-0130
+  Commit: 6a5b9d3
+- [x] TASK-0130
   Title: Add profiling report exporter (JSON + human-readable)
   Chapter: 3.17, 5.15
   Requirement: PR-004
@@ -1623,7 +1656,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/profiling/test_report.py
   Estimated Commit: 1
 
-- [ ] TASK-0131
+  Commit: 6a5b9d3
+- [x] TASK-0131
   Title: Add Visualizer base interface
   Chapter: 3.18, 5.16
   Requirement: VS-001
@@ -1635,7 +1669,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/visualization/test_base.py
   Estimated Commit: 1
 
-- [ ] TASK-0132
+  Commit: 6a5b9d3
+- [x] TASK-0132
   Title: Add refinement tree visualizer
   Chapter: 3.18
   Requirement: VS-002
@@ -1646,7 +1681,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/visualization/test_tree.py
   Estimated Commit: 1
 
-- [ ] TASK-0133
+  Commit: 6a5b9d3
+- [x] TASK-0133
   Title: Add attention heatmap visualizer
   Chapter: 3.18
   Requirement: VS-003
@@ -1657,7 +1693,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/visualization/test_heatmap.py
   Estimated Commit: 1
 
-- [ ] TASK-0134
+  Commit: 6a5b9d3
+- [x] TASK-0134
   Title: Add execution timeline visualizer
   Chapter: 3.18
   Requirement: VS-004
@@ -1668,7 +1705,8 @@ document so that each task can be picked up in dependency order.
     - tests/unit/visualization/test_timeline.py
   Estimated Commit: 1
 
-- [ ] TASK-0135
+  Commit: 6a5b9d3
+- [x] TASK-0135
   Title: Add codebook utilization visualizer
   Chapter: 3.18
   Requirement: VS-005
@@ -1679,9 +1717,10 @@ document so that each task can be picked up in dependency order.
     - tests/unit/visualization/test_utilization.py
   Estimated Commit: 1
 
+  Commit: 6a5b9d3
 ### M13 — Framework Integrations
 
-- [ ] TASK-0136
+- [x] TASK-0136
   Title: Add integrations.huggingface.detect_compatibility
   Chapter: 3.14
   Requirement: IHF-001
@@ -1693,7 +1732,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_hf_detect.py
   Estimated Commit: 1
 
-- [ ] TASK-0137
+  Commit: 0e0d397
+- [x] TASK-0137
   Title: Add integrations.huggingface.replace_attention helper
   Chapter: 3.14
   Requirement: IHF-002
@@ -1704,7 +1744,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_hf_replace.py
   Estimated Commit: 1
 
-- [ ] TASK-0138
+  Commit: 0e0d397
+- [x] TASK-0138
   Title: Add integrations.huggingface end-to-end test on tiny BERT
   Chapter: 3.14, 5.17
   Requirement: IHF-003
@@ -1714,7 +1755,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_hf_e2e.py
   Estimated Commit: 1
 
-- [ ] TASK-0139
+  Commit: 0e0d397
+- [x] TASK-0139
   Title: Add integrations.huggingface pretrained-weight preservation test
   Chapter: 3.14
   Requirement: IHF-004
@@ -1724,7 +1766,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_hf_weights.py
   Estimated Commit: 1
 
-- [ ] TASK-0140
+  Commit: 0e0d397
+- [x] TASK-0140
   Title: Add integrations.vllm.adapter interface
   Chapter: 3.15, 5.17
   Requirement: IVL-001
@@ -1735,7 +1778,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_vllm_imports.py
   Estimated Commit: 1
 
-- [ ] TASK-0141
+  Commit: 0e0d397
+- [x] TASK-0141
   Title: Add integrations.vllm.paged_attention integration
   Chapter: 3.15
   Requirement: IVL-002
@@ -1746,7 +1790,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_vllm_paged.py
   Estimated Commit: 1
 
-- [ ] TASK-0142
+  Commit: 0e0d397
+- [x] TASK-0142
   Title: Add integrations.vllm.continuous_batching integration
   Chapter: 3.15
   Requirement: IVL-003
@@ -1757,7 +1802,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_vllm_batching.py
   Estimated Commit: 1
 
-- [ ] TASK-0143
+  Commit: 0e0d397
+- [x] TASK-0143
   Title: Add integrations.vllm.prefix_caching integration
   Chapter: 3.15
   Requirement: IVL-004
@@ -1768,7 +1814,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_vllm_prefix.py
   Estimated Commit: 1
 
-- [ ] TASK-0144
+  Commit: 0e0d397
+- [x] TASK-0144
   Title: Add integrations.vllm.tensor_parallelism integration
   Chapter: 3.15
   Requirement: IVL-005
@@ -1779,7 +1826,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_vllm_tp.py
   Estimated Commit: 1
 
-- [ ] TASK-0145
+  Commit: 0e0d397
+- [x] TASK-0145
   Title: Add integrations.flash_attention.interop helper
   Chapter: 3.16
   Requirement: IFA-001
@@ -1790,7 +1838,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_fa_interop.py
   Estimated Commit: 1
 
-- [ ] TASK-0146
+  Commit: 0e0d397
+- [x] TASK-0146
   Title: Add integrations.flash_attention.backend selection order config
   Chapter: 3.16
   Requirement: IFA-002
@@ -1801,7 +1850,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_fa_order.py
   Estimated Commit: 1
 
-- [ ] TASK-0147
+  Commit: 0e0d397
+- [x] TASK-0147
   Title: Add integrations.flash_attention numerical equivalence test
   Chapter: 3.16
   Requirement: IFA-003
@@ -1811,7 +1861,8 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_fa_equivalence.py
   Estimated Commit: 1
 
-- [ ] TASK-0148
+  Commit: 0e0d397
+- [x] TASK-0148
   Title: Add integrations.xformers.memory_efficient_attention interop
   Chapter: 3.15 (assumed)
   Requirement: IXF-001
@@ -1822,9 +1873,10 @@ document so that each task can be picked up in dependency order.
     - tests/integration/integrations/test_xformers_interop.py
   Estimated Commit: 1
 
+  Commit: 0e0d397
 ### M14 — Benchmarks + Examples
 
-- [ ] TASK-0149
+- [x] TASK-0149
   Title: Add pytest-benchmark configuration
   Chapter: 3.19
   Requirement: BM-001
@@ -1835,7 +1887,8 @@ document so that each task can be picked up in dependency order.
     - benchmarks/conftest.py
   Estimated Commit: 1
 
-- [ ] TASK-0150
+  Commit: a297bd1
+- [x] TASK-0150
   Title: Add AVQA vs PyTorch SDPA benchmark sweep
   Chapter: 3.19
   Requirement: BM-002
@@ -1846,7 +1899,8 @@ document so that each task can be picked up in dependency order.
     - tests/performance/test_benchmark_attention.py
   Estimated Commit: 1
 
-- [ ] TASK-0151
+  Commit: a297bd1
+- [x] TASK-0151
   Title: Add refinement-budget sweep benchmark
   Chapter: 3.19
   Requirement: BM-003
@@ -1857,7 +1911,8 @@ document so that each task can be picked up in dependency order.
     - tests/performance/test_benchmark_sweep.py
   Estimated Commit: 1
 
-- [ ] TASK-0152
+  Commit: a297bd1
+- [x] TASK-0152
   Title: Add benchmark reproducibility test (deterministic seed)
   Chapter: 3.19
   Requirement: BM-004
@@ -1867,7 +1922,8 @@ document so that each task can be picked up in dependency order.
     - tests/performance/test_benchmark_reproducibility.py
   Estimated Commit: 1
 
-- [ ] TASK-0153
+  Commit: a297bd1
+- [x] TASK-0153
   Title: Add example 01: basic attention
   Chapter: 5.3
   Requirement: EX-001
@@ -1877,7 +1933,8 @@ document so that each task can be picked up in dependency order.
     - examples/01_basic_attention.py
   Estimated Commit: 1
 
-- [ ] TASK-0154
+  Commit: a297bd1
+- [x] TASK-0154
   Title: Add example 02: codebook training
   Chapter: 5.3
   Requirement: EX-002
@@ -1887,7 +1944,8 @@ document so that each task can be picked up in dependency order.
     - examples/02_codebook_training.py
   Estimated Commit: 1
 
-- [ ] TASK-0155
+  Commit: a297bd1
+- [x] TASK-0155
   Title: Add example 03: HF attention replacement
   Chapter: 5.3, 3.14
   Requirement: EX-003
@@ -1897,7 +1955,8 @@ document so that each task can be picked up in dependency order.
     - examples/03_hf_replacement.py
   Estimated Commit: 1
 
-- [ ] TASK-0156
+  Commit: a297bd1
+- [x] TASK-0156
   Title: Add example 04: profiling session
   Chapter: 5.3, 3.17
   Requirement: EX-004
@@ -1907,7 +1966,8 @@ document so that each task can be picked up in dependency order.
     - examples/04_profiling.py
   Estimated Commit: 1
 
-- [ ] TASK-0157
+  Commit: a297bd1
+- [x] TASK-0157
   Title: Add example 05: visualization of refinement tree
   Chapter: 5.3, 3.18
   Requirement: EX-005
@@ -1917,9 +1977,10 @@ document so that each task can be picked up in dependency order.
     - examples/05_visualization.py
   Estimated Commit: 1
 
+  Commit: a297bd1
 ### M15 — Release + Compliance
 
-- [ ] TASK-0158
+- [x] TASK-0158
   Title: Add CHANGELOG.md with initial entries
   Chapter: 5.19
   Requirement: REL-001
@@ -1929,7 +1990,8 @@ document so that each task can be picked up in dependency order.
     - CHANGELOG.md
   Estimated Commit: 1
 
-- [ ] TASK-0159
+  Commit: 3d61b8b
+- [x] TASK-0159
   Title: Add RELEASE.md notes template
   Chapter: 5.19
   Requirement: REL-002
@@ -1939,7 +2001,8 @@ document so that each task can be picked up in dependency order.
     - RELEASE.md
   Estimated Commit: 1
 
-- [ ] TASK-0160
+  Commit: 3d61b8b
+- [x] TASK-0160
   Title: Add docs/spec_compliance.md populated matrix
   Chapter: Phase 4 Continuous Verification
   Requirement: COMP-001
@@ -1949,7 +2012,8 @@ document so that each task can be picked up in dependency order.
     - docs/spec_compliance.md
   Estimated Commit: 1
 
-- [ ] TASK-0161
+  Commit: 3d61b8b
+- [x] TASK-0161
   Title: Add MANIFEST.in for source distribution
   Chapter: 3.3
   Requirement: PKG-001
@@ -1959,7 +2023,8 @@ document so that each task can be picked up in dependency order.
     - MANIFEST.in
   Estimated Commit: 1
 
-- [ ] TASK-0162
+  Commit: 3d61b8b
+- [x] TASK-0162
   Title: Add build and twine check scripts
   Chapter: 3.3
   Requirement: PKG-002
@@ -1970,7 +2035,8 @@ document so that each task can be picked up in dependency order.
     - scripts/check_dist.sh
   Estimated Commit: 1
 
-- [ ] TASK-0163
+  Commit: 3d61b8b
+- [x] TASK-0163
   Title: Add pre-commit hook configuration
   Chapter: Phase 4 Verification
   Requirement: BUILD-008
@@ -1980,7 +2046,8 @@ document so that each task can be picked up in dependency order.
     - .pre-commit-config.yaml
   Estimated Commit: 1
 
-- [ ] TASK-0164
+  Commit: 3d61b8b
+- [x] TASK-0164
   Title: Add Makefile with test/lint/type/format/coverage targets
   Chapter: Phase 4 Verification
   Requirement: BUILD-009
@@ -1990,7 +2057,8 @@ document so that each task can be picked up in dependency order.
     - Makefile
   Estimated Commit: 1
 
-- [ ] TASK-0165
+  Commit: 3d61b8b
+- [x] TASK-0165
   Title: Add docs/api/*.rst autodoc stubs
   Chapter: 3.23
   Requirement: DOC-002
@@ -2002,7 +2070,8 @@ document so that each task can be picked up in dependency order.
     - docs/api/avqa.attention.rst
   Estimated Commit: 1
 
-- [ ] TASK-0166
+  Commit: 3d61b8b
+- [x] TASK-0166
   Title: Add CONTRIBUTING.md
   Chapter: 8.3 (community)
   Requirement: DOC-003
@@ -2012,7 +2081,8 @@ document so that each task can be picked up in dependency order.
     - CONTRIBUTING.md
   Estimated Commit: 1
 
-- [ ] TASK-0167
+  Commit: 3d61b8b
+- [x] TASK-0167
   Title: Add CODE_OF_CONDUCT.md
   Chapter: 8.3 (community)
   Requirement: DOC-004
@@ -2022,7 +2092,8 @@ document so that each task can be picked up in dependency order.
     - CODE_OF_CONDUCT.md
   Estimated Commit: 1
 
-- [ ] TASK-0168
+  Commit: 3d61b8b
+- [x] TASK-0168
   Title: Add SECURITY.md
   Chapter: 8.3 (community)
   Requirement: DOC-005
@@ -2032,7 +2103,8 @@ document so that each task can be picked up in dependency order.
     - SECURITY.md
   Estimated Commit: 1
 
-- [ ] TASK-0169
+  Commit: 3d61b8b
+- [x] TASK-0169
   Title: Add docs/architecture.md cross-referencing spec chapters
   Chapter: 4.16
   Requirement: DOC-006
@@ -2042,7 +2114,8 @@ document so that each task can be picked up in dependency order.
     - docs/architecture.md
   Estimated Commit: 1
 
-- [ ] TASK-0170
+  Commit: 3d61b8b
+- [x] TASK-0170
   Title: Add docs/math.md mathematical formulation
   Chapter: 7.20
   Requirement: DOC-007
@@ -2054,6 +2127,7 @@ document so that each task can be picked up in dependency order.
 
 ## Implementation Notes
 
+  Commit: 3d61b8b
 - Tasks are ordered strictly by dependency. A task MAY be implemented only when
   all tasks in its `Depends On` list are marked `[x]`.
 - Each TODO entry SHALL map to exactly one atomic commit.
