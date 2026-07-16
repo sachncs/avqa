@@ -137,6 +137,8 @@ class RefinementConfig:
     enabled: bool = True
     threshold: float = 0.0
     adaptive_budget: bool = False
+    passes: int = 1
+    pass_decay: float = 1.0
 
     def __post_init__(self) -> None:
         require_in_range(self.threshold, 0.0, 1.0, "threshold")
@@ -233,6 +235,7 @@ class ExecutionConfig:
     deterministic: bool = False
     seed: int = 0
     compile_enabled: bool = False
+    causal_incremental: bool = False
 
     def __post_init__(self) -> None:
         allowed = {"reference", "optimized", "research"}

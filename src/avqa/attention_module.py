@@ -344,9 +344,40 @@ class AVQAttention(nn.Module):
         C = self.config.codebook.children_per_codeword
 
         # Stage 2 (spec §10.6): VQ precompute over cached+current K/V.
-        result = self.backend.quantize(
-            k_for_vq, v_for_vq, self.codebook.parents, self.codebook.children
-        )
+        # OPT-0004 (CI-VQ): when ``causal_incremental`` is enabled AND a
+        # streaming cache is provided, route through StreamingVQBuffer
+        # for O(D)-per-new-token incremental updates (SPEC \u00a714). The
+        # default is the existing batched quantizer (paper-exact).
+        if (
+            self.config.execution.causal_incremental
+            and kv_cache is not None
+            and hasattr(kv_cache, "causal_extend")
+        ):
+            from avqa.streaming_vq import StreamingVQBuffer
+
+            new_tokens = k_for_vq[..., -1:, :]  # last token in the cached+current
+            if not hasattr(self, "_streaming_buffer"):
+                self._streaming_buffer = StreamingVQBuffer(
+                    num_heads=H,
+                    num_parents=M0,
+                    children_per_parent=C,
+                    head_dim=D,
+                    device=k_for_vq.device,
+                    dtype=self.codebook.parents.dtype,
+                )
+            else:
+                self._streaming_buffer.reset()
+            for h in range(H):
+                self._streaming_buffer.extend(
+                    new_tokens[:, h, 0, :].unsqueeze(0),
+                    self.codebook.parents,
+                    self.codebook.children,
+                )
+            result = self._streaming_buffer.realize()
+        else:
+            result = self.backend.quantize(
+                k_for_vq, v_for_vq, self.codebook.parents, self.codebook.children
+            )
 
         # H4: Store keys and assignments for commitment loss computation.
         self.last_keys = k_for_vq.detach()
@@ -476,26 +507,52 @@ class AVQAttention(nn.Module):
 
         # Stage 6 + 7: refine with real child logits.
         parent_value_per_parent = parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-        refinement = refine_step(
-            state=state,
-            parent_probs=parent_attention_probs,
-            parent_value=parent_value_per_parent,
-            parent_aggregates=parent_values,
-            child_aggregates=result.child_aggregates,
-            children_per_parent=C,
-            decision=decision,
-            attention_probs=parent_attention_probs,
-            parent_counts=result.parent_counts,
-            child_logits=child_logits,
-            child_counts=result.child_counts,
-            merge_strategy=self.config.merge.strategy,
-        )
-        # C2+C4 + M1: Use the REFINED state from refinement.state (which
-        # includes the correction term), not the original state (spec §7.7,
-        # §7.13, §7.14). The corrected state has all parents updated: the
-        # P selected parents have their coarse contribution replaced by the
-        # child contribution; the unselected ones retain the parent state.
-        refined_state = refinement.state
+        if self.config.refinement.passes == 1:
+            # Paper-exact single-pass path (default).
+            refinement = refine_step(
+                state=state,
+                parent_probs=parent_attention_probs,
+                parent_value=parent_value_per_parent,
+                parent_aggregates=parent_values,
+                child_aggregates=result.child_aggregates,
+                children_per_parent=C,
+                decision=decision,
+                attention_probs=parent_attention_probs,
+                parent_counts=result.parent_counts,
+                child_logits=child_logits,
+                child_counts=result.child_counts,
+                merge_strategy=self.config.merge.strategy,
+            )
+            refined_state = refinement.state
+        else:
+            # OPT-0004 (MR): multi-pass refinement (SPEC \u00a715).
+            from avqa.multipass import MultiPassRefiner
+
+            multi = MultiPassRefiner(
+                passes=self.config.refinement.passes,
+                decay=self.config.refinement.pass_decay,
+            )
+            refined_state, _residual_norms = multi.refine(
+                state=state,
+                parent_probs=parent_attention_probs,
+                parent_value=parent_value_per_parent,
+                parent_aggregates=parent_values,
+                child_aggregates=result.child_aggregates,
+                children_per_parent=C,
+                decision=decision,
+                attention_probs=parent_attention_probs,
+                parent_counts=result.parent_counts,
+                child_logits=child_logits,
+                child_counts=result.child_counts,
+                merge_strategy=self.config.merge.strategy,
+            )
+        # C2+C4 + M1: Use the REFINED state (which includes the correction
+        # term), not the original state (spec §7.7, §7.13, §7.14). The
+        # corrected state has all parents updated: the P selected parents
+        # have their coarse contribution replaced by the child
+        # contribution; the unselected ones retain the parent state.
+        # For multi-pass refinement, the state already reflects every
+        # pass; for single-pass, ``refined_state == refinement.state``.
         attn_out = refined_state.running_numerator[
             :, :, :, 0, :
         ] / refined_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
@@ -505,7 +562,7 @@ class AVQAttention(nn.Module):
             _logger.debug(
                 "avq_pipeline: budget=%d selected=%s utilization=%.2f",
                 budget,
-                refinement.selected_parents.shape[-1],
+                decision.selected_indices.shape[-1],
                 (result.parent_counts > 0).float().mean().item(),
             )
 
