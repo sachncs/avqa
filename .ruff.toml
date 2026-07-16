@@ -75,6 +75,17 @@ ignore = [
   "F821",    # Forward references to optional deps; acceptable in
              # integrations.py where the dep may not be installed.
 ]
+"src/avqa/triton/**/*.py" = [
+  "ARG001",
+  "ARG002",
+  "PLR0913",
+  "PLR0917",
+  "ERA001",
+  "B008",
+  "E501",
+  "TC004",
+  "TC006",
+]
 
 [lint.isort]
 known-first-party = ["avqa"]
