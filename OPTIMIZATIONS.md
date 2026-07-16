@@ -59,9 +59,13 @@ runner produces numerical-equivalence + benchmark evidence.
 
 # Optimization Index (this release)
 
-`_placeholder_ — no optimization has passed the
-acceptance gate yet; ENGINEERS will populate this section when the
-first GPU sweep reproduces the SPEC §11.10 acceptance criteria.`
+| ID | Title | Status | Acceptance Evidence |
+|----|-------|--------|---------------------|
+| OPT-0003 | Online Codebook Adaptation (BCAR) | Accepted (CPU) — GPU statistical validation pending | EXP-0004: 60.7 % VQ-loss reduction vs static codebook after 1024 streaming updates |
+
+`OPT-0003` is the project's first algorithmic contribution beyond
+paper reproduction. The CUDA-matrix runner will additionally
+collect multi-seed statistical significance in `EXPERIMENTS.md`.
 
 ---
 
@@ -75,6 +79,14 @@ first CUDA runner activates the Triton kernels.
 |---------|-------------:|-------------:|-------------:|-------|
 | v0.1.0 baseline (EXP-0001) | 4.146 ms | 11.592 ms | 22.215 ms | CPU TorchBackend (PyTorch 2.10.0 / macOS arm64) |
 | v0.1.0 + governance (EXP-0002) | 3.363 ms | 10.140 ms | 19.618 ms | Same harness after Triton staging and adapter hardening |
+
+BCAR stream-on-stream VQ-loss reduction (EXP-0004):
+
+|            | VQ loss (after 1024 steps) | improvement vs static |
+|------------|--------------------------:|-----------------------:|
+| static     | 13.74                     | —                      |
+| bcar       |  5.41                     | 60.7 %                 |
+| oracle     |  0.01                     | —                      |
 
 ---
 
