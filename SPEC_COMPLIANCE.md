@@ -70,6 +70,7 @@ evidence in the repository. IDs follow the v2 ledger: `REQ-<chapter>.<section>.<
 | REQ-3.23.001 | Logging via stdlib `logging` | `src/avqa/logging.py` | `tests/unit/test_logging.py` | Verified |
 | REQ-3.24.001 | Public-API testing (unit + regression + edge cases + serialization + determinism) | every `tests/unit/*.py` | `PYTHONPATH=src pytest tests/unit` | Verified |
 | REQ-3.25.001 | Functional acceptance (reference implementation, public APIs, tests, configuration) | full repo | All tests | Verified |
+| REQ-3.50.001 | Online Codebook Adaptation (SPEC §13) — `online_codebook_adaptation` updates parents/children via EMA; preserves SPEC §7.9 mean invariant at every step | `src/avqa/online_adaptation.py` | `tests/unit/test_online_adaptation.py` (4 cases) | Verified (CPU); statistical validation on GPU runner pending |
 
 ### Per-Module Coverage
 
