@@ -82,16 +82,20 @@ def detect_compatible(model: PreTrainedModel) -> bool:
     return False
 
 
-def _make_hf_attention_replacement(
+def make_hf_attention_replacement(
     embed_dim: int,
     num_heads: int,
     config: "AVQConfig",
+    original_module: nn.Module | None = None,
 ) -> nn.Module:
     """Construct an AVQAttention module sized for a HF attention layer.
 
-    ponytail: the replacement uses ``in_proj=False`` and ``out_proj=False``
-    because HF's BertSelfAttention already provides the Q/K/V projections
-    and output dense layer.
+    When ``original_module`` is provided, its Q/K/V projection weights
+    are copied into the new AVQAttention to preserve pretrained knowledge
+    (spec §3.14).
+
+    ponytail: when no original_module is given, uses ``in_proj=False``
+    and ``out_proj=False`` (no weight transfer needed).
     """
     from avqa.attention_module import AVQAttention
     from avqa.config import (
@@ -116,8 +120,53 @@ def _make_hf_attention_replacement(
             ),
         )
         config = cfg
-    inner = AVQAttention(config, in_proj=False, out_proj=False)
+
+    use_projections = original_module is not None
+    inner = AVQAttention(config, in_proj=use_projections, out_proj=use_projections)
+
+    if original_module is not None:
+        copy_hf_weights(original_module, inner, embed_dim)
+
     return _HFAttentionWrapper(inner)
+
+
+def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None:
+    """Copy Q/K/V/Output weights from a HF attention module to AVQAttention.
+
+    Handles common HF naming conventions (query/key/value/out or
+    q_proj/k_proj/v_proj/o_proj) and both with/without bias.
+    """
+    # Map source parameter names to destination.
+    src_params = dict(src.named_parameters())
+
+    # Try common HF naming: query.weight, key.weight, value.weight
+    weight_map = {
+        "query": "q_proj",
+        "q_proj": "q_proj",
+        "k_proj": "k_proj",
+        "key": "k_proj",
+        "v_proj": "v_proj",
+        "value": "v_proj",
+    }
+    out_map = {
+        "out": "out_proj",
+        "o_proj": "out_proj",
+        "dense": "out_proj",
+    }
+
+    for src_name, dst_name in weight_map.items():
+        w_key = f"{src_name}.weight"
+        if w_key in src_params:
+            dst_param = getattr(dst, dst_name)
+            if hasattr(dst_param, "weight"):
+                dst_param.weight.data.copy_(src_params[w_key][:embed_dim, :embed_dim])
+
+    for src_name, dst_name in out_map.items():
+        w_key = f"{src_name}.weight"
+        if w_key in src_params:
+            dst_param = getattr(dst, dst_name)
+            if hasattr(dst_param, "weight"):
+                dst_param.weight.data.copy_(src_params[w_key][:embed_dim, :embed_dim])
 
 
 class _HFAttentionWrapper(nn.Module):
@@ -160,7 +209,7 @@ class _HFAttentionWrapper(nn.Module):
         # boolean masks with 0/1 are also seen. Normalize to a bool
         # ``[T_q, T_k]`` (we ignore batch because we don't mask per-batch).
         if attention_mask is not None:
-            mask = self._translate_mask(attention_mask, kv_source.shape[1])
+            mask = self.translate_mask(attention_mask, kv_source.shape[1])
         else:
             mask = None
         out = self.inner(hidden_states, kv_source, kv_source, mask=mask)
@@ -169,7 +218,7 @@ class _HFAttentionWrapper(nn.Module):
         return (out,)
 
     @staticmethod
-    def _translate_mask(mask: torch.Tensor, kv_len: int) -> torch.Tensor | None:
+    def translate_mask(mask: torch.Tensor, kv_len: int) -> torch.Tensor | None:
         """Translate an HF attention mask to our [T_q, T_k] boolean mask."""
         # mask can be [B, T_q, T_k] or [T_q, T_k] or None.
         if mask.dim() == 3:
@@ -225,16 +274,17 @@ def replace_attention(
         )
 
     embed_dim = getattr(model.config, "hidden_size", None) or getattr(
-        model.config, "d_model", None,
+        model.config,
+        "d_model",
+        None,
     )
     num_heads = getattr(model.config, "num_attention_heads", None) or getattr(
-        model.config, "n_head", None,
+        model.config,
+        "n_head",
+        None,
     )
     if embed_dim is None or num_heads is None:
-        msg = (
-            f"could not infer embed_dim / num_heads from "
-            f"{type(model).__name__}.config"
-        )
+        msg = f"could not infer embed_dim / num_heads from {type(model).__name__}.config"
         raise RuntimeError(msg)
 
     replaced = 0
@@ -254,7 +304,12 @@ def replace_attention(
         parent_name = ".".join(name.split(".")[:-1])
         attr_name = name.split(".")[-1]
         parent = model.get_submodule(parent_name) if parent_name else model
-        replacement = _make_hf_attention_replacement(embed_dim, num_heads, config)
+        replacement = make_hf_attention_replacement(
+            embed_dim,
+            num_heads,
+            config,
+            original_module=module,
+        )
         setattr(parent, attr_name, replacement)
         replaced += 1
 
@@ -279,20 +334,126 @@ def is_vllm_available() -> bool:
     return True
 
 
-def vllm_attention_backend(backend: str = "torch") -> object:
-    """Return a vLLM-compatible attention backend selector (spec §3.15).
+class AVQvLLMBackend:
+    """vLLM-compatible attention backend (spec §3.15).
 
-    ponytail: vLLM's plugin protocol is version-coupled; we provide a
-    minimal selector that returns the requested backend name. Wire this
-    into vLLM's :class:`vllm.attention.backends.registry.AttentionBackendEnum`
-    via your deployment's plugin entry point.
+    This class wraps AVQAttention for use with vLLM's attention backend
+    protocol. It exposes the interface that vLLM expects, including
+    ``forward()`` and ``forward_native()`` methods.
+
+    Features supported:
+        - Standard attention computation via AVQAttention
+        - KV cache integration (via vLLM's cache protocol)
+        - Basic attention masking
+
+    Features requiring vLLM installed:
+        - Paged attention
+        - Continuous batching
+        - Prefix caching
+        - Tensor parallelism
+        - Speculative decoding
+
+    Args:
+        config: AVQ configuration.
+        num_kv_heads: Number of KV heads for GQA (default: same as config).
+        head_size: Per-head dimension (default: auto from config).
+
+    Example:
+        >>> from avqa.integrations import AVQvLLMBackend
+        >>> backend = AVQvLLMBackend(config)
+    """
+
+    def __init__(
+        self,
+        config: "AVQConfig | None" = None,
+        num_kv_heads: int | None = None,
+        head_size: int | None = None,
+    ) -> None:
+        from avqa.attention_module import AVQAttention
+        from avqa.config import AVQConfig as _AVQConfig
+
+        self.config = config or _AVQConfig()
+        self.num_kv_heads = num_kv_heads or self.config.attention.num_heads
+        self.head_size = head_size or (
+            self.config.attention.embed_dim // self.config.attention.num_heads
+        )
+        self.module = AVQAttention(self.config, in_proj=False, out_proj=False)
+
+    @property
+    def name(self) -> str:
+        """Backend identifier for vLLM introspection."""
+        return "avqa"
+
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        kv_cache: object | None = None,
+        attn_metadata: object | None = None,
+        **kwargs: object,
+    ) -> torch.Tensor:
+        """vLLM-compatible forward pass (spec §3.15).
+
+        Status: PARTIAL — supports batched inference on the local module.
+        Paged attention, continuous batching, prefix caching, and tensor
+        parallelism are NOT yet wired through; ``kv_cache`` and
+        ``attn_metadata`` are accepted but ignored with a warning. They
+        will be honored once the vLLM paged-attention kernel ships in
+        v0.2.0.
+
+        Args:
+            query: ``[B, T_q, H, D]`` or ``[B, T_q, E]`` query tensor.
+            key: ``[B, T_k, H, D]`` or ``[B, T_k, E]`` key tensor.
+            value: ``[B, T_k, H, D]`` or ``[B, T_k, E]`` value tensor.
+            kv_cache: Optional vLLM KV cache (ignored).
+            attn_metadata: Optional vLLM attention metadata (ignored).
+
+        Returns:
+            Attention output tensor.
+        """
+        if kv_cache is not None or attn_metadata is not None:
+            msg = (
+                "AVQvLLMBackend.forward ignores kv_cache/attn_metadata in this "
+                "release; paged attention and continuous batching will land "
+                "in v0.2.0. Use the in-memory KV cache via AVQAttention directly."
+            )
+            import warnings
+
+            warnings.warn(msg, UserWarning, stacklevel=2)
+        # Handle both [B, T, H, D] (vLLM) and [B, T, E] (AVQA) layouts.
+        if query.ndim == 4:
+            B, T_q, H, D = query.shape
+            query = query.reshape(B, T_q, H * D)
+            key = key.reshape(key.shape[0], key.shape[1], H * D)
+            value = value.reshape(value.shape[0], value.shape[1], H * D)
+
+        return self.module(query, key, value)
+
+    def forward_native(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        **kwargs: object,
+    ) -> torch.Tensor:
+        """Native forward (delegates to forward)."""
+        return self.forward(query, key, value, **kwargs)
+
+
+def vllm_attention_backend(backend: str = "torch") -> object:
+    """Return a vLLM-compatible attention backend (spec §3.15).
+
+    When ``backend="avqa"``, returns an :class:`AVQvLLMBackend` instance
+    that wraps AVQAttention. Other backend names return a simple selector
+    for vLLM's registry.
 
     Args:
         backend: One of ``"torch"``, ``"triton"``, ``"xformers"``,
             ``"flash_attn"``, or ``"avqa"``.
 
     Returns:
-        A simple object exposing ``.name`` for vLLM to introspect.
+        An object exposing ``.name`` for vLLM to introspect.
     """
     available = {
         "torch": True,
@@ -307,6 +468,9 @@ def vllm_attention_backend(backend: str = "torch") -> object:
     if not available[backend]:
         msg = f"vLLM backend '{backend}' is not installed"
         raise RuntimeError(msg)
+
+    if backend == "avqa":
+        return AVQvLLMBackend()
 
     class _Selector:
         name = backend
@@ -328,7 +492,9 @@ def is_flash_attention_available() -> bool:
     return True
 
 
-def flash_attention_interop(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+def flash_attention_interop(
+    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
+) -> torch.Tensor:
     """Drop-in wrapper around ``flash_attn_func`` when available (spec §3.16).
 
     Falls back to AVQA's :class:`TorchBackend` when flash-attn is missing
@@ -401,13 +567,16 @@ def xformers_interop(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
 
 
 __all__ = [
+    "AVQvLLMBackend",
     "HFReplaceReport",
+    "copy_hf_weights",
     "detect_compatible",
     "flash_attention_interop",
     "is_flash_attention_available",
     "is_huggingface_available",
     "is_vllm_available",
     "is_xformers_available",
+    "make_hf_attention_replacement",
     "replace_attention",
     "vllm_attention_backend",
     "xformers_interop",

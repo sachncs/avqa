@@ -82,7 +82,7 @@ class JSONVisualizer(Visualizer):
 
     def render_refinement_tree(self, root: TreeNode) -> dict[str, object]:
         """Render a refinement tree as nested dicts."""
-        return _tree_to_dict(root)
+        return tree_to_dict(root)
 
     def render_routing_path(self, decision: object) -> dict[str, object]:
         """Render a routing decision as a JSON dict."""
@@ -136,12 +136,12 @@ class JSONVisualizer(Visualizer):
         }
 
 
-def _tree_to_dict(node: TreeNode) -> dict[str, object]:
+def tree_to_dict(node: TreeNode) -> dict[str, object]:
     """Recursively convert a TreeNode to a JSON-able dict."""
     return {
         "label": node.label,
         "metadata": dict(node.metadata),
-        "children": [_tree_to_dict(c) for c in node.children],
+        "children": [tree_to_dict(c) for c in node.children],
     }
 
 
@@ -154,6 +154,7 @@ __all__ = [
     "TimelineEvent",
     "TreeNode",
     "Visualizer",
+    "tree_to_dict",
 ]
 
 

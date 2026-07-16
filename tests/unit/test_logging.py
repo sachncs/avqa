@@ -23,11 +23,11 @@ def reset_logger_state() -> None:
         logger.removeHandler(handler)
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
-    avqa_logging._set_configured(False)
+    avqa_logging.set_configured(False)
     yield
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
-    avqa_logging._set_configured(False)
+    avqa_logging.set_configured(False)
 
 
 class TestGetLogger:

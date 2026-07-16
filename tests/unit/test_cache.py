@@ -137,4 +137,3 @@ class TestKVCacheInterface:
         """Concrete caches inherit from KVCache."""
         assert issubclass(InMemoryKVCache, KVCache)
         assert issubclass(PagedKVCache, KVCache)
-

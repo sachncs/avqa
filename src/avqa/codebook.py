@@ -26,7 +26,7 @@ from avqa.registry import QUANTIZER_REGISTRY
 _logger = get_logger("codebook")
 
 
-def _require_positive(value: int, field_name: str) -> None:
+def require_positive(value: int, field_name: str) -> None:
     if value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
         raise CodebookError(msg, {field_name: value})
@@ -108,10 +108,10 @@ class HierarchicalCodebook:
         device: str | torch.device = "cpu",
         dtype: torch.dtype = torch.float32,
     ) -> None:
-        _require_positive(num_heads, "num_heads")
-        _require_positive(num_parents, "num_parents")
-        _require_positive(children_per_parent, "children_per_parent")
-        _require_positive(head_dim, "head_dim")
+        require_positive(num_heads, "num_heads")
+        require_positive(num_parents, "num_parents")
+        require_positive(children_per_parent, "children_per_parent")
+        require_positive(head_dim, "head_dim")
         if perturbation_scale <= 0:
             msg = f"perturbation_scale must be > 0, got {perturbation_scale}"
             raise CodebookError(msg)
@@ -124,9 +124,7 @@ class HierarchicalCodebook:
 
         # Parents start at zero; children are initialized to satisfy the
         # mean constraint by construction (parent = mean(child + noise)).
-        self.parents = torch.zeros(
-            num_heads, num_parents, head_dim, device=device, dtype=dtype
-        )
+        self.parents = torch.zeros(num_heads, num_parents, head_dim, device=device, dtype=dtype)
         self.children = torch.zeros(
             num_heads,
             num_parents,
@@ -196,14 +194,17 @@ class HierarchicalCodebook:
             generator: Optional RNG.
             scale: Standard deviation of the initialization distribution.
         """
-        self.parents = torch.randn(
-            self.num_heads,
-            self.num_parents,
-            self.head_dim,
-            device=self.parents.device,
-            dtype=self.parents.dtype,
-            generator=generator,
-        ) * scale
+        self.parents = (
+            torch.randn(
+                self.num_heads,
+                self.num_parents,
+                self.head_dim,
+                device=self.parents.device,
+                dtype=self.parents.dtype,
+                generator=generator,
+            )
+            * scale
+        )
         self.children = torch.zeros_like(self.children)
         self.initialize_children_around_parents(generator=generator)
 
@@ -274,6 +275,36 @@ class HierarchicalCodebook:
         self.reproject_parents()
 
     # ------------------------------------------------------------------
+    # Commitment loss (spec §8.9)
+    # ------------------------------------------------------------------
+
+    def commitment_loss(
+        self,
+        keys: torch.Tensor,
+        parent_assignments: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute commitment (encoding) loss (spec §8.9).
+
+        For each key, measures the squared distance to its assigned
+        parent codeword. This encourages keys to lie close to their
+        assigned code, improving quantization quality during training.
+
+        Args:
+            keys: Encoder outputs ``[B, H, N, D]``.
+            parent_assignments: Per-key parent index ``[B, H, N]``.
+
+        Returns:
+            Scalar mean commitment loss.
+        """
+        B, H, N, D = keys.shape
+        # Gather assigned codewords: [B, H, N, D].
+        assigned = self.parents.unsqueeze(0).expand(B, H, self.num_parents, D)
+        idx = parent_assignments.unsqueeze(-1).expand(B, H, N, D)
+        codewords = torch.gather(assigned, 2, idx)
+        # Squared L2 distance.
+        return ((keys - codewords) ** 2).mean()
+
+    # ------------------------------------------------------------------
     # Serialization (spec §3.20)
     # ------------------------------------------------------------------
 
@@ -306,4 +337,4 @@ class HierarchicalCodebook:
 QUANTIZER_REGISTRY.register("hierarchical_codebook")(HierarchicalCodebook)  # type: ignore[arg-type]
 
 
-__all__ = ["CodebookStats", "HierarchicalCodebook"]
+__all__ = ["CodebookStats", "HierarchicalCodebook", "require_positive"]

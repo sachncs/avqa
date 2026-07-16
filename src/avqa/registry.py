@@ -9,9 +9,10 @@ Usage::
 
     BACKENDS = Registry("backend")
 
+
     @BACKENDS.register("torch")
-    class TorchBackend:
-        ...
+    class TorchBackend: ...
+
 
     cls = BACKENDS.get("torch")
 """
@@ -45,7 +46,7 @@ class Registry(Generic[T]):
 
     def __init__(self, name: str) -> None:
         self.name = name
-        self._items: dict[str, type[T]] = {}
+        self.items: dict[str, type[T]] = {}
 
     def register(self, key: str) -> Callable[[type[T]], type[T]]:
         """Decorator that registers a class under ``key``.
@@ -67,14 +68,12 @@ class Registry(Generic[T]):
             >>> r.get("foo") is Foo
             True
         """
+
         def decorator(cls: type[T]) -> type[T]:
-            if key in self._items:
-                msg = (
-                    f"{self.name}: '{key}' is already registered "
-                    f"({self._items[key].__name__})"
-                )
+            if key in self.items:
+                msg = f"{self.name}: '{key}' is already registered ({self.items[key].__name__})"
                 raise ValueError(msg)
-            self._items[key] = cls
+            self.items[key] = cls
             return cls
 
         return decorator
@@ -92,28 +91,28 @@ class Registry(Generic[T]):
             KeyError: If ``key`` is not registered. The message lists
                 available keys to help debugging.
         """
-        if key not in self._items:
-            available = ", ".join(sorted(self._items)) or "<empty>"
+        if key not in self.items:
+            available = ", ".join(sorted(self.items)) or "<empty>"
             msg = f"{self.name}: unknown key '{key}'. Available: {available}"
             raise KeyError(msg)
-        return self._items[key]
+        return self.items[key]
 
     def try_get(self, key: str) -> type[T] | None:
         """Return the registered class or ``None`` if not found."""
-        return self._items.get(key)
+        return self.items.get(key)
 
     def keys(self) -> tuple[str, ...]:
         """Return all registered keys."""
-        return tuple(self._items)
+        return tuple(self.items)
 
     def __contains__(self, key: object) -> bool:
-        return isinstance(key, str) and key in self._items
+        return isinstance(key, str) and key in self.items
 
     def __len__(self) -> int:
-        return len(self._items)
+        return len(self.items)
 
     def __repr__(self) -> str:
-        return f"Registry({self.name!r}, items={list(self._items)})"
+        return f"Registry({self.name!r}, items={list(self.items)})"
 
 
 # Categories defined by spec §5.10. They are empty here; subsystems fill

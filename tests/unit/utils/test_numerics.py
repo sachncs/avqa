@@ -7,7 +7,7 @@ import torch
 from avqa.utils.numerics import online_softmax_step
 
 
-def _naive_merge(
+def naive_merge(
     m_old: torch.Tensor,
     l_old: torch.Tensor,
     acc_old: torch.Tensor,
@@ -50,9 +50,7 @@ class TestOnlineSoftmaxStep:
         l_new = torch.rand(8) + 0.1
         acc_new = torch.randn(8, 16)
         m, denom, acc = online_softmax_step(m_old, l_old, acc_old, m_new, l_new, acc_new)
-        m_ref, l_ref, acc_ref = _naive_merge(
-            m_old, l_old, acc_old, m_new, l_new, acc_new
-        )
+        m_ref, l_ref, acc_ref = naive_merge(m_old, l_old, acc_old, m_new, l_new, acc_new)
         assert torch.allclose(m, m_ref)
         assert torch.allclose(denom, l_ref)
         assert torch.allclose(acc, acc_ref)
@@ -85,21 +83,15 @@ class TestOnlineSoftmaxStep:
         l2 = torch.exp(x2 - m2).sum(dim=-1)
         acc2 = (torch.exp(x2 - m2).unsqueeze(-1) * v2.unsqueeze(-2)).sum(dim=-2)
 
-        _m, denom, acc = online_softmax_step(
-            m1.squeeze(-1), l1, acc1, m2.squeeze(-1), l2, acc2
-        )
+        _m, denom, acc = online_softmax_step(m1.squeeze(-1), l1, acc1, m2.squeeze(-1), l2, acc2)
         # Reference: compute the global softmax output and check acc/l matches
         x_full = torch.cat([x1, x2], dim=-1)
         m_full = x_full.max(dim=-1, keepdim=True).values
-        l_ref = (
-            torch.exp(x1 - m_full).sum(dim=-1)
-            + torch.exp(x2 - m_full).sum(dim=-1)
-        )
+        l_ref = torch.exp(x1 - m_full).sum(dim=-1) + torch.exp(x2 - m_full).sum(dim=-1)
         assert torch.allclose(denom, l_ref, atol=1e-5)
-        acc_ref = (
-            (torch.exp(x1 - m_full).unsqueeze(-1) * v1.unsqueeze(-2)).sum(dim=-2)
-            + (torch.exp(x2 - m_full).unsqueeze(-1) * v2.unsqueeze(-2)).sum(dim=-2)
-        )
+        acc_ref = (torch.exp(x1 - m_full).unsqueeze(-1) * v1.unsqueeze(-2)).sum(dim=-2) + (
+            torch.exp(x2 - m_full).unsqueeze(-1) * v2.unsqueeze(-2)
+        ).sum(dim=-2)
         assert torch.allclose(acc, acc_ref, atol=1e-5)
 
     def test_empty_tile_zero_contribution(self) -> None:

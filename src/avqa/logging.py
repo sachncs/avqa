@@ -30,11 +30,11 @@ LogLevel = int
 _CONFIGURED: list[bool] = [False]
 
 
-def _set_configured(value: bool) -> None:
+def set_configured(value: bool) -> None:
     _CONFIGURED[0] = value
 
 
-def _is_internal_configured() -> bool:
+def is_internal_configured() -> bool:
     return _CONFIGURED[0]
 
 
@@ -56,9 +56,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
     """
     if name is None:
         return logging.getLogger(AVQA_LOGGER_NAME)
-    full_name = (
-        f"{AVQA_LOGGER_NAME}.{name}" if not name.startswith(AVQA_LOGGER_NAME) else name
-    )
+    full_name = f"{AVQA_LOGGER_NAME}.{name}" if not name.startswith(AVQA_LOGGER_NAME) else name
     return logging.getLogger(full_name)
 
 
@@ -91,7 +89,7 @@ def configure_logger(
         True
     """
     logger = get_logger()
-    if _is_internal_configured() and not force:
+    if is_internal_configured() and not force:
         return logger
 
     if force:
@@ -104,7 +102,7 @@ def configure_logger(
     logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False
-    _set_configured(True)
+    set_configured(True)
     return logger
 
 
@@ -116,7 +114,7 @@ def is_configured() -> bool:
         >>> is_configured()
         True
     """
-    return _is_internal_configured()
+    return is_internal_configured()
 
 
 __all__ = [
@@ -125,4 +123,6 @@ __all__ = [
     "configure_logger",
     "get_logger",
     "is_configured",
+    "is_internal_configured",
+    "set_configured",
 ]

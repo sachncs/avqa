@@ -13,7 +13,7 @@ from avqa.attention import (
 from avqa.utils.numerics import online_softmax_step
 
 
-def _make_state(B: int = 1, H: int = 1, T: int = 4, Dk: int = 8, Dv: int = 16) -> OnlineSoftmaxState:
+def make_state(B: int = 1, H: int = 1, T: int = 4, Dk: int = 8, Dv: int = 16) -> OnlineSoftmaxState:
     """Allocate an empty OnlineSoftmaxState."""
     return OnlineSoftmaxState.empty(B, H, T, Dk, Dv)
 
@@ -23,8 +23,8 @@ class TestRecoverParentLogits:
 
     def test_perfect_mean(self) -> None:
         """If children are exactly the parent, recovered parent matches."""
-        parent = torch.tensor([[[[3.0]]]])                           # [B=1, H=1, T=1, 1]
-        children = torch.tensor([[[[1.0, 3.0, 5.0]]]])               # [B=1, H=1, T=1, C=3]
+        parent = torch.tensor([[[[3.0]]]])  # [B=1, H=1, T=1, 1]
+        children = torch.tensor([[[[1.0, 3.0, 5.0]]]])  # [B=1, H=1, T=1, C=3]
         # parent = mean(children) -> (1+3+5)/3 = 3
         recovered = recover_parent_logits(children, num_children=3)
         assert torch.allclose(recovered, parent, atol=1e-6)
@@ -45,7 +45,7 @@ class TestOnlineSoftmaxState:
 
     def test_empty_state(self) -> None:
         """Empty state has -inf max and 0 denominator/numerator."""
-        state = _make_state()
+        state = make_state()
         assert torch.isinf(state.running_max).all()
         assert state.running_max.lt(0).all()  # -inf
         assert torch.equal(state.running_denominator, torch.zeros_like(state.running_denominator))
@@ -55,7 +55,7 @@ class TestOnlineSoftmaxState:
         """State.merge agrees with avqa.utils.numerics.online_softmax_step."""
         torch.manual_seed(0)
         B, H, T, Dk, Dv = 1, 1, 4, 8, 16
-        state = _make_state(B, H, T, Dk, Dv)
+        state = make_state(B, H, T, Dk, Dv)
         tile_max = torch.randn(B, H, T, Dk)
         tile_denom = torch.rand(B, H, T, Dk) + 0.1
         tile_num = torch.randn(B, H, T, Dk, Dv)
@@ -74,7 +74,7 @@ class TestOnlineSoftmaxState:
 
     def test_empty_tile_no_op(self) -> None:
         """Merging an empty tile (denom=0, num=0, max=-inf) preserves state."""
-        state = _make_state()
+        state = make_state()
         # Seed with real values via one merge.
         torch.manual_seed(0)
         tile_max = torch.randn(1, 1, 4, 8)
@@ -98,7 +98,7 @@ class TestCorrectParentContribution:
         """Output state has same shape as input state."""
         torch.manual_seed(0)
         B, H, T, Dk, Dv = 1, 1, 4, 8, 16
-        state = _make_state(B, H, T, Dk, Dv)
+        state = make_state(B, H, T, Dk, Dv)
         parent_logits = torch.randn(B, H, T, 1)
         child_logits = torch.randn(B, H, T, 4)
         parent_value = torch.randn(B, H, T, 1, Dv)
@@ -128,7 +128,7 @@ class TestCorrectParentContribution:
         """
         torch.manual_seed(0)
         B, H, T, Dk, Dv = 1, 1, 2, 4, 8
-        state = _make_state(B, H, T, Dk, Dv)
+        state = make_state(B, H, T, Dk, Dv)
         C = 3
         parent_logit = torch.tensor([[[[2.0], [3.0]]]])  # [B, H, T, 1]
         child_logits = parent_logit.expand(-1, -1, -1, C) / C * C  # all equal parent/C * C

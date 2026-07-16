@@ -24,14 +24,14 @@ RankLike: TypeAlias = int | tuple[int, ...] | list[int]
 """A rank (single int) or a set of allowed ranks."""
 
 
-def _coerce_shape(shape: ShapeLike) -> torch.Size:
+def coerce_shape(shape: ShapeLike) -> torch.Size:
     """Coerce a shape-like value to a :class:`torch.Size`."""
     if isinstance(shape, torch.Tensor):
         return torch.Size(shape.shape)
     return torch.Size(tuple(int(d) for d in shape))
 
 
-def _shape_to_string(shape: torch.Size) -> str:
+def shape_to_string(shape: torch.Size) -> str:
     """Format a shape for error messages."""
     return f"[{', '.join(str(d) for d in shape)}]"
 
@@ -69,23 +69,21 @@ def validate_shape(
         avqa.exceptions.ShapeError: tensor shape mismatch: expected=[2, 8, 256, 64] actual=[2, 8, 128, 64]
     """
     actual = tensor.shape
-    expected_size = _coerce_shape(expected)
+    expected_size = coerce_shape(expected)
     if len(actual) != len(expected_size):
         raise ShapeError(
             f"{name} rank mismatch: expected rank {len(expected_size)} but got {len(actual)}",
-            expected=_shape_to_string(expected_size),
-            actual=_shape_to_string(actual),
+            expected=shape_to_string(expected_size),
+            actual=shape_to_string(actual),
         )
-    for dim_idx, (actual_dim, expected_dim) in enumerate(
-        zip(actual, expected_size, strict=False)
-    ):
+    for dim_idx, (actual_dim, expected_dim) in enumerate(zip(actual, expected_size, strict=False)):
         if expected_dim == -1:
             continue
         if actual_dim != expected_dim:
             raise ShapeError(
                 f"{name} shape mismatch at dim {dim_idx}: expected {expected_dim} but got {actual_dim}",
-                expected=_shape_to_string(expected_size),
-                actual=_shape_to_string(actual),
+                expected=shape_to_string(expected_size),
+                actual=shape_to_string(actual),
             )
 
 
@@ -230,6 +228,73 @@ def validate_contiguous(
         )
 
 
+def validate_embed_dim(
+    tensor: torch.Tensor,
+    expected_embed_dim: int,
+    *,
+    name: str = "tensor",
+) -> None:
+    """Validate that the last dim of ``tensor`` matches ``expected_embed_dim``.
+
+    Args:
+        tensor: Tensor whose last dim should equal ``expected_embed_dim``.
+        expected_embed_dim: Required embedding dim.
+        name: Variable name used in error messages.
+
+    Raises:
+        ShapeError: If the last dim does not match.
+
+    Example:
+        >>> import torch
+        >>> validate_embed_dim(torch.zeros(2, 8, 128), 128)
+        >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)
+        Traceback (most recent call last):
+            ...
+        avqa.exceptions.ShapeError: tensor embed_dim mismatch
+    """
+    actual = tensor.shape[-1]
+    if actual != expected_embed_dim:
+        raise ShapeError(
+            f"{name} embed_dim mismatch: expected {expected_embed_dim} but got {actual}",
+            expected=f"embed_dim={expected_embed_dim}",
+            actual=f"embed_dim={actual}",
+        )
+
+
+def validate_device_match(
+    tensors: Sequence[torch.Tensor],
+    *,
+    name: str = "tensors",
+) -> None:
+    """Validate that all tensors in ``tensors`` share the same device.
+
+    Args:
+        tensors: Sequence of tensors to check.
+        name: Variable name used in error messages.
+
+    Raises:
+        DeviceError: If the tensors are on different devices.
+
+    Example:
+        >>> import torch
+        >>> validate_device_match([torch.zeros(2), torch.zeros(3)])
+        >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])
+        Traceback (most recent call last):
+            ...
+        avqa.exceptions.DeviceError: tensors device mismatch
+    """
+    if not tensors:
+        return
+    first_device = tensors[0].device
+    for t in tensors[1:]:
+        if t.device != first_device:
+            raise DeviceError(
+                f"{name} device mismatch: expected all on {first_device} but got {t.device}",
+                expected=str(first_device),
+                actual=str(t.device),
+            )
+
+
 def validate_finite(
     tensor: torch.Tensor,
     *,
@@ -252,9 +317,13 @@ def validate_finite(
 __all__ = [
     "RankLike",
     "ShapeLike",
+    "coerce_shape",
+    "shape_to_string",
     "validate_contiguous",
     "validate_device",
+    "validate_device_match",
     "validate_dtype",
+    "validate_embed_dim",
     "validate_finite",
     "validate_rank",
     "validate_shape",

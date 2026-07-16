@@ -9,13 +9,16 @@ import torch
 
 from avqa.attention_module import AVQAttention
 from avqa.cache import InMemoryKVCache
-from avqa.config import AVQConfig, RefinementConfig
+from avqa.config import AttentionShapeConfig, AVQConfig, RefinementConfig
+from avqa.exceptions import AVQAError
 
 
-def _small_config(**overrides: object) -> AVQConfig:
+def small_config(**overrides: object) -> AVQConfig:
     """Tiny config for fast tests."""
     defaults: dict[str, object] = {
-        "attention": __import__("avqa.config", fromlist=["AttentionShapeConfig"]).AttentionShapeConfig(
+        "attention": __import__(
+            "avqa.config", fromlist=["AttentionShapeConfig"]
+        ).AttentionShapeConfig(
             embed_dim=32,
             num_heads=4,
             head_dim=8,
@@ -64,7 +67,7 @@ class TestForwardNaive:
 
     def test_output_shape(self) -> None:
         """Output has shape [B, T_q, E]."""
-        config = _small_config()
+        config = small_config()
         module = AVQAttention(config, in_proj=False, out_proj=False)
         q = torch.randn(2, 4, 32)
         k = torch.randn(2, 6, 32)
@@ -74,7 +77,7 @@ class TestForwardNaive:
 
     def test_with_projection(self) -> None:
         """Output shape preserved with projection layers enabled."""
-        config = _small_config()
+        config = small_config()
         module = AVQAttention(config)
         q = torch.randn(2, 4, 32)
         out = module(q, q, q)
@@ -82,7 +85,7 @@ class TestForwardNaive:
 
     def test_causal_mask(self) -> None:
         """Causal mode applies lower-triangular masking."""
-        config = dataclasses.replace(_small_config(), causal=True)
+        config = dataclasses.replace(small_config(), causal=True)
         module = AVQAttention(config, in_proj=False, out_proj=False)
         q = torch.randn(1, 4, 32)
         k = torch.randn(1, 6, 32)
@@ -97,7 +100,7 @@ class TestForwardAVQ:
 
     def test_avq_path_runs(self) -> None:
         """Full AVQ path returns the expected shape."""
-        module = AVQAttention(_small_config(), in_proj=False, out_proj=False)
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
         q = torch.randn(2, 4, 32)
         k = torch.randn(2, 6, 32)
         v = torch.randn(2, 6, 32)
@@ -106,7 +109,7 @@ class TestForwardAVQ:
 
     def test_avq_path_with_causal(self) -> None:
         """AVQ path with causal masking runs."""
-        config = dataclasses.replace(_small_config(), causal=True)
+        config = dataclasses.replace(small_config(), causal=True)
         module = AVQAttention(config, in_proj=False, out_proj=False)
         q = torch.randn(1, 4, 32)
         k = torch.randn(1, 6, 32)
@@ -116,7 +119,7 @@ class TestForwardAVQ:
 
     def test_avq_path_output_finite(self) -> None:
         """AVQ output contains no NaN/Inf."""
-        module = AVQAttention(_small_config(), in_proj=False, out_proj=False)
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
         q = torch.randn(1, 4, 32)
         out = module(q, q, q)
         assert torch.isfinite(out).all()
@@ -128,7 +131,9 @@ class TestGradients:
     def test_gradients_flow_through_naive(self) -> None:
         """Gradients reach all projection parameters in the naive path."""
         config = AVQConfig(
-            refinement=__import__("avqa.config", fromlist=["RefinementConfig"]).RefinementConfig(enabled=False),
+            refinement=__import__("avqa.config", fromlist=["RefinementConfig"]).RefinementConfig(
+                enabled=False
+            ),
         )
         module = AVQAttention(config)
         q = torch.randn(1, 4, config.attention.embed_dim, requires_grad=True)
@@ -138,7 +143,7 @@ class TestGradients:
 
     def test_gradients_flow_through_avq(self) -> None:
         """Gradients reach input tensors in the AVQ path."""
-        module = AVQAttention(_small_config())
+        module = AVQAttention(small_config())
         q = torch.randn(1, 4, 32, requires_grad=True)
         out = module(q, q, q)
         out.sum().backward()
@@ -148,12 +153,10 @@ class TestGradients:
 class TestDtypeSupport:
     """Tests for supported dtypes (spec §6.9)."""
 
-    @pytest.mark.parametrize(
-        "dtype", [torch.float32, torch.float16, torch.bfloat16]
-    )
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
     def test_supported_dtype(self, dtype: torch.dtype) -> None:
         """Reference supports FP32, FP16, BF16."""
-        module = AVQAttention(_small_config(), in_proj=False, out_proj=False)
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
         q = torch.randn(1, 4, 32, dtype=dtype)
         out = module(q, q, q)
         # Output dtype is determined by the output projection weights
@@ -167,9 +170,11 @@ class TestKVCacheIntegration:
 
     def test_kv_cache_extends(self) -> None:
         """Passing a cache extends it with the new K/V."""
-        module = AVQAttention(_small_config(), in_proj=False, out_proj=False)
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
         cache = InMemoryKVCache(
-            num_heads=4, head_dim_k=8, head_dim_v=8,
+            num_heads=4,
+            head_dim_k=8,
+            head_dim_v=8,
         )
         q = torch.randn(1, 4, 32)
         k = torch.randn(1, 6, 32)
@@ -192,7 +197,10 @@ class TestRefinementDisabled:
 
         We verify this by monkey-patching quantize to track calls.
         """
-        config = AVQConfig(refinement=RefinementConfig(enabled=False))
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
         module = AVQAttention(config, in_proj=False, out_proj=False)
 
         called = {"n": 0}
@@ -212,11 +220,11 @@ class TestErrorHandling:
 
     def test_query_key_embedding_mismatch(self) -> None:
         """Query and key with different embedding dims raise."""
-        config = _small_config()
+        config = small_config()
         module = AVQAttention(config, in_proj=False, out_proj=False)
         q = torch.randn(1, 4, 32)
-        k = torch.randn(1, 4, 16)   # wrong dim
-        with pytest.raises((ValueError, RuntimeError)):
+        k = torch.randn(1, 4, 16)  # wrong dim
+        with pytest.raises((ValueError, RuntimeError, AVQAError)):
             module(q, k, k)
 
 
@@ -225,12 +233,12 @@ class TestStateDict:
 
     def test_state_dict_round_trip(self) -> None:
         """state_dict round-trips through load_state_dict."""
-        module = AVQAttention(_small_config())
+        module = AVQAttention(small_config())
         state = module.state_dict()
         # q_proj.weight has shape (32, 32); verify it's in state.
         assert "q_proj.weight" in state
         # Round-trip via a fresh module.
-        module2 = AVQAttention(_small_config())
+        module2 = AVQAttention(small_config())
         module2.load_state_dict(state)
         # Copy codebook state (not an nn.Parameter, so not in state_dict).
         module2.codebook.parents = module.codebook.parents.clone()

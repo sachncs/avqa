@@ -97,6 +97,53 @@ class OnlineSoftmaxState:
             running_numerator=new_num,
         )
 
+    def replace(
+        self,
+        removed_max: torch.Tensor,
+        removed_denominator: torch.Tensor,
+        removed_numerator: torch.Tensor,
+        added_max: torch.Tensor,
+        added_denominator: torch.Tensor,
+        added_numerator: torch.Tensor,
+    ) -> OnlineSoftmaxState:
+        """Replace a tile: state_new = state - removed + added.
+
+        Used by correcting attention (spec §7.13). All three tiles
+        are broadcast-compatible with the state shape ``[B, H, T, D_k]``.
+        Uses a numerically stable three-way max.
+
+        Args:
+            removed_max: ``[B, H, T, D_k]`` per-row max of the removed tile.
+            removed_denominator: ``[B, H, T, D_k]`` per-row denominator to subtract.
+            removed_numerator: ``[B, H, T, D_k, D_v]`` per-row numerator to subtract.
+            added_max: ``[B, H, T, D_k]`` per-row max of the added tile.
+            added_denominator: ``[B, H, T, D_k]`` per-row denominator to add.
+            added_numerator: ``[B, H, T, D_k, D_v]`` per-row numerator to add.
+
+        Returns:
+            New :class:`OnlineSoftmaxState` with the replacement applied.
+        """
+        new_max = torch.maximum(torch.maximum(self.running_max, removed_max), added_max)
+        scale_old = torch.exp(self.running_max - new_max)
+        scale_removed = torch.exp(removed_max - new_max)
+        scale_added = torch.exp(added_max - new_max)
+        new_denom = (
+            self.running_denominator * scale_old
+            - removed_denominator * scale_removed
+            + added_denominator * scale_added
+        )
+        # Numerator: [B, H, T, D_k, D_v]. scale broadcasts across D_v.
+        new_num = (
+            self.running_numerator * scale_old.unsqueeze(-1)
+            - removed_numerator * scale_removed.unsqueeze(-1)
+            + added_numerator * scale_added.unsqueeze(-1)
+        )
+        return OnlineSoftmaxState(
+            running_max=new_max,
+            running_denominator=new_denom,
+            running_numerator=new_num,
+        )
+
 
 def recover_parent_logits(
     child_logits: torch.Tensor,
@@ -133,44 +180,55 @@ def correct_parent_contribution(
 ) -> OnlineSoftmaxState:
     """Apply correcting attention to replace parent with children (spec §7.13).
 
+    Uses :meth:`OnlineSoftmaxState.replace` to subtract the parent
+    contribution and add the child contribution in a numerically stable
+    way (common scale = max over all three tiles).
+
     Steps:
 
     1. Reconstruct parent logits from children (avoiding matmul).
-    2. Compute the delta between child and parent logit-normalized values.
-    3. Update the running state by merging the delta tile.
+    2. Compute the tile stats for the parent (to remove) and children (to add).
+    3. Update the running state via ``state - parent + children``.
 
     Args:
         state: Current :class:`OnlineSoftmaxState`.
-        parent_logits: ``[B, H, T, 1]`` parent logit per query.
-            (kept for documentation symmetry with the algorithm; the
-            correction uses recovered parent logits instead.)
+        parent_logits: ``[B, H, T, 1]`` parent logit per query
+            (used for parent tile max; if ``None``, recovered from children).
         child_logits: ``[B, H, T, C]`` child logits (same group as parent).
-        parent_value: ``[B, H, T, 1, D_v]`` parent value contribution.
-        child_value: ``[B, H, T, C, D_v]`` child value contributions.
+        parent_value: ``[B, H, T, 1, D_v]`` parent raw value aggregate.
+        child_value: ``[B, H, T, C, D_v]`` child raw value aggregates.
         num_children: Number of children per parent (C).
 
     Returns:
         Updated :class:`OnlineSoftmaxState`.
     """
-    del parent_logits  # correction uses recovered parent logits
-    # Recovered parent logits (used to remove the parent's contribution).
-    recovered_parent = recover_parent_logits(child_logits, num_children)
-    delta_logits = child_logits - recovered_parent
-    # Numerator deltas: each child contributes (exp(delta_logit) * v_c),
-    # the parent removes (exp(0) * v_p) = v_p.
-    parent_contribution = parent_value                                # [B, H, T, 1, D_v]
-    child_contribution = child_value                                   # [B, H, T, C, D_v]
-    # Tile max for the delta: max over the C children.
-    delta_max = delta_logits.amax(dim=-1, keepdim=True)               # [B, H, T, 1]
-    delta_denom = torch.exp(delta_logits - delta_max).sum(
-        dim=-1, keepdim=True
-    )                                                                  # [B, H, T, 1]
-    # Numerator delta: sum_c exp(delta_logit - delta_max) * v_c - v_p.
-    delta_num = (
-        torch.exp(delta_logits.unsqueeze(-1) - delta_max.unsqueeze(-1))
-        * child_contribution
-    ).sum(dim=-2, keepdim=True) - parent_contribution                   # [B, H, T, 1, D_v]
-    return state.merge(delta_max, delta_denom, delta_num)
+    if parent_logits is None:
+        parent_logits = recover_parent_logits(child_logits, num_children)
+    # The state carries a D_k dimension. Use the running max as the common
+    # scale; replace -inf with the new tile max to avoid overflow. Tile
+    # outputs are broadcast to [B, H, T, D_k] so they multiply cleanly
+    # with the state (the D_k dim is degenerate — same value everywhere).
+    m_raw = state.running_max[..., 0:1]  # [B, H, T, 1]
+    new_max_1d = torch.maximum(
+        parent_logits.amax(dim=-1, keepdim=True), child_logits.amax(dim=-1, keepdim=True)
+    )  # [B, H, T, 1]
+    m_1d = torch.where(torch.isinf(m_raw) & (m_raw < 0), new_max_1d, m_raw)  # [B, H, T, 1]
+    # Expand scalar m to full state tile: [B, H, T, 1] → broadcast against D_k.
+    parent_exp_1d = torch.exp(parent_logits - m_1d)  # [B, H, T, 1]
+    child_exp_1d = torch.exp(child_logits - m_1d)  # [B, H, T, C]
+    parent_tile_denom_1d = parent_exp_1d.squeeze(-1)  # [B, H, T]
+    parent_tile_num_5d = parent_exp_1d.unsqueeze(-1) * parent_value  # [B, H, T, 1, D_v]
+    child_tile_denom_1d = child_exp_1d.sum(dim=-1)  # [B, H, T]
+    child_tile_num_5d = (child_exp_1d.unsqueeze(-1) * child_value).sum(dim=-2)  # [B, H, T, D_v]
+    # Add the D_k singleton dim so shapes match state.
+    return state.replace(
+        removed_max=parent_logits.squeeze(-1).unsqueeze(-1),  # [B, H, T, 1]
+        removed_denominator=parent_tile_denom_1d.unsqueeze(-1),  # [B, H, T, 1]
+        removed_numerator=parent_tile_num_5d,  # [B, H, T, 1, D_v]
+        added_max=child_logits.amax(dim=-1).unsqueeze(-1),  # [B, H, T, 1]
+        added_denominator=child_tile_denom_1d.unsqueeze(-1),  # [B, H, T, 1]
+        added_numerator=child_tile_num_5d.unsqueeze(-2),  # [B, H, T, 1, D_v]
+    )
 
 
 __all__ = [

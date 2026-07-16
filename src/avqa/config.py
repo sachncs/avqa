@@ -15,7 +15,8 @@ create import ceremony.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+import dataclasses
+from dataclasses import asdict, dataclass, field, fields
 
 from avqa.exceptions import ConfigurationError
 
@@ -26,19 +27,19 @@ SCHEMA_VERSION: str = "1"
 DEFAULT_EMA_DECAY: float = 0.99
 
 
-def _require_positive(value: float, field_name: str) -> None:
+def require_positive(value: float, field_name: str) -> None:
     if value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
-def _require_non_negative(value: int, field_name: str) -> None:
+def require_non_negative(value: int, field_name: str) -> None:
     if value < 0:
         msg = f"{field_name} must be >= 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
-def _require_in_range(value: float, lo: float, hi: float, field_name: str) -> None:
+def require_in_range(value: float, lo: float, hi: float, field_name: str) -> None:
     if not lo <= value <= hi:
         msg = f"{field_name} must be in [{lo}, {hi}], got {value}"
         raise ConfigurationError(msg, {field_name: value})
@@ -59,6 +60,12 @@ class CodebookConfig:
         perturbation_scale: Std of the Gaussian noise used to initialize
             children near their parent (spec §8.10).
         ema_decay: EMA decay for codebook training (spec §8.9).
+        commitment_loss_weight: Weight for the commitment (encoding) loss
+            during training (spec §8.9). ``0.25`` is the paper default.
+            Set to ``0.0`` to disable.
+        max_depth: Maximum hierarchy depth. Currently only ``2`` (parent +
+            child) is supported. Depths > 2 will raise at construction
+            time. Arbitrary depth is planned for v0.2.0 (spec §2.7, §3.8).
 
     Example:
         >>> cb = CodebookConfig()
@@ -70,12 +77,22 @@ class CodebookConfig:
     children_per_codeword: int = 4
     perturbation_scale: float = 0.1
     ema_decay: float = DEFAULT_EMA_DECAY
+    commitment_loss_weight: float = 0.25
+    max_depth: int = 2
 
     def __post_init__(self) -> None:
-        _require_positive(self.num_codewords, "num_codewords")
-        _require_positive(self.children_per_codeword, "children_per_codeword")
-        _require_positive(self.perturbation_scale, "perturbation_scale")
-        _require_in_range(self.ema_decay, 0.0, 1.0, "ema_decay")
+        require_positive(self.num_codewords, "num_codewords")
+        require_positive(self.children_per_codeword, "children_per_codeword")
+        require_positive(self.perturbation_scale, "perturbation_scale")
+        require_in_range(self.ema_decay, 0.0, 1.0, "ema_decay")
+        require_non_negative(self.commitment_loss_weight, "commitment_loss_weight")
+        if self.max_depth != 2:
+            msg = (
+                f"max_depth={self.max_depth} is not yet supported; "
+                f"only max_depth=2 (parent + child) is implemented. "
+                f"Arbitrary tree depth is planned for v0.2.0."
+            )
+            raise ConfigurationError(msg, {"max_depth": self.max_depth})
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,8 +114,8 @@ class RoutingConfig:
     importance_temperature: float = 1.0
 
     def __post_init__(self) -> None:
-        _require_positive(self.refinement_budget, "refinement_budget")
-        _require_positive(self.importance_temperature, "importance_temperature")
+        require_positive(self.refinement_budget, "refinement_budget")
+        require_positive(self.importance_temperature, "importance_temperature")
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +127,7 @@ class RefinementConfig:
     adaptive_budget: bool = False
 
     def __post_init__(self) -> None:
-        _require_in_range(self.threshold, 0.0, 1.0, "threshold")
+        require_in_range(self.threshold, 0.0, 1.0, "threshold")
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,7 +182,7 @@ class CacheConfig:
     max_size: int = 0  # 0 means unbounded
 
     def __post_init__(self) -> None:
-        _require_non_negative(self.max_size, "cache.max_size")
+        require_non_negative(self.max_size, "cache.max_size")
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,7 +223,7 @@ class ExecutionConfig:
         if self.mode not in allowed:
             msg = f"execution.mode must be one of {sorted(allowed)}, got {self.mode!r}"
             raise ConfigurationError(msg, {"execution.mode": self.mode})
-        _require_non_negative(self.seed, "execution.seed")
+        require_non_negative(self.seed, "execution.seed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,14 +244,11 @@ class AttentionShapeConfig:
     max_sequence_length: int = 0
 
     def __post_init__(self) -> None:
-        _require_positive(self.embed_dim, "embed_dim")
-        _require_positive(self.num_heads, "num_heads")
-        _require_non_negative(self.max_sequence_length, "max_sequence_length")
+        require_positive(self.embed_dim, "embed_dim")
+        require_positive(self.num_heads, "num_heads")
+        require_non_negative(self.max_sequence_length, "max_sequence_length")
         if self.embed_dim % self.num_heads != 0:
-            msg = (
-                f"embed_dim ({self.embed_dim}) must be divisible by "
-                f"num_heads ({self.num_heads})"
-            )
+            msg = f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})"
             raise ConfigurationError(
                 msg, {"embed_dim": self.embed_dim, "num_heads": self.num_heads}
             )
@@ -292,18 +306,20 @@ class AVQConfig:
     tolerance_rtol: float = 1e-5
 
     def __post_init__(self) -> None:
-        _require_in_range(self.dropout, 0.0, 1.0, "dropout")
-        _require_positive(self.tolerance_atol, "tolerance_atol")
-        _require_positive(self.tolerance_rtol, "tolerance_rtol")
+        require_in_range(self.dropout, 0.0, 1.0, "dropout")
+        require_positive(self.tolerance_atol, "tolerance_atol")
+        require_positive(self.tolerance_rtol, "tolerance_rtol")
         # Auto-derive head_dim if user left it at 0.
         if self.attention.head_dim == 0:
             object.__setattr__(
-                self, "attention", AttentionShapeConfig(
+                self,
+                "attention",
+                AttentionShapeConfig(
                     embed_dim=self.attention.embed_dim,
                     num_heads=self.attention.num_heads,
                     head_dim=self.attention.embed_dim // self.attention.num_heads,
                     max_sequence_length=self.attention.max_sequence_length,
-                )
+                ),
             )
 
     # ------------------------------------------------------------------
@@ -314,17 +330,21 @@ class AVQConfig:
         """Recursively convert to a plain dictionary.
 
         The returned dict carries a ``"schema_version"`` key for forward
-        compatibility (spec §3.20.2).
+        compatibility (spec §3.20.2). All nested sub-config dataclasses
+        are recursively converted, so the result is JSON-serializable.
         """
         result: dict[str, object] = {"schema_version": SCHEMA_VERSION}
         for f in fields(self):
             value = getattr(self, f.name)
             if hasattr(value, "to_dict"):
                 result[f.name] = value.to_dict()
+            elif hasattr(value, "__dataclass_fields__"):
+                # M6: sub-config dataclass → asdict for JSON safety.
+                result[f.name] = to_primitive(asdict(value))
             elif isinstance(value, tuple) and hasattr(type(value), "_fields"):
-                result[f.name] = tuple(_to_primitive(v) for v in value)
+                result[f.name] = tuple(to_primitive(v) for v in value)
             else:
-                result[f.name] = _to_primitive(value)
+                result[f.name] = to_primitive(value)
         return result
 
     @classmethod
@@ -339,27 +359,31 @@ class AVQConfig:
             raise ConfigurationError(msg)
         schema = data.get("schema_version")
         if schema is not None and schema != SCHEMA_VERSION:
-            msg = (
-                f"AVQConfig schema_version mismatch: expected {SCHEMA_VERSION!r}, "
-                f"got {schema!r}"
-            )
+            msg = f"AVQConfig schema_version mismatch: expected {SCHEMA_VERSION!r}, got {schema!r}"
             raise ConfigurationError(msg, {"schema_version": schema})
+        known_fields = {f.name for f in fields(cls)}
+        # M6: reject unknown fields to prevent silent schema drift.
+        for k in data:
+            if k != "schema_version" and k not in known_fields:
+                msg = f"AVQConfig.from_dict got unknown field {k!r}; known fields are {sorted(known_fields)}"
+                raise ConfigurationError(msg, {"unknown_field": k})
         kwargs: dict[str, object] = {}
         for f in fields(cls):
             if f.name not in data:
                 continue
             value = data[f.name]
-            field_type = f.type
-            # Try to use the declared type's from_dict if available.
-            target = cls._resolve_field_type(field_type)
-            if isinstance(value, dict) and hasattr(target, "from_dict"):
-                kwargs[f.name] = target.from_dict(value)
-            else:
-                kwargs[f.name] = value
+            # M6: sub-config dataclasses reconstruct via their own __init__,
+            # which accepts the kwargs produced by asdict() in to_dict().
+            if isinstance(value, dict):
+                target = cls.resolve_field_type(f.type)
+                if target is not object and dataclasses.is_dataclass(target):
+                    kwargs[f.name] = target(**value)  # type: ignore[call-arg]
+                    continue
+            kwargs[f.name] = value
         return cls(**kwargs)  # type: ignore[arg-type]
 
     @staticmethod
-    def _resolve_field_type(type_string: object) -> type:
+    def resolve_field_type(type_string: object) -> type:
         """Resolve a dataclass field type annotation back to a class.
 
         ponytail: only used by ``from_dict`` to dispatch sub-config
@@ -368,17 +392,23 @@ class AVQConfig:
         """
         if isinstance(type_string, type):
             return type_string
+        # M6: resolve string annotations ("AttentionShapeConfig") back to
+        # the actual class by name lookup in this module.
+        if isinstance(type_string, str):
+            cls_obj = globals().get(type_string)
+            if isinstance(cls_obj, type):
+                return cls_obj
         return object
 
 
-def _to_primitive(value: object) -> object:
+def to_primitive(value: object) -> object:
     """Convert a value to a JSON-serializable primitive."""
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     if isinstance(value, (list, tuple)):
-        return [_to_primitive(v) for v in value]
+        return [to_primitive(v) for v in value]
     if isinstance(value, dict):
-        return {str(k): _to_primitive(v) for k, v in value.items()}
+        return {str(k): to_primitive(v) for k, v in value.items()}
     if hasattr(value, "to_dict"):
         return value.to_dict()
     return value
@@ -397,4 +427,8 @@ __all__ = [
     "PrecisionConfig",
     "RefinementConfig",
     "RoutingConfig",
+    "require_in_range",
+    "require_non_negative",
+    "require_positive",
+    "to_primitive",
 ]

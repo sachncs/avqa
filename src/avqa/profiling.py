@@ -44,6 +44,9 @@ class ProfilerReport:
         refinement_stats: Per-step refinement budget and active counts.
         codebook_utilization: Per-head codeword assignment fractions.
         cache_hits / cache_misses: Cache usage counters.
+        total_flops: M7 — total FLOPs consumed by the pipeline (spec §3.17).
+            Estimated from sequence lengths, codebook sizes, and refinement
+            budget; not an exact hardware FLOP counter.
     """
 
     stage_timers: list[StageTimer] = field(default_factory=list)
@@ -54,6 +57,7 @@ class ProfilerReport:
     codebook_utilization: dict[str, float] = field(default_factory=dict)
     cache_hits: int = 0
     cache_misses: int = 0
+    total_flops: int = 0
 
     def to_dict(self) -> dict[str, object]:
         """Serialize to a plain dict (JSON-compatible)."""
@@ -88,18 +92,15 @@ class Profiler:
 
     def __init__(self) -> None:
         self.report = ProfilerReport()
-        self._active: list[float] = []
 
     @contextmanager
     def session(self) -> Iterator[None]:
         """Open a profiling session."""
-        self._session_start = time.perf_counter()
+        self.session_start = time.perf_counter()
         try:
             yield
         finally:
-            self.report.total_duration_ms = (
-                time.perf_counter() - self._session_start
-            ) * 1000.0
+            self.report.total_duration_ms = (time.perf_counter() - self.session_start) * 1000.0
             _logger.debug(
                 "Profiler session: %.2f ms, %d stages",
                 self.report.total_duration_ms,
@@ -110,12 +111,12 @@ class Profiler:
     def stage(self, name: str) -> Iterator[None]:
         """Time a named stage."""
         start = time.perf_counter()
-        mem_before = _peak_memory_bytes() if torch.cuda.is_available() else 0
+        mem_before = peak_memory_bytes() if torch.cuda.is_available() else 0
         try:
             yield
         finally:
             duration_ms = (time.perf_counter() - start) * 1000.0
-            mem_after = _peak_memory_bytes() if torch.cuda.is_available() else 0
+            mem_after = peak_memory_bytes() if torch.cuda.is_available() else 0
             self.report.stage_timers.append(
                 StageTimer(
                     name=name,
@@ -172,7 +173,7 @@ class Profiler:
             path.write(data)
 
 
-def _peak_memory_bytes() -> int:
+def peak_memory_bytes() -> int:
     """Return current peak CUDA memory in bytes; 0 if CUDA unavailable."""
     if torch.cuda.is_available():
         return int(torch.cuda.max_memory_allocated())
@@ -182,4 +183,4 @@ def _peak_memory_bytes() -> int:
 PROFILER_REGISTRY.register("default")(Profiler)  # type: ignore[arg-type]
 
 
-__all__ = ["Profiler", "ProfilerReport", "StageTimer"]
+__all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"]

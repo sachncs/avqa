@@ -25,6 +25,9 @@ class CacheEntry:
         key: Cached key tensor.
         value: Cached value tensor.
         positions: Original sequence positions (for paged layouts).
+            L7: populated on append in PagedKVCache; InMemoryKVCache
+            always sets an empty tensor since positions are implicit
+            in the contiguous key layout.
     """
 
     key: torch.Tensor
@@ -91,8 +94,8 @@ class InMemoryKVCache(KVCache):
         self.max_size = max_size
         self.device = device
         self.dtype = dtype
-        self._key: torch.Tensor | None = None
-        self._value: torch.Tensor | None = None
+        self.cache_key: torch.Tensor | None = None
+        self.cache_value: torch.Tensor | None = None
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append new tokens to the cache.
@@ -105,65 +108,92 @@ class InMemoryKVCache(KVCache):
             raise ValueError(
                 f"key/value shape mismatch: key={tuple(key.shape)}, value={tuple(value.shape)}",
             )
-        if self._key is None:
-            self._key = key.to(device=self.device, dtype=self.dtype)
-            self._value = value.to(device=self.device, dtype=self.dtype)
+        if self.cache_key is None:
+            self.cache_key = key.to(device=self.device, dtype=self.dtype)
+            self.cache_value = value.to(device=self.device, dtype=self.dtype)
         else:
-            existing_key = self._key
+            existing_key = self.cache_key
             assert existing_key is not None
-            self._key = torch.cat([existing_key, key.to(existing_key.dtype)], dim=-2)
-            existing_value = self._value
+            self.cache_key = torch.cat([existing_key, key.to(existing_key.dtype)], dim=-2)
+            existing_value = self.cache_value
             assert existing_value is not None
-            self._value = torch.cat(
-                [existing_value, value.to(existing_value.dtype)], dim=-2,
+            self.cache_value = torch.cat(
+                [existing_value, value.to(existing_value.dtype)],
+                dim=-2,
             )
         if self.max_size > 0 and self.size > self.max_size:
             # Drop the oldest tokens.
             excess = self.size - self.max_size
-            assert self._key is not None
-            assert self._value is not None
-            self._key = self._key[..., excess:, :]
-            self._value = self._value[..., excess:, :]
+            assert self.cache_key is not None
+            assert self.cache_value is not None
+            self.cache_key = self.cache_key[..., excess:, :]
+            self.cache_value = self.cache_value[..., excess:, :]
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cached (key, value); empty cache returns empty tensors."""
-        if self._key is None or self._value is None:
+        if self.cache_key is None or self.cache_value is None:
             empty_k = torch.zeros(
-                1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device,
+                1,
+                self.num_heads,
+                0,
+                self.head_dim_k,
+                dtype=self.dtype,
+                device=self.device,
             )
             empty_v = torch.zeros(
-                1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device,
+                1,
+                self.num_heads,
+                0,
+                self.head_dim_v,
+                dtype=self.dtype,
+                device=self.device,
             )
             return empty_k, empty_v
-        return self._key, self._value
+        return self.cache_key, self.cache_value
 
     def reset(self) -> None:
         """Drop all cached entries."""
-        self._key = None
-        self._value = None
+        self.cache_key = None
+        self.cache_value = None
 
     def state_dict(self) -> dict[str, torch.Tensor]:
-        """Serialize empty cache as zeros (full state too large for default)."""
+        """Serialize cache contents (metadata + tensors)."""
         return {
             "schema_version": torch.tensor(1, dtype=torch.int32),
             "num_heads": torch.tensor(self.num_heads, dtype=torch.int32),
             "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
             "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
+            "cache_key": self.cache_key.detach().clone()
+            if self.cache_key is not None
+            else torch.zeros(0),
+            "cache_value": self.cache_value.detach().clone()
+            if self.cache_value is not None
+            else torch.zeros(0),
         }
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
-        """Restore metadata from a state dict (data is not persisted here)."""
+        """Restore cache from :meth:`state_dict` output."""
         if "num_heads" in state and int(state["num_heads"]) != self.num_heads:
             raise ValueError("num_heads mismatch")
-        self.reset()
+        if "head_dim_k" in state and int(state["head_dim_k"]) != self.head_dim_k:
+            raise ValueError("head_dim_k mismatch")
+        if "head_dim_v" in state and int(state["head_dim_v"]) != self.head_dim_v:
+            raise ValueError("head_dim_v mismatch")
+        cache_key = state.get("cache_key")
+        cache_value = state.get("cache_value")
+        if cache_key is not None and cache_key.numel() > 0:
+            self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
+            self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
+        else:
+            self.reset()
 
     @property
     def size(self) -> int:
         """Number of cached tokens."""
-        if self._key is None:
+        if self.cache_key is None:
             return 0
-        return int(self._key.shape[-2])
+        return int(self.cache_key.shape[-2])
 
 
 class PagedKVCache(KVCache):
@@ -200,14 +230,14 @@ class PagedKVCache(KVCache):
         self.max_pages = max_pages
         self.device = device
         self.dtype = dtype
-        self._pages: list[CacheEntry] = []
+        self.pages: list[CacheEntry] = []
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append tokens; allocate a new page when the current one fills."""
         T = key.shape[-2]
         cursor = 0
         while cursor < T:
-            current_page = self._current_page()
+            current_page = self.current_page()
             free = self.page_size - current_page.key.shape[-2]
             take = min(free, T - cursor)
             k_chunk = key[..., cursor : cursor + take, :]
@@ -216,47 +246,55 @@ class PagedKVCache(KVCache):
             current_page.value = torch.cat([current_page.value, v_chunk], dim=-2)
             cursor += take
             if current_page.key.shape[-2] == self.page_size and cursor < T:
-                self._allocate_page()
+                self.allocate_page()
 
-    def _current_page(self) -> CacheEntry:
+    def current_page(self) -> CacheEntry:
         """Return the most recent page, allocating one if none exists."""
-        if not self._pages or self._pages[-1].key.shape[-2] == self.page_size:
-            self._allocate_page()
-        return self._pages[-1]
+        if not self.pages or self.pages[-1].key.shape[-2] == self.page_size:
+            self.allocate_page()
+        return self.pages[-1]
 
-    def _allocate_page(self) -> None:
+    def allocate_page(self) -> None:
         """Allocate a new empty page."""
-        if self.max_pages > 0 and len(self._pages) >= self.max_pages:
+        if self.max_pages > 0 and len(self.pages) >= self.max_pages:
             raise RuntimeError("paged KV cache is full")
-        self._pages.append(
+        self.pages.append(
             CacheEntry(
-                key=torch.zeros(1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device),
-                value=torch.zeros(1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device),
+                key=torch.zeros(
+                    1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device
+                ),
+                value=torch.zeros(
+                    1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device
+                ),
                 positions=torch.zeros(0, dtype=torch.long, device=self.device),
             )
         )
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Concatenate all page contents into a single (key, value) pair."""
-        if not self._pages:
+        if not self.pages:
             return (
-                torch.zeros(1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device),
-                torch.zeros(1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device),
+                torch.zeros(
+                    1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device
+                ),
+                torch.zeros(
+                    1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device
+                ),
             )
-        keys = torch.cat([p.key for p in self._pages], dim=-2)
-        values = torch.cat([p.value for p in self._pages], dim=-2)
+        keys = torch.cat([p.key for p in self.pages], dim=-2)
+        values = torch.cat([p.value for p in self.pages], dim=-2)
         return keys, values
 
     def reset(self) -> None:
         """Drop all pages."""
-        self._pages = []
+        self.pages = []
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Serialize page table only (data lives on GPU in production)."""
         return {
             "schema_version": torch.tensor(1, dtype=torch.int32),
             "page_size": torch.tensor(self.page_size, dtype=torch.int32),
-            "num_pages": torch.tensor(len(self._pages), dtype=torch.int32),
+            "num_pages": torch.tensor(len(self.pages), dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
         }
 
@@ -269,13 +307,12 @@ class PagedKVCache(KVCache):
     @property
     def size(self) -> int:
         """Number of cached tokens across all pages."""
-        return sum(int(p.key.shape[-2]) for p in self._pages)
+        return sum(int(p.key.shape[-2]) for p in self.pages)
 
     @property
     def num_pages(self) -> int:
         """Number of allocated pages."""
-        return len(self._pages)
+        return len(self.pages)
 
 
 __all__ = ["CacheEntry", "InMemoryKVCache", "KVCache", "PagedKVCache"]
-
