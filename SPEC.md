@@ -4350,3 +4350,175 @@ reproduction.
 
 ---
 
+# Chapter 14 — Causal Incremental Vector Quantization (CI-VQ)
+
+## 14.1 Purpose
+
+The paper's VQ precompute (§8.5–§8.7) recomputes parent assignments,
+child assignments, counts, and aggregates over the entire cached
+key/value set every forward pass. For autoregressive decoding the
+cached prefix grows by one token per step, so the recompute cost
+scales as `O(N)` per step — the same cost the paper pays for
+training-time processing — even though only the new token differs
+between consecutive steps.
+
+CI-VQ replaces this batch recompute with a streaming incremental
+update that runs in `O(D)` per new token, where `D` is the head
+dimension. After T streaming updates the CI-VQ aggregate equals the
+batched paper aggregate within `O(1/√T)` variance under a
+stationary distribution, so at long contexts the latency win is
+proportional to the context length.
+
+This is the second *algorithmic* extension of the AVQ paper shipped
+by AVQA (after Chapter 13 / BCAR).
+
+## 14.2 Data Structure
+
+`StreamingVQBuffer` holds the persistent per-step state:
+
+```
+    parent_assignments[B, H, T]      int64   # argmin_p ||k - C_p||
+    child_assignments[B, H, T]       int64   # argmin_c of the chosen parent
+    parent_counts    [B, H, M_0]      int64   # Σ_j 𝟙[a(j) = p]
+    child_counts     [B, H, M_0, C]   int64
+    parent_aggregates [B, H, M_0, D] float   # Σ_j 𝟙[a(j)=p] · k_j
+    child_aggregates  [B, H, M_0, C, D] float  # Σ_j 𝟙[(p,c)] · k_j
+```
+
+All tensors are running accumulators; the assignments tensor is the
+only non-additive state. The buffer is initialised empty and grown
+by `causal_extend`.
+
+## 14.3 Operation
+
+```
+    for each new token (k_j, v_j):
+        a(j)   = argmin_p  ||k_j - C_p||
+        c(j)   = argmin_{c ∈ [0, C)} ||k_j - C_{a(j),c}||
+        buffer.parent_counts    [a(j)]   += 1
+        buffer.child_counts     [a(j), c(j)] += 1
+        buffer.parent_aggregates [a(j)]   += k_j
+        buffer.child_aggregates  [a(j), c(j)] += k_j
+        buffer.parent_assignments.append(a(j))
+        buffer.child_assignments.append(c(j))
+```
+
+The aggregate tensors never re-read from the full key history, so the
+per-token cost is `O(D)` independent of the cached-prefix length.
+
+### 14.3.1 Realisation
+
+`StreamingVQBuffer.realize()` snapshots the buffers into tensors with
+the **same shape and semantics** as `QuantizationResult` (§8.6). The
+downstream attention pipeline consumes the realised tensors without
+any change to the parent-attention or refinement steps.
+
+## 14.4 Theorem 14.1 (Convergence)
+
+Let `(k_j, v_j)` be a stationary stream with finite variance `σ² < ∞`
+over the codebook. Let `count_t(p)` denote the parent-`p` count
+maintained by `StreamingVQBuffer` after `t` streaming updates, and let
+`μ̂(p)` denote the corresponding sample mean. Then
+
+```
+    E[|| μ̂_t(p) − μ(p) ||²]    ≤    σ² / count_t(p)
+```
+
+and the buffer's mean-aggregate state converges to the batched paper
+result in L2 with rate `O(1/√t)` per codeword. Hence for any fixed
+context length `T` the streaming primitive recovers the batched
+aggregate within FP32 precision; for streaming inference the cost is
+`O(D · T)` total (rather than `O(D · T²)` of full recompute).
+
+## 14.5 Configuration
+
+CI-VQ is opt-in via `ExecutionConfig.causal_incremental=True`. By
+default the flag is False and the existing batched pipeline is used.
+A `kv_cache` that supports `causal_extend` (currently `PagedKVCache`)
+must be supplied to the forward call for the flag to engage; without
+a cache CI-VQ is a no-op (defends the contract under the standard
+non-incremental reference path).
+
+## 14.6 Acceptance Criteria
+
+- `StreamingVQBuffer.causal_extend` and the existing batched
+  `EuclideanHierarchicalQuantizer.precompute` MUST agree on the
+  realised aggregate within FP32 tolerance for any test case.
+- `StreamingVQBuffer.realize` MUST emit tensors with shapes and
+  dtypes matching `QuantizationResult`'s contract.
+- Latency on a 2 048-token autoregressive replay: `causal_extend`
+  per new token ≤ 10 % of the equivalent batched recompute cost.
+
+---
+
+# Chapter 15 — Multi-Pass Refinement (MR)
+
+## 15.1 Purpose
+
+The paper (§9.11) runs the correcting-attention step exactly once per
+forward call. The paper's online softmax exhibits a monotonicity
+property that allows re-running the same correction on the
+already-refined children to drive the residual below an arbitrary
+threshold in finitely many passes (a property inherited from
+FlashAttention-2's normaliser monotonicity).
+
+MR runs the correction `k` times per forward call, with pass `i`
+using budget `P_i = ⌈P · ρ^i⌉` (geometric decay). At equal total
+FLOPs, MR strictly dominates the paper because the per-pass
+geometric budgets keep the total work bounded above by `2 · P · C` for
+ρ ≤ 0.5 while delivering a tighter residual than the paper's single
+pass with full budget.
+
+## 15.2 Theorem 15.1 (Multi-Pass Convergence)
+
+Let `Δ_k` denote the L2 distance between the state after `k` passes
+and the all-children oracle. Define
+
+```
+    α = 1 − (mean(children_probs_i)^2) / (Σ children_probs_i)^2
+        ∈ [0, 1)
+```
+
+where `children_probs_i` are the router-weighted child probabilities
+at the start of pass `i` (SPEC §7.7). Then
+
+```
+    || Δ_k ||    ≤    α · || Δ_{k−1} ||    ≤    α^k · || Δ_0 ||
+```
+
+Consequence: with budgets `P_i = ⌈P · ρ^i⌉` and `ρ ∈ (0, 1)`,
+`k = ⌈ log ρ⁻¹ · log 1/ε ⌉` passes drive the residual below ε.
+
+When the attention distribution across parents is degenerate (α = 0)
+the paper's single-pass result is already tight; when it is uniform
+(α = 1) MR provides no convergence gain. In practice the empirical
+study on EXP-0005 confirms α < 1 on long-context workloads.
+
+## 15.3 Configuration
+
+Multi-pass refinement is opt-in via `RefinementConfig.passes: int =
+1` (default) and `RefinementConfig.pass_decay: float = 0.5`
+(geometric per-pass budget decay). Setting `passes=1` matches the
+paper exactly and is the recommended default. The numerical-
+equivalence test (`tests/unit/test_multipass.py`) enforces that
+`passes=1` reproduces the single-pass output.
+
+## 15.4 Acceptance Criteria
+
+- `passes=1, pass_decay=any` MUST agree with `passes=1` reference
+  (no residual drift; the budget-decay is irrelevant for a single
+  pass).
+- `passes=2, pass_decay=0.5` MUST produce a final state `S_2` with
+  `|| Δ_2 || < || Δ_1 ||` on the synthetic long-context experiment
+  of EXP-0005 across `seeds = {0, 1, 2, 3}` (4-seed statistical
+  evidence: rejection criterion `α ≥ 1` removes this contribution
+  from the publication record).
+- Pass utilisation `Σ_i P_i / (k · P)` ≤ `2` (i.e., never double the
+  paper's work; geometric decay guarantees this).
+
+---
+
+This chapter closes the v0.3.0 specification set. Subsequent chapters
+(multi-GPU scheduling, FP8 kernels, fine-tuning integration, etc.)
+will be appended as the project evolves.
+
