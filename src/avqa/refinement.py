@@ -14,10 +14,7 @@ from dataclasses import dataclass
 
 import torch
 
-from avqa.attention import (
-    OnlineSoftmaxState,
-    correct_parent_contribution,
-)
+from avqa.attention import OnlineSoftmaxState
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
@@ -39,6 +36,72 @@ class RefinementResult:
     merge_value: torch.Tensor
 
 
+def _vectorized_correction(
+    state: OnlineSoftmaxState,
+    parent_logit: torch.Tensor,
+    child_logits: torch.Tensor,
+    parent_value: torch.Tensor,
+    child_value: torch.Tensor,
+    num_children: int,
+) -> OnlineSoftmaxState:
+    """Apply correcting attention vectorized over all (B, H, P) groups.
+
+    Args:
+        state: Running state.
+        parent_logit: ``[B, H, T, P]`` parent logits.
+        child_logits: ``[B, H, T, P, C]`` child logits (real Q · C_c^T).
+        parent_value: ``[B, H, T, P, D_v]`` parent weighted values.
+        child_value: ``[B, H, P, C, D_v]`` child aggregates (per-parent, not per-query).
+        num_children: C.
+
+    Returns:
+        Updated state.
+    """
+    B, H, T, P = parent_logit.shape
+    C = num_children
+    D_v = child_value.shape[-1]
+
+    # Recovered parent logits from children (spec §7.12).
+    recovered_parent = child_logits.sum(dim=-1, keepdim=True) / C      # [B, H, T, P, 1]
+    delta_logits = child_logits - recovered_parent                      # [B, H, T, P, C]
+
+    # Parent contribution to remove: exp(0) * v_p = v_p.
+    # child_value is [B, H, P, C, D_v]; expand to [B, H, T, P, C, D_v].
+    cv = child_value.unsqueeze(2).expand(B, H, T, P, C, D_v)
+    # Parent value to remove: [B, H, T, P, 1, D_v].
+    pv = parent_value.unsqueeze(-2)                                     # [B, H, T, P, 1, D_v]
+
+    # Tile max/denom/numerator for the delta.
+    delta_max = delta_logits.amax(dim=-1, keepdim=True)                # [B, H, T, P, 1]
+    delta_exp = torch.exp(delta_logits - delta_max)                    # [B, H, T, P, C]
+    delta_denom = delta_exp.sum(dim=-1, keepdim=True)                  # [B, H, T, P, 1]
+
+    # Numerator: sum_c exp(delta_logit - delta_max) * v_c - v_p.
+    # Sum over C (dim=-2 of the 6-dim product), then unsqueeze to match pv.
+    child_weighted = (delta_exp.unsqueeze(-1) * cv).sum(dim=-2)         # [B, H, T, P, D_v]
+    delta_num = child_weighted.unsqueeze(-2) - pv                       # [B, H, T, P, 1, D_v]
+
+    # Merge into state: reshape to [B*H*T, P, ...] and iterate over P.
+    # ponytail: P is small (budget, typically 4-16), so iterating over
+    # P is acceptable. The expensive B*H*T dimension is vectorized.
+    delta_max_flat = delta_max.reshape(B * H * T, P, 1)
+    delta_denom_flat = delta_denom.reshape(B * H * T, P, 1)
+    delta_num_flat = delta_num.reshape(B * H * T, P, 1, D_v)
+
+    new_state = state
+    for p_idx in range(P):
+        tile_max = delta_max_flat[:, p_idx, :]                         # [B*H*T, 1]
+        tile_denom = delta_denom_flat[:, p_idx, :]                     # [B*H*T, 1]
+        tile_num = delta_num_flat[:, p_idx, :, :]                      # [B*H*T, 1, D_v]
+        # Reshape back to [B, H, T, ...] for state.merge.
+        tile_max = tile_max.reshape(B, H, T, 1)
+        tile_denom = tile_denom.reshape(B, H, T, 1)
+        tile_num = tile_num.reshape(B, H, T, 1, D_v)
+        new_state = new_state.merge(tile_max, tile_denom, tile_num)
+
+    return new_state
+
+
 def refine(
     state: OnlineSoftmaxState,
     parent_probs: torch.Tensor,
@@ -49,6 +112,7 @@ def refine(
     budget: int,
     attention_probs: torch.Tensor,
     parent_counts: torch.Tensor,
+    child_logits: torch.Tensor | None = None,
 ) -> RefinementResult:
     """Run one refinement step (spec §9.7, §9.11).
 
@@ -70,6 +134,9 @@ def refine(
         budget: Number of parents to refine (P).
         attention_probs: ``[B, H, T, M_0]`` attention probabilities.
         parent_counts: ``[B, H, M_0]`` per-parent assignment counts.
+        child_logits: Optional ``[B, H, T, M_0, C]`` real child attention
+            logits (Q · C_c^T / sqrt(D)). When ``None``, falls back to the
+            approximation child_logits = parent_logit / C (spec §7.12).
 
     Returns:
         :class:`RefinementResult` with the updated state, selected parent
@@ -94,50 +161,37 @@ def refine(
     parent_idx = selected.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D_v)
     children = torch.gather(child_aggregates, 2, parent_idx)          # [B, H, P, C, D_v]
 
-    # Gather parent logits and value. The index needs the same rank as
-    # the input, so we add a singleton T dim for the gather on dim=-1.
+    # Gather parent logits and value for selected parents.
     parent_logit_gathered = parent_probs.gather(-1, selected.unsqueeze(-2).expand(B, H, T, P))
-    # For the gather along the parent axis (dim=-2), the index needs
-    # shape [B, H, T, P, D_v]. Insert a T axis (unsqueeze at -2) and a
-    # D_v axis (unsqueeze at -1), then expand.
     parent_value_gathered = parent_value.gather(
         -2,
         selected.unsqueeze(-2).unsqueeze(-1).expand(B, H, T, P, D_v),
     )
 
-    # Recover parent logits from children (spec §7.12: parent = mean(children)
-    # in codeword space, so logits after Q . C^T preserve this).
-    # ponytail: we approximate child logits as parent_logits / C so that
-    # the children mean equals the parent. The correction operator then
-    # removes the parent and adds the children (delta = 0 on logits).
-    child_logits = parent_logit_gathered.unsqueeze(-1) / C               # [B, H, T, P, C]
+    # Child logits: use real Q · C_c^T when provided, else approximate.
+    if child_logits is not None:
+        # Gather along dim=-2 (M0 parent dimension) to get [B, H, T, P, C].
+        child_idx = selected.unsqueeze(2).unsqueeze(-1).expand(B, H, T, P, C)
+        child_logits_gathered = child_logits.gather(-2, child_idx)
+    else:
+        # Approximation: child_logits = parent_logit / C (spec §7.12).
+        child_logits_gathered = parent_logit_gathered.unsqueeze(-1).expand(B, H, T, P, C) / C
 
-    # Correction: replace each selected parent's contribution with its
-    # children's. Iterate per (b, h) and per selected parent.
-    new_state = state
-    parent_logit_flat = parent_logit_gathered.reshape(B * H, T, P)
-    parent_value_flat = parent_value_gathered.reshape(B * H, T, P, 1, D_v)
-    # child_logits has shape [B, H, T, P, 1] (one logit per parent); we
-    # need to broadcast over the C children axis when reshaping.
-    child_logits_broadcast = child_logits.expand(B, H, T, P, C)
-    child_logits_flat = child_logits_broadcast.reshape(B * H, T, P, C)
-    children_value_flat = children.reshape(B * H, P, C, D_v)
-    for bh in range(B * H):
-        for p_idx in range(P):
-            pl = parent_logit_flat[bh, :, p_idx].unsqueeze(-1)        # [T, 1]
-            cl = child_logits_flat[bh, :, p_idx, :]                    # [T, C]
-            pv = parent_value_flat[bh, :, p_idx, :, :]                 # [T, 1, D_v]
-            cv = children_value_flat[bh, p_idx, :, :].unsqueeze(0).expand(T, C, D_v)
-            new_state = correct_parent_contribution(
-                new_state, pl, cl, pv, cv, num_children=C
-            )
+    # Correction: replace each selected parent's contribution with children.
+    new_state = _vectorized_correction(
+        state,
+        parent_logit_gathered,
+        child_logits_gathered,
+        parent_value_gathered,
+        children,
+        num_children=C,
+    )
 
-    # Apply the merge strategy to combine parent and child aggregates.
-    # Per MergeInputs contract: parent_probs [..., 1], parent_value [..., D_v],
-    # child_probs [..., C], child_value [..., C, D_v].
+    # Merge strategy: combine parent and child aggregates.
     parent_probs_for_merge = parent_logit_gathered.unsqueeze(-1)        # [B, H, T, P, 1]
     parent_value_for_merge = parent_value_gathered                     # [B, H, T, P, D_v]
-    child_probs_for_merge = parent_logit_gathered.softmax(dim=-1).unsqueeze(-1).expand(B, H, T, P, C)
+    # Child probs from child logits via softmax.
+    child_probs_for_merge = child_logits_gathered.softmax(dim=-1)      # [B, H, T, P, C]
     child_value_for_merge = children.unsqueeze(2).expand(B, H, T, P, C, D_v)
     merge_value = ProbabilityMerge().merge(
         MergeInputs(

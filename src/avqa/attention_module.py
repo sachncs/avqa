@@ -29,8 +29,6 @@ from avqa.backend import create_backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
 from avqa.logging import get_logger
-from avqa.merge import ProbabilityMerge
-from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.refinement import refine as refine_step
 from avqa.routing import TopPRouter, compute_importance
 
@@ -97,9 +95,7 @@ class AVQAttention(nn.Module):
         # Initialize children near parents so the mean constraint holds.
         self.codebook.initialize_children_around_parents()
 
-        self.quantizer = EuclideanHierarchicalQuantizer()
         self.router = TopPRouter()
-        self.merge = ProbabilityMerge()
 
         if config.refinement.enabled:
             from avqa.scheduler import DefaultScheduler
@@ -145,7 +141,7 @@ class AVQAttention(nn.Module):
     # Forward
     # ------------------------------------------------------------------
 
-    def forward(
+    def forward(  # noqa: PLR0915
         self,
         query: torch.Tensor,
         key: torch.Tensor,
@@ -199,16 +195,17 @@ class AVQAttention(nn.Module):
         # Branch 2: full AVQ pipeline.
         B, _, T_q, D = q.shape
         D_v = v.shape[-1]
+        M0 = self.config.codebook.num_codewords
+        C = self.config.codebook.children_per_codeword
 
         # Stage 2 (spec §10.6): VQ precompute.
         result = self.backend.quantize(k, v, self.codebook.parents, self.codebook.children)
-        expected = (*self.codebook.children.shape[:3], D)
-        if tuple(self.codebook.parents.shape) != expected:
-            # Resize codebook if D changed (rare).
+        expected_parents = (H, M0, D)
+        if tuple(self.codebook.parents.shape) != expected_parents:
             self.codebook = HierarchicalCodebook(
                 num_heads=H,
-                num_parents=self.config.codebook.num_codewords,
-                children_per_parent=self.config.codebook.children_per_codeword,
+                num_parents=M0,
+                children_per_parent=C,
                 head_dim=D,
                 device=q.device,
                 dtype=q.dtype,
@@ -216,74 +213,64 @@ class AVQAttention(nn.Module):
             self.codebook.initialize_children_around_parents()
             result = self.backend.quantize(k, v, self.codebook.parents, self.codebook.children)
 
-        # Stage 3 (spec §10.7): parent attention via online softmax.
-        # Use the codeword parents as keys and parent_aggregates as values.
-        # Expand codebook parents to [B, H, M_0, D] for the batch dimension.
-        parent_keys = self.codebook.parents.unsqueeze(0).expand(B, H, -1, -1)
-        # parent_aggregates is [B, H, M_0, D_v]; we want [B, H, M_0, D_v] as
-        # "values" for codeword attention.
-        parent_values = result.parent_aggregates                  # [B, H, M_0, D_v]
-        # The "key/value" lengths are M_0; query is T_q.
-        attention_logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / (D ** 0.5)
+        # Stage 3 (spec §10.7): parent attention via online-softmax tiled approach.
+        parent_keys = self.codebook.parents.unsqueeze(0).expand(B, H, M0, D)
+        parent_values = result.parent_aggregates                      # [B, H, M_0, D_v]
+        valid = result.parent_counts > 0                              # [B, H, M_0]
+
+        # Parent logits: Q · C_p^T / sqrt(D). Shape [B, H, T_q, M_0].
+        parent_logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / (D ** 0.5)
         if mask is not None:
-            codeword_mask = torch.ones(
-                T_q, parent_keys.shape[-2], dtype=torch.bool, device=q.device,
-            )
-            attention_logits = attention_logits.masked_fill(
-                ~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf"),
-            )
-        # Spec §7.15: empty codewords (count=0) excluded from running max.
-        valid = result.parent_counts > 0
-        # Replace logits with -inf for empty codewords (excluded from softmax).
-        attention_logits = attention_logits.masked_fill(
-            ~valid.unsqueeze(2), float("-inf"),
-        )
-        # VQ attention (spec §7.7):
-        #   y_i = sum_a exp(q . C_a) V_bar_a / sum_a exp(q . C_a) n_a
-        # Use the unnormalized exp to avoid double-normalization.
-        exp_logits = torch.exp(attention_logits - attention_logits.amax(dim=-1, keepdim=True))
-        weighted_value = torch.einsum(
-            "bhta,bhvd->bhtv", exp_logits, parent_values,
-        )
-        denom = torch.einsum(
-            "bhta,bhv->bht", exp_logits, result.parent_counts,
-        ).clamp_min(1e-12)
-        _parent_vq_out = weighted_value / denom.unsqueeze(-1)
-        # Parent attention probabilities for importance + downstream stages.
-        parent_attention_probs = exp_logits / exp_logits.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+            codeword_mask = torch.ones(T_q, M0, dtype=torch.bool, device=q.device)
+            parent_logits = parent_logits.masked_fill(~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf"))
+        # Empty codewords excluded from softmax (spec §7.15).
+        parent_logits = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
+
+        # Build running online-softmax state from parent attention.
+        # tile_max: amax over M_0 parents → [B, H, T_q, 1].
+        tile_max = parent_logits.amax(dim=-1, keepdim=True)
+        tile_exp = torch.exp(parent_logits - tile_max)               # [B, H, T_q, M_0]
+        tile_denom = tile_exp.sum(dim=-1, keepdim=True)              # [B, H, T_q, 1]
+        # Numerator: contract exp(S) over M_0 with parent values.
+        # tile_exp: [B, H, T_q, M_0], parent_values: [B, H, M_0, D_v]
+        tile_num = torch.einsum("bhta,bhad->bhtd", tile_exp, parent_values)
+        # [B, H, T_q, D_v] → unsqueeze to [B, H, T_q, 1, D_v] for state.
+        tile_num = tile_num.unsqueeze(-2)
+        state = OnlineSoftmaxState.empty(B, H, T_q, D, D_v)
+        state = state.merge(tile_max, tile_denom, tile_num)
+
+        # Parent attention probabilities (normalized).
+        parent_attention_probs = tile_exp / tile_exp.sum(dim=-1, keepdim=True).clamp_min(1e-12)
 
         # Stage 4 (spec §10.8): importance from attention statistics.
         importance = compute_importance(parent_attention_probs, result.parent_counts)
 
         # Stage 5 (spec §10.9): parent selection.
         budget = self.scheduler.budget_for(importance)
-        _ = self.router.select(importance, budget)
+        # Cap budget at the minimum number of parents with valid children
+        # across all (B, H) pairs (spec §9.12).
+        num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)    # [B, H]
+        min_valid = int(num_valid_per_bh.min().item())
+        budget = min(budget, min_valid)
+        if budget <= 0:
+            # No valid parents — fall back to naive attention.
+            attn_out = self.backend.naive_attention(q, k, v, mask=mask) if mask is not None else self.backend.naive_attention(q, k, v)
+            out = self._merge_heads(attn_out)
+            out = self.out_proj(out)
+            out = self.dropout(out)
+            return out  # type: ignore[no-any-return]
+        self.router.select(importance, budget)
 
-        # Stage 6 + 7 (spec §10.10-§10.11): child attention + correction.
-        # Build the inputs to the refine() orchestrator.
-        # We treat parent_attention_probs * parent_aggregates as parent_value.
-        # Shape: [B, H, T_q, M_0, D_v] (one weighted value per parent).
-        parent_value_per_parent = (
-            parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-        )
-        # Set up the running online-softmax state.
-        state = OnlineSoftmaxState.empty(B, H, T_q, D, D_v)
-        # Drive the running state from the parent attention.
-        tile_logits = parent_attention_logits_for_state(
-            q, parent_keys, D, valid, mask,
-        )                                                          # [B, H, T, M_0]
-        tile_max = tile_logits.amax(dim=-1, keepdim=True)        # [B, H, T, 1]
-        tile_exp = torch.exp(tile_logits - tile_max)             # [B, H, T, M_0]
-        tile_denom = tile_exp.sum(dim=-1, keepdim=True)          # [B, H, T, 1]
-        # parent_values has shape [B, H, M_0, D_v]; contract over M_0.
-        tile_num = torch.einsum(
-            "bhta,bhvd->bhtv", tile_exp, parent_values,
-        ).unsqueeze(-1)                                          # [B, H, T, 1, D_v]
-        state = state.merge(tile_max, tile_denom, tile_num)
+        # Stage 6 (spec §10.10): child attention — compute real Q · C_c^T
+        # for the children of all parents (selected ones will be used).
+        child_keys = self.codebook.children.unsqueeze(0).expand(B, H, M0, C, D)
+        # [B, H, T_q, M_0, C] child attention logits.
+        child_logits = torch.einsum("bhtd,bhmcd->bhtmc", q, child_keys) / (D ** 0.5)
+        # Mask empty children.
+        child_valid = result.child_counts > 0                         # [B, H, M_0, C]
+        child_logits = child_logits.masked_fill(~child_valid.unsqueeze(2), float("-inf"))
 
-        # Stage 6 + 7: refine.
-        # Build the parent_value for refine(): per-query weighted value, shape
-        # [B, H, T, M_0, D_v]. The refine function expects per-parent values.
+        # Stage 6 + 7: refine with real child logits.
         parent_value_per_parent = (
             parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
         )
@@ -293,10 +280,11 @@ class AVQAttention(nn.Module):
             parent_value=parent_value_per_parent,
             parent_aggregates=parent_values,
             child_aggregates=result.child_aggregates,
-            children_per_parent=self.config.codebook.children_per_codeword,
+            children_per_parent=C,
             budget=budget,
             attention_probs=parent_attention_probs,
             parent_counts=result.parent_counts,
+            child_logits=child_logits,
         )
         attn_out = refinement.merge_value
 
@@ -306,25 +294,4 @@ class AVQAttention(nn.Module):
         return out  # type: ignore[no-any-return]
 
 
-def parent_attention_logits_for_state(
-    query: torch.Tensor,
-    parent_keys: torch.Tensor,
-    head_dim: int,
-    valid: torch.Tensor,
-    mask: torch.Tensor | None,
-) -> torch.Tensor:
-    """Compute parent attention logits with empty-codeword masking (spec §7.15).
-
-    Helper used by :class:`AVQAttention` for the running-state tile update.
-    """
-    logits = torch.matmul(query, parent_keys.transpose(-2, -1)) / (head_dim ** 0.5)
-    if mask is not None:
-        codeword_mask = torch.ones(
-            query.shape[-2], parent_keys.shape[-2], dtype=torch.bool, device=query.device,
-        )
-        logits = logits.masked_fill(~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf"))
-    logits = logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
-    return logits  # type: ignore[no-any-return]
-
-
-__all__ = ["AVQAttention", "parent_attention_logits_for_state"]
+__all__ = ["AVQAttention"]
