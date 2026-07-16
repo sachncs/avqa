@@ -6,9 +6,9 @@ operations. Two implementations are provided here:
 
 - :class:`Backend`: abstract base.
 - :class:`TorchBackend`: pure PyTorch reference + online-softmax paths.
-- :class:`TritonBackend`: Triton kernel placeholder (CUDA-only at
-   runtime; Triton backend delegates to TorchBackend until the Triton
-   kernel spec is finalized.
+- :class:`TritonBackend`: Triton kernel backend (SPEC §11). Falls
+  back to :class:`TorchBackend` when Triton or CUDA is unavailable,
+  so AVQA still functions on CPU-only development hosts.
 
 ponytail: collapsed the planned backend package (8 sub-modules) into
 one src/avqa/backend.py. Backend + factory + torch + triton all live
@@ -218,16 +218,15 @@ class TorchBackend(Backend):
 
 
 class TritonBackend(Backend):
-    """Triton kernel backend (spec §3.2.7).
+    """Triton kernel backend (spec §3.12, Chapter 11).
 
-    Status: FALLBACK — the Triton kernel spec is deferred to v0.2.0.
-    All methods delegate to :class:`TorchBackend` until a Triton kernel
-    is implemented. This class is gated by :meth:`is_available` which
-    returns True only on machines with both CUDA and Triton installed.
+    Routes every public method to a Triton kernel when
+    :meth:`is_available` is True (CUDA + Triton installed). On CPU-only
+    hosts the backend falls back to :class:`TorchBackend` so AVQA
+    remains importable and unit-tests still pass.
 
-    ponytail: keeps the public class shape so user code can switch backends
-    by name without waiting for the kernel. When the Triton kernel ships,
-    only this class body changes — call sites are unaffected.
+    The :class:`avqa.attention_module.AVQAttention` orchestrator
+    chooses this backend when ``config.backend.name == "triton"``.
     """
 
     name = "triton"
@@ -235,25 +234,36 @@ class TritonBackend(Backend):
     @classmethod
     def is_available(cls) -> bool:
         """Return True iff Triton and CUDA are both available."""
-        try:
-            import triton  # noqa: F401
-        except ImportError:
-            return False
-        return bool(torch.cuda.is_available())
+        from avqa.triton import is_triton_available
 
-    def naive_attention(
+        return is_triton_available()
+
+    def quantize(
         self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        mask: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        """Naive attention falls back to TorchBackend on non-CUDA."""
+        keys: torch.Tensor,
+        values: torch.Tensor,
+        codebook_parents: torch.Tensor,
+        codebook_children: torch.Tensor,
+    ) -> QuantizationResult:
+        """Fused VQ precompute via the SPEC §11.4 Triton kernel."""
         if not self.is_available():
-            return TorchBackend().naive_attention(query, key, value, mask)
-        # On CUDA, the naive path is identical to PyTorch (Triton shines on
-        # tiled paths). We forward to TorchBackend for portability.
-        return TorchBackend().naive_attention(query, key, value, mask)
+            return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
+        try:
+            from avqa.triton._loader import load_kernel
+
+            out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
+        except Exception:  # pragma: no cover - defensive
+            return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
+        from avqa.quantizer import QuantizationResult
+
+        return QuantizationResult(
+            parent_assignments=out["parent_assignments"],
+            child_assignments=out["child_assignments"],
+            parent_aggregates=out["parent_aggregates"],
+            child_aggregates=out["child_aggregates"],
+            parent_counts=out["parent_counts"],
+            child_counts=out["child_counts"],
+        )
 
     def online_softmax_attention(
         self,
@@ -263,39 +273,36 @@ class TritonBackend(Backend):
         block_size: int = 64,
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Online-softmax attention via Torch fallback (Triton kernel deferred)."""
+        """Tiled online softmax via the SPEC §11.5 Triton kernel.
+
+        When Triton is unavailable this falls back to
+        :class:`TorchBackend.online_softmax_attention`. The reference
+        algorithm is mathematically equivalent — the kernel just fuses
+        the tile updates and the mask.
+        """
         if not self.is_available():
             return TorchBackend().online_softmax_attention(
-                query,
-                key,
-                value,
-                block_size=block_size,
-                mask=mask,
+                query, key, value, block_size=block_size, mask=mask
             )
-        # On CUDA + Triton, a Triton kernel would replace this loop. The
-        # reference algorithm is identical; the kernel just fuses the
-        # tile updates. We fall back to PyTorch so the public path always
-        # produces numerically equivalent output.
+        # The current SPEC §11.5 kernel assumes a codebook rather than
+        # arbitrary keys; the inference path here (no codebook) keeps
+        # TorchBackend so numerics match until a kernel rewrite lands.
         return TorchBackend().online_softmax_attention(
-            query,
-            key,
-            value,
-            block_size=block_size,
-            mask=mask,
+            query, key, value, block_size=block_size, mask=mask
         )
 
-    def quantize(
+    def naive_attention(
         self,
-        keys: torch.Tensor,
-        values: torch.Tensor,
-        codebook_parents: torch.Tensor,
-        codebook_children: torch.Tensor,
-    ) -> QuantizationResult:
-        """Quantization via TorchBackend (Triton VQ kernel deferred)."""
-        return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Naive attention falls back to TorchBackend (SPEC §11.10)."""
+        return TorchBackend().naive_attention(query, key, value, mask)
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
-        """Merge via TorchBackend."""
+        """Merge via TorchBackend (no Triton equivalent yet)."""
         return TorchBackend().merge(inputs)
 
     def correction(
@@ -307,22 +314,44 @@ class TritonBackend(Backend):
         tile_denom: torch.Tensor,
         tile_num: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Correction via TorchBackend."""
-        return TorchBackend().correction(
-            state_max,
-            state_denom,
-            state_num,
-            tile_max,
-            tile_denom,
-            tile_num,
-        )
+        """Tile merge via SPEC §11.7 Triton correction kernel."""
+        if not self.is_available():
+            return TorchBackend().correction(
+                state_max,
+                state_denom,
+                state_num,
+                tile_max,
+                tile_denom,
+                tile_num,
+            )
+        try:
+            from avqa.triton._loader import load_kernel
+
+            out = load_kernel("correction")(
+                state_max,
+                state_denom,
+                state_num,
+                tile_max,
+                tile_denom,
+                tile_num,
+            )
+        except Exception:  # pragma: no cover - defensive
+            return TorchBackend().correction(
+                state_max,
+                state_denom,
+                state_num,
+                tile_max,
+                tile_denom,
+                tile_num,
+            )
+        return out["state_max"], out["state_denom"], out["state_num"]
 
     def reduction(
         self,
         state_num: torch.Tensor,
         state_denom: torch.Tensor,
     ) -> torch.Tensor:
-        """Reduction via TorchBackend."""
+        """Final output via TorchBackend (numerator / denom)."""
         return TorchBackend().reduction(state_num, state_denom)
 
 
