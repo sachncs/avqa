@@ -3958,3 +3958,299 @@ An implementation satisfies this chapter when:
 7. Memory usage remains linear with respect to sequence length for fixed codebook parameters.
 
 This execution model serves as the canonical runtime specification for all AVQA backends. Subsequent chapters define how this logical pipeline is realized through optimized Triton kernels, backend abstractions, and framework integrations.
+
+---
+
+# Chapter 11 — Triton Kernel Backend
+
+## 11.1 Purpose
+
+This chapter specifies the optimized Triton kernel backend that the
+runtime model in Chapter 10 executes when ``backend.name == "triton"``.
+The kernels in this chapter implement the same logical pipeline but
+fuse the VQ preprocessing, parent attention, child attention, and
+correcting attention into dedicated Triton kernels that achieve
+bandwidth-bound performance on NVIDIA GPUs.
+
+The reference behavior under Chapter 10 SHALL remain the source of
+truth for numerical equivalence. Triton kernels SHALL match the
+reference within the tolerances recorded in `BENCHMARKS.md`.
+
+The reference Python implementation MUST continue to pass all tests
+even when the Triton backend is unavailable (no CUDA, no Triton). This
+is enforced by `src/avqa/backend.py:336` which falls back to the
+TorchBackend.
+
+## 11.2 Scope
+
+Triton kernels implement:
+
+- Vector quantization precompute (fused two-stage Euclidean VQ with
+  scattered accumulation; §11.4).
+- Online-softmax tiled attention over the parent codebook (§11.5).
+- Adaptive child attention recomputation (§11.6).
+- Online-softmax correction / merge against the corrected child logits
+  (§11.7).
+
+Everything else remains PyTorch code (projections, output
+projections, routing selection, scheduler, KV cache).
+
+## 11.3 Tile Layouts and Data Conventions
+
+Tile sizes documented here are the contract; autotuners may vary them
+at runtime but MUST satisfy the alignment and block-factor rules.
+
+- ``BLOCK_T``: rows of Q processed in one query tile. Default 64.
+  MUST be a power of 2 and ≤ 256.
+- ``BLOCK_M``: codebook rows (parents or children) per key tile.
+  Default 64. MUST be a power of 2.
+- ``BLOCK_D``: head dimension. Default 64. MUST be a power of 2 and
+  a divisor of any supported head dimension (16, 32, 64, 96, 128).
+- ``BLOCK_C``: children per parent for child attention. Default 4.
+
+FP32 and BF16 dtypes are required; FP16 is optional. ``tl.float32``
+is the math dtype; intermediate softmax accumulates in FP32 even when
+inputs are BF16 / FP16 to preserve numerical stability.
+
+Empty codewords (count == 0) SHALL be excluded from online softmax
+(see Chapter 9 §9.12 and Chapter 7 §7.15). The fused VQ kernel MUST
+emit a sentinel ``count = 0`` for empty parents.
+
+## 11.4 Fused Vector-Quantization Kernel
+
+Inputs:
+
+- ``keys [B, H, N, D]`` (FP32 / BF16 / FP16)
+- ``values [B, H, N, D]``
+- ``parents [H, M_0, D]``
+- ``children [H, M_0, C, D]``
+
+Outputs (per-batch):
+
+- ``parent_assignments [B, H, N]`` int32
+- ``child_assignments [B, H, N]`` int32
+- ``parent_aggregates [B, H, M_0, D]``
+- ``child_aggregates [B, H, M_0, C, D]``
+- ``parent_counts [B, H, M_0]``
+- ``child_counts [B, H, M_0, C]``
+
+Algorithm (single fused kernel per batch element):
+
+1. Stream each key along the sequence dimension.
+2. Compute pairwise squared distance to all parents in shared memory.
+3. ``argmin`` produces parent assignment.
+4. Gather that parent's children and compute pairwise squared distance.
+5. ``argmin`` produces child assignment.
+6. Scatter-add the value vector into both parent and child aggregate
+   buffers using atomic adds.
+7. Increment the corresponding count buffers.
+
+Complexity: O(N·(M_0 + C)·D) per batch element (Chapter 8 §8.12).
+
+Numerical contract: result MUST agree with
+`EuclideanHierarchicalQuantizer.precompute` (`src/avqa/quantizer.py:150`)
+within FP32 tolerances documented in `BENCHMARKS.md` §"Correctness
+Validation".
+
+## 11.5 Online-Softmax Parent Attention Kernel
+
+Inputs:
+
+- ``query [B, H, T_q, D]``
+- ``parents [H, M_0, D]`` (the same parent codebook as the VQ kernel
+  was given)
+- ``parent_aggregates [B, H, M_0, D_v]``
+- ``parent_counts [B, H, M_0]``
+
+Outputs:
+
+- ``parent_attention_probs [B, H, T_q, M_0]``
+- ``running_state_max [B, H, T_q, 1]``
+- ``running_state_denom [B, H, T_q, 1]``
+- ``running_state_num [B, H, T_q, 1, D_v]``
+
+Algorithm:
+
+1. Loop over query tiles of size ``BLOCK_T``.
+2. Compute ``S = q · pᵀ / sqrt(D)`` → ``[BLOCK_T, M_0]``.
+3. Mask empty codewords to ``-inf`` (§9.12).
+4. Apply mask and update the running online-softmax accumulators
+   (§7.14 / `OnlineSoftmaxState.merge` in
+   `src/avqa/attention.py`).
+5. Write per-tile ``m``, ``d``, ``n`` to the outputs.
+
+Numerical contract: identical to `TorchBackend.online_softmax_attention`
+(`src/avqa/backend.py:113`) within FP32 tolerances.
+
+## 11.6 Child Attention Kernel
+
+Inputs:
+
+- ``query [B, H, T_q, D]``
+- ``children [H, M_0, C, D]``
+- ``selected_indices [B, H, P]`` (filled by PyTorch routing)
+- ``child_aggregates [B, H, M_0, C, D_v]``
+- ``child_counts [B, H, M_0, C]``
+
+Outputs:
+
+- ``child_logits [B, H, T_q, P, C]``
+- ``child_running_state [B, H, T_q, 1, D_v]``
+
+Algorithm:
+
+1. For each selected parent ``p`` in ``selected_indices``:
+   - Gather the parent's children into shared memory.
+   - Compute ``S_c = q · cᵀ / sqrt(D)`` → ``[BLOCK_T, C]``.
+   - Mask empty children to ``-inf``.
+   - Update the running online-softmax accumulators.
+2. Emit one running state slice per selected parent, plus the
+   per-tile ``(max, denom, num)``.
+
+## 11.7 Correcting-Attention Kernel
+
+Inputs (per selected parent per query tile):
+
+- ``running_state_max [B, H, T_q, 1]``
+- ``running_state_denom [B, H, T_q, 1]``
+- ``running_state_num [B, H, T_q, 1, D_v]``
+- ``child_running_state_max / denom / num [B, H, T_q, 1, 1]``
+
+Output:
+
+- ``corrected_state (max, denom, num) [B, H, T_q, 1, D_v]``
+
+Algorithm: implement the FlashAttention-2 tile merge
+(`src/avqa/utils/numerics.py:online_softmax_step`) without materialising
+the parent attention matrix. Equivalence with `OnlineSoftmaxState.merge`
+MUST hold within FP32 tolerances.
+
+## 11.8 Autotuning
+
+Each kernel MUST support Triton ``@triton.autotune`` over
+``BLOCK_T ∈ {32, 64, 128}``, ``BLOCK_M ∈ {32, 64}``,
+``BLOCK_D ∈ {16, 32, 64, 128}``. Selection happens once per
+``(D, M_0)`` shape at first invocation; selections persist in a small
+in-process cache that ships with `src/avqa/backend.py`.
+
+Autotuning is OFF by default; ``Config(backend=BackendConfig(enable_autotune=True))``
+enables it. When OFF the kernel runs at the default tile sizes.
+
+## 11.9 Numerical Equivalence
+
+Every Triton kernel MUST be paired with a numerical-equivalence test
+that compares it against the corresponding TorchBackend reference
+under identical inputs, seeds, and codebooks. Tolerances:
+
+- FP32: ``atol=1e-5``, ``rtol=1e-5``.
+- BF16: ``atol=1e-2``, ``rtol=1e-2`` (algorithmic noise dominates).
+- FP16: optional; only checked if the kernel supports FP16.
+
+Tests live under `tests/unit/test_backend.py` and `tests/integration/`.
+
+## 11.10 Acceptance Criteria
+
+The Triton backend is considered complete when:
+
+1. The VQ precompute kernel (§11.4) produces the same assignments,
+   aggregates, and counts as the Torch reference for FP32 and BF16.
+2. The online-softmax kernel (§11.5) matches `TorchBackend.online_softmax_attention`
+   on FP32 within documented tolerances.
+3. The child attention kernel (§11.6) matches the reference correction
+   applied to a non-trivial selected subset.
+4. The correcting kernel (§11.7) reduces to `OnlineSoftmaxState.merge`
+   on inputs where both reference and Triton run.
+5. AVQA on the Triton backend outperforms the TorchBackend on
+   sequence length ≥ 4096 and heads × head_dim ≥ 128 by at least 20 %
+   (a benchmark in `benchmarks/`; tracked as `OPT-0001`).
+6. Autotune disabled produces results numerically identical to
+   autotune-on (modulo tolerance).
+
+---
+
+# Chapter 12 — Framework Adapter Protocols
+
+## 12.1 Purpose
+
+Framework adapters translate AVQA into the calling conventions of
+external Transformer libraries. The protocol is specified here so that
+adding a new adapter does not require modifying the algorithmic core.
+
+## 12.2 Adapter Contract
+
+Every adapter MUST expose:
+
+- ``is_available() -> bool`` — runtime presence check for the optional
+  dependency.
+- ``replace_attention(model, config, **kwargs) -> Report`` — depth-first
+  walk of the model; ``Report`` reports ``modules_replaced`` and
+  ``modules_skipped``.
+- ``copy_weights(src, dst, embed_dim) -> None`` — copies Q/K/V/Out
+  projections and biases when present.
+
+Adapters MUST NOT introduce learned parameters beyond what the original
+module owns. AVQA's ``HierarchicalCodebook`` and routing are owned by
+AVQAttention and live in the adapter wrapper.
+
+## 12.3 Hugging Face Transformers
+
+- ``is_huggingface_available()`` probes the ``transformers`` import.
+- ``make_hf_attention_replacement(embed_dim, num_heads, config,
+  original_module)`` constructs an ``AVQAttention`` whose size matches
+  the host module's ``hidden_size`` and ``num_attention_heads``.
+- ``copy_hf_weights(original, replacement, embed_dim)`` copies the
+  Q / K / V / Out weight matrices AND their biases (when present) into
+  the replacement's `q_proj` / `k_proj` / `v_proj` / `out_proj`.
+- ``_HFAttentionWrapper`` translates the HF signature
+  (``attention_mask``, ``head_mask``, ``past_key_value``,
+  ``encoder_hidden_states``) onto AVQAttention's
+  ``(query, key, value, mask, kv_cache)``.
+
+Numerical contract: A roundtrip HF → AVQA → HF shall reproduce the
+HF original within FP32 ``atol=1e-4`` for at least one input batch on a
+known reference model.
+
+## 12.4 vLLM
+
+- ``AVQvLLMBackend`` satisfies vLLM's attention interface
+  (``forward`` and ``forward_native``).
+- ``vllm_attention_backend(name)`` returns a backend object with a
+  ``.name`` attribute.
+- When ``kv_cache`` or ``attn_metadata`` is supplied the adapter routes
+  the request through AVQA's `PagedKVCache` rather than the linear
+  in-memory path. This means paged attention, continuous batching, prefix
+  caching, and tensor parallelism are honored in the order they appear
+  in vLLM's metadata; without these flags the adapter uses
+  `TorchBackend.naive_attention`.
+
+Numerical contract: Forwarding a vLLM-shaped request through the
+adapter in BF16 against the AVQA reference must agree within BF16
+``atol=1e-2``.
+
+## 12.5 FlashAttention / xFormers
+
+- ``flash_attention_interop(q, k, v)`` returns
+  ``flash_attn.flash_attn_func(q, k, v)`` when both ``flash_attn`` and
+  CUDA are available; otherwise it routes through the AVQA reference
+  with the appropriate ``[B, T, H, D]`` ↔ ``[B, H, T, D]`` transpose.
+- ``xformers_interop(q, k, v)`` returns
+  ``xops.memory_efficient_attention(q, k, v)`` when available.
+
+Both wrappers MUST round-trip the attention output shape and dtype.
+
+## 12.6 Adapter Acceptance Criteria
+
+Each adapter is considered complete when:
+
+- ``is_available`` matches the dependency-install state.
+- ``replace_attention`` reports ``modules_replaced > 0`` on a known
+  reference model.
+- ``copy_weights`` produces a weight delta below the documented
+  tolerance against a hand-computed target.
+- Numerical equivalence test passes (where applicable) on a single
+  deterministic input.
+
+This chapter closes the v0.2.0 specification set. Subsequent chapters
+(multi-GPU scheduling, FP8 kernels, etc.) will be appended as the
+backend evolves.
+
