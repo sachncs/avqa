@@ -1,34 +1,32 @@
-# AVQA — Adaptive Vector Quantized Attention
-
-> **Independent Implementation Disclaimer**
->
-> This is an **independent, community-driven open-source implementation** of
-> the Adaptive Vector Quantized Attention (AVQ-Attention) algorithm. The
-> author of this codebase is **not** an author of the reference paper and is
-> not affiliated with the paper's authors or their institutions. This project
-> is offered to the community under the Apache 2.0 License and follows the
-> publicly-available specification only.
->
-> Reference paper: [arXiv:2607.12789v1](https://arxiv.org/html/2607.12789v1)
->
-> Any deviation from the paper is documented in
-> [`docs/spec_gaps.md`](docs/spec_gaps.md).
-
----
-
-## Overview
+<p align="center">
+  <h1 align="center">AVQA</h1>
+  <p align="center">Adaptive Vector Quantized Attention for PyTorch.</p>
+  <p align="center">
+    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
+    <a href="https://github.com/sachncs/avqa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/avqa/ci.yml?branch=main" alt="CI"></a>
+    <a href="https://github.com/sachncs/avqa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/avqa" alt="Stars"></a>
+  </p>
+</p>
 
 **AVQA** is a production-grade Python library implementing Adaptive Vector
 Quantized Attention (AVQ-Attention) as a drop-in attention backend for
-PyTorch-based Transformer architectures. It transforms the research paper
-into reusable, testable, benchmarked, and framework-integrated
-infrastructure.
+PyTorch-based Transformer architectures.
 
-Key features:
+> **Disclaimer**
+>
+> This is an independent, community-driven implementation. The author of this
+> codebase is **not** an author of the reference paper and is not affiliated
+> with the paper's authors or their institutions. See [Citation](#citation).
+
+---
+
+## Features
 
 - **Pure PyTorch reference implementation** with the canonical online-softmax
   algorithm from FlashAttention-2.
-- **Optimized Triton backend** for CUDA GPUs.
+- **Triton backend** for CUDA GPUs (delegates to Torch until kernel spec
+  is finalized).
 - **Hierarchical codebook** with mean-constrained parent-child structure.
 - **Adaptive refinement** that expands only the most-attended codewords.
 - **Correcting attention** that replaces — not augments — parent
@@ -36,20 +34,22 @@ Key features:
 - **Framework integrations** for Hugging Face Transformers, vLLM,
   FlashAttention, and xFormers.
 - **Profiling, visualization, and benchmarking** tools.
-- **Strict typing, zero-warning lint, ≥ 90% test coverage** on the core
+- **Strict typing, zero-warning lint, ≥90% test coverage** on the core
   package.
 
 ---
 
 ## Installation
 
-The base install pulls in only PyTorch:
+### From source
 
 ```bash
-pip install avqa
+git clone https://github.com/sachncs/avqa.git
+cd avqa
+pip install -e .
 ```
 
-Optional extras for framework integrations:
+### With optional extras
 
 ```bash
 pip install "avqa[huggingface]"     # Hugging Face Transformers
@@ -61,11 +61,9 @@ pip install "avqa[viz]"             # Visualization backends
 pip install "avqa[all]"             # All of the above
 ```
 
-For local development:
+### With dev dependencies
 
 ```bash
-git clone https://github.com/sachncs/avqa.git
-cd avqa
 pip install -e ".[all]"
 pip install pytest pytest-cov pytest-benchmark hypothesis ruff mypy matplotlib
 ```
@@ -73,6 +71,8 @@ pip install pytest pytest-cov pytest-benchmark hypothesis ruff mypy matplotlib
 ---
 
 ## Quick Start
+
+### Module API
 
 ```python
 import torch
@@ -96,7 +96,7 @@ value = torch.randn(2, 8, 128, 64)
 output = attention(query, key, value)  # [B, H, T, D]
 ```
 
-Functional API:
+### Functional API
 
 ```python
 from avqa import AVQConfig
@@ -108,75 +108,146 @@ output = attention(query=query, key=key, value=value, config=config)
 
 ---
 
-## Documentation
+## API Reference
 
-- [`docs/implementation_plan.md`](docs/implementation_plan.md) — overall
-  implementation plan, scope, and acceptance criteria.
-- [`docs/dependency_graph.md`](docs/dependency_graph.md) — subsystem-level
-  dependency DAG.
-- [`docs/milestone_plan.md`](docs/milestone_plan.md) — milestone breakdown
-  with exit criteria.
-- [`docs/checklist.md`](docs/checklist.md) — every normative requirement from
-  the specification.
-- [`docs/spec_gaps.md`](docs/spec_gaps.md) — implementation assumptions for
-  specification gaps.
-- [`docs/spec_compliance.md`](docs/spec_compliance.md) — compliance matrix
-  tracking implementation status.
-- [`TODO.md`](TODO.md) — atomic task tracker.
-
-The authoritative source is [`spec.md`](spec.md).
+| Symbol | Type | Description |
+|--------|------|-------------|
+| `AVQAttention` | class | Primary `nn.Module` attention wrapper |
+| `AVQConfig` | dataclass | Immutable configuration (codebook, routing, merge, backend, cache, precision) |
+| `VectorQuantizer` | class | Hierarchical vector quantization engine |
+| `HierarchicalCodebook` | class | Parent-child codebook with mean constraint |
+| `Router` | class | Routing strategy interface (TopP, Threshold, Budget) |
+| `AdaptiveRefinement` | class | Refinement orchestrator |
+| `Scheduler` | class | Refinement budget scheduler (Default, Adaptive) |
+| `KVCache` | class | Autoregressive KV cache (InMemory, Paged) |
+| `Backend` | class | Execution backend (Torch, Triton) |
+| `Profiler` | class | Runtime profiler with JSON export |
+| `attention` | function | Stateless functional entry point |
 
 ---
 
-## Status
+## Project Structure
 
-This project is in **alpha** (v0.1.0). The implementation is being built
-incrementally from the ground up, one atomic commit per task. See
-[`TODO.md`](TODO.md) for the current task status.
+```
+avqa/
+├── src/avqa/                  # Package source
+│   ├── __init__.py            # Public API exports
+│   ├── attention_module.py    # AVQAttention nn.Module
+│   ├── attention.py           # Online softmax state + correction
+│   ├── codebook.py            # HierarchicalCodebook
+│   ├── quantizer.py           # EuclideanHierarchicalQuantizer
+│   ├── routing.py             # Router + importance + selectors
+│   ├── merge.py               # Merge strategies
+│   ├── refinement.py          # AdaptiveRefinement orchestrator
+│   ├── backend.py             # TorchBackend / TritonBackend
+│   ├── cache.py               # KVCache (InMemory, Paged)
+│   ├── scheduler.py           # Default + Adaptive schedulers
+│   ├── config.py              # AVQConfig + sub-configs
+│   ├── data.py                # Shapes, dtypes, devices, contracts
+│   ├── functional.py          # Stateless functional API
+│   ├── integrations.py        # HF, vLLM, FlashAttention, xFormers
+│   ├── profiling.py           # Profiler + metrics + report
+│   ├── visualization.py       # Visualizer (tree, heatmap, timeline)
+│   ├── exceptions.py          # Exception hierarchy
+│   ├── logging.py             # Logging configuration
+│   ├── registry.py            # Extension registry
+│   └── utils/                 # seed, validation, numerics
+├── tests/
+│   ├── unit/                  # Unit tests
+│   ├── reference/             # Hand-computed reference tests
+│   ├── integration/           # Integration tests (HF, vLLM, FA, xF)
+│   └── performance/           # pytest-benchmark suite
+├── docs/                      # Architecture + compliance docs
+├── examples/                  # Usage examples
+├── pyproject.toml             # Build & tool config
+└── .github/                   # CI workflow
+```
 
 ---
 
 ## Development
 
-All commands run from the repository root.
-
 ```bash
-# Lint (zero warnings required)
-ruff check .
-ruff format --check .
+# Lint
+ruff check src/ tests/
+ruff format --check src/ tests/
 
-# Format (applies changes in place)
-ruff format .
-
-# Type-check (strict mode on src/avqa/)
+# Type-check
 mypy src/avqa
 
 # Tests
 pytest tests/unit -q
-pytest tests/integration -q
 pytest tests/reference -q
+pytest tests/integration -q
 pytest tests/performance -q
 
 # With coverage
 pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
 ```
 
-CI:
+### Code Style
 
-- `.github/workflows/ci-cpu.yml` — runs on every push and PR (lint, type,
-  CPU tests, coverage gate at 90%).
-- `.github/workflows/ci-gpu.yml` — runs on self-hosted GPU runners, gated by
-  `gpu` PR labels or manual dispatch.
+- Line length: 100
+- Quotes: double
+- Formatter/linter: ruff
+- Type hints: required on all public signatures
+- Docstrings: Google-style
+
+### Commit Conventions
+
+[Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add online-softmax tiled attention
+fix: correct einsum dimension mapping in parent attention
+docs: update compliance matrix
+test: add hand-computed reference tests
+```
 
 ---
 
-## License
+## Testing
 
-Apache License 2.0. See [`LICENSE`](LICENSE).
+```bash
+pytest                                          # full suite
+pytest --cov=avqa tests/unit tests/reference    # with coverage
+```
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Python 3.10+ |
+| Framework | [PyTorch](https://pytorch.org/) 2.1+ |
+| Build | [Hatchling](https://hatch.pypa.io/) |
+| Lint/Format | [ruff](https://docs.astral.sh/ruff/) |
+| Type Check | [mypy](https://mypy-lang.org/) (strict) |
+| Testing | [pytest](https://docs.pytest.org/) + pytest-cov + pytest-benchmark |
+
+---
+
+## Roadmap
+
+- **v0.1.0** — Current: reference implementation, 402 tests, ≥90% coverage
+- **v0.2.0** — Triton kernel implementation, FAISS quantizer, k-means init
+- **v1.0.0** — Stable API, PyPI release, full spec compliance
+
+---
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) (forthcoming).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, PR process,
+and coding standards.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).
+
+## License
+
+[Apache License 2.0](LICENSE)
 
 ## Citation
 

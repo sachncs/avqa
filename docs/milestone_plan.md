@@ -1,8 +1,7 @@
 # Milestone Plan
 
 This document breaks the implementation into 16 milestones (M0–M15). Each
-milestone has a defined deliverable, exit criteria, and reference TODO range
-in `TODO.md`.
+milestone has a defined deliverable, exit criteria, and reference issues.
 
 ## Milestone Table
 
@@ -60,7 +59,7 @@ Each milestone tracks:
 - Tasks planned: count of TODO entries in range.
 - Tasks completed: count of `[x]` entries.
 - Coverage delta: coverage before/after.
-- Open spec gaps: count of items in `docs/spec_gaps.md` affecting the milestone.
+- Open spec gaps: count of partially implemented requirements affecting the milestone.
 
 These metrics are reported in `docs/spec_compliance.md` after each milestone.
 
@@ -101,7 +100,7 @@ After each milestone:
 1. Re-read the corresponding spec sections (per `docs/spec_compliance.md`).
 2. Identify any partially implemented requirements.
 3. Identify any undocumented behavior.
-4. Add newly discovered TODOs to `TODO.md`.
+4. Create GitHub issues for newly discovered work.
 5. Update `docs/spec_compliance.md` status column.
 6. Tag the commit: `git tag -a m<N>-complete -m "Milestone M<N> complete"`.
 

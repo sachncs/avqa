@@ -28,15 +28,14 @@ Open a GitHub issue describing:
 ## Pull requests
 
 1. **Fork** the repo and create a feature branch.
-2. **Pick** an entry from `TODO.md` (or open an issue first for new ideas).
+2. **Pick** an issue (or open one for new ideas).
 3. **Implement** following the existing patterns; keep the diff small and
-   focused on one TODO entry.
+   focused on one issue.
 4. **Test** with `make test` (all 402 tests must pass) and `make lint`.
 5. **Document** with Google-style docstrings and Google-style type
    annotations.
-6. **Commit** with a message of the form
-   `TASK-NNNN: short summary` and update `TODO.md` with the commit SHA.
-7. **Open** the PR with a description referencing the TODO entry.
+6. **Commit** with a Conventional Commit message.
+7. **Open** the PR with a description referencing the issue.
 
 ## Code style
 

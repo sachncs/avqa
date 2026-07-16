@@ -7,7 +7,8 @@ operations. Two implementations are provided here:
 - :class:`Backend`: abstract base.
 - :class:`TorchBackend`: pure PyTorch reference + online-softmax paths.
 - :class:`TritonBackend`: Triton kernel placeholder (CUDA-only at
-  runtime; see ``docs/spec_gaps.md`` G1).
+   runtime; Triton backend delegates to TorchBackend until the Triton
+   kernel spec is finalized.
 
 ponytail: collapsed the planned backend package (8 sub-modules) into
 one src/avqa/backend.py. Backend + factory + torch + triton all live
@@ -225,7 +226,8 @@ class TritonBackend(Backend):
     with Triton installed) but is gated by ``TritonBackend.is_available()``
     which returns ``False`` on machines without CUDA/Triton.
 
-    See ``docs/spec_gaps.md`` G1 for the assumption that AVQA's Triton
+    Triton backend delegates to TorchBackend until the Triton kernel spec
+    is finalized.
     backend mirrors FlashAttention-2's online-softmax tiling.
     """
 

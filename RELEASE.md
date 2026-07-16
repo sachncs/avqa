@@ -51,8 +51,7 @@ acceleration gated on CUDA availability.
   left to vendor libraries (or future community extensions via the
   `avqa.registry` mechanism).
 - Speculative decoding, FAISS, FP8/INT8 quantization, and per-batch
-  dead-code resampling are documented in `docs/spec_gaps.md` as
-  future work.
+  dead-code resampling are deferred to future releases.
 
 ### Acknowledgements
 

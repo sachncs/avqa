@@ -3,8 +3,8 @@
 **Implementation status against spec.md Chapters 2–10.**
 
 This matrix is generated from the actual implementation after the
-v0.1.0 release. Every requirement listed in `docs/checklist.md`
-(238 entries) maps to one or more source files and tests.
+v0.1.0 release. 238 normative requirements from spec.md Chapters 2–10
+map to one or more source files and tests.
 
 ## Test Suite Statistics (v0.1.0)
 
@@ -52,21 +52,17 @@ invalid inputs that should never occur in practice).
 
 ## Spec Requirement Coverage
 
-The detailed requirement-by-requirement matrix is generated from
-`docs/checklist.md` (238 normative entries from spec.md Chapters 2–10).
-Each entry maps to:
+The 238 normative entries from spec.md Chapters 2–10 each map to:
 
 - one or more source files implementing the behavior, and
 - one or more tests verifying the behavior.
 
-For brevity, the full row-by-row table is omitted from this document
-and lives in `docs/checklist.md` (the canonical list). Coverage
-categories:
+Coverage categories:
 
 | Status | Count | Description |
 |--------|-------|-------------|
 | implemented | ~235 | Source + tests in the repository |
-| partially implemented | 3 | Triton kernels, k-means init, FAISS — see `docs/spec_gaps.md` |
+| partially implemented | 3 | Triton kernels, k-means init, FAISS |
 | deferred | ~0 | All documented behaviors ship in v0.1.0 |
 
 ## Module Coverage by Spec Chapter
@@ -96,6 +92,6 @@ This regenerates the line coverage numbers and verifies the 90% gate.
 
 ## Open Gaps
 
-See `docs/spec_gaps.md` for the complete list of spec gaps and the
-implementation assumptions made for each (FAISS, FP8/INT8, Triton
-kernel internals, etc.).
+Spec gaps (FAISS, FP8/INT8, Triton kernel internals, distributed
+execution, etc.) are documented inline in the source code and tracked
+in GitHub issues.

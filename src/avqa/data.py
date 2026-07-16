@@ -53,7 +53,7 @@ SHAPE_OUTPUT: Final[tuple[str, ...]] = (BATCH, HEAD, SEQUENCE, HEAD_DIM)
 
 # Supported dtypes (spec §6.9). Reference implementation MUST support
 # float32, float16, bfloat16. float64 / FP8 / INT8 are optional and
-# tracked in spec_gaps.md (G10).
+# ponytail: FP8/INT8 support deferred (optional per spec §6.9).
 SUPPORTED_DTYPES: Final[frozenset[torch.dtype]] = frozenset(
     {torch.float32, torch.float16, torch.bfloat16}
 )

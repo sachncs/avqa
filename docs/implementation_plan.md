@@ -15,7 +15,8 @@ Reference paper:
 > <https://arxiv.org/html/2607.12789v1>
 
 This implementation follows the public specification only. Any deviation from
-the paper is documented in `docs/spec_gaps.md`.
+the paper is documented inline in the source code and tracked in
+GitHub issues.
 
 ---
 
@@ -35,7 +36,8 @@ backend for PyTorch-based Transformer architectures. It provides:
 - Profiling, visualization, benchmarking, and serialization tooling.
 
 The authoritative source of requirements is `spec.md`. Anything not specified
-therein is recorded as an **implementation assumption** in `docs/spec_gaps.md`.
+therein is recorded as an **implementation assumption** in the source
+code or tracked in a GitHub issue.
 
 ---
 
@@ -133,7 +135,7 @@ interfaces only. Reverse imports are forbidden.
 
 ## 6. Development Workflow
 
-1. Each commit corresponds to exactly one TODO entry in `TODO.md`.
+1. Each commit corresponds to exactly one issue or task.
 2. Before every commit:
    - `ruff check .`
    - `ruff format --check .`
@@ -144,7 +146,7 @@ interfaces only. Reverse imports are forbidden.
 3. Each task writes production code, tests, and documentation.
 4. Tests must include: happy path, edge cases, invalid inputs, numerical
    correctness, serialization, deterministic execution.
-5. The TODO entry's commit SHA is recorded in `TODO.md` immediately after the
+5. The commit SHA is recorded in the issue or PR immediately after the
    commit.
 6. After each milestone, `docs/spec_compliance.md` is regenerated.
 
@@ -202,7 +204,7 @@ M15 Release + Compliance
 | CUDA/Triton not testable on macOS | Reference + online-softmax paths run on CPU/MPS; CUDA-only paths guarded with `importorskip` and `cuda.is_available()`. |
 | Heavy framework deps (vLLM, FlashAttention, xFormers) not installed by default | Optional extras in `pyproject.toml`. Integration modules lazy-import heavy deps. |
 | Numerical differences across backends | Naive reference path is the canonical source; tolerances documented per dtype. |
-| Spec gaps (Ch 11+) | Documented in `docs/spec_gaps.md` with explicit implementation assumptions. |
+| Spec gaps (Ch 11+) | Documented inline in source code and tracked in GitHub issues. |
 
 ---
 
