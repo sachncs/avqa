@@ -95,23 +95,48 @@ class AVQAttention(nn.Module):
         # Initialize children near parents so the mean constraint holds.
         self.codebook.initialize_children_around_parents()
 
-        self.router = TopPRouter()
+        # M6: Select router based on configured strategy.
+        router_name = config.routing.strategy.lower()
+        if router_name == "topp":
+            self.router = TopPRouter()
+        elif router_name == "threshold":
+            from avqa.routing import ThresholdRouter
+
+            self.router = ThresholdRouter()
+        elif router_name == "budget":
+            from avqa.routing import BudgetRouter
+
+            self.router = BudgetRouter()
+        else:
+            msg = f"unknown routing strategy: {router_name!r}"
+            raise ValueError(msg)
 
         if config.refinement.enabled:
-            from avqa.scheduler import DefaultScheduler
-            self.scheduler: DefaultScheduler | None = DefaultScheduler(
-                budget=config.routing.refinement_budget,
-            )
+            from avqa.scheduler import AdaptiveScheduler, DefaultScheduler
+
+            # M6: Use AdaptiveScheduler when adaptive_budget is True.
+            if config.refinement.adaptive_budget:
+                self.scheduler: DefaultScheduler | AdaptiveScheduler | None = AdaptiveScheduler(
+                    budget=config.routing.refinement_budget,
+                )
+            else:
+                self.scheduler = DefaultScheduler(
+                    budget=config.routing.refinement_budget,
+                )
         else:
             self.scheduler = None
 
         self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
 
+        # H4: Store last forward pass data for commitment loss computation.
+        self.last_keys: torch.Tensor | None = None
+        self.last_parent_assignments: torch.Tensor | None = None
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
-    def _maybe_project(
+    def maybe_project(
         self,
         query: torch.Tensor,
         key: torch.Tensor,
@@ -121,21 +146,47 @@ class AVQAttention(nn.Module):
         return self.q_proj(query), self.k_proj(key), self.v_proj(value)
 
     @staticmethod
-    def _split_heads(tensor: torch.Tensor, num_heads: int) -> torch.Tensor:
+    def split_heads(tensor: torch.Tensor, num_heads: int) -> torch.Tensor:
         """``[B, T, E]`` → ``[B, H, T, D]``."""
         B, T, E = tensor.shape
         D = E // num_heads
         return tensor.view(B, T, num_heads, D).transpose(1, 2)
 
     @staticmethod
-    def _merge_heads(tensor: torch.Tensor) -> torch.Tensor:
+    def merge_heads(tensor: torch.Tensor) -> torch.Tensor:
         """``[B, H, T, D]`` → ``[B, T, E]``."""
         B, H, T, D = tensor.shape
         return tensor.transpose(1, 2).contiguous().view(B, T, H * D)
 
-    def _causal_mask(self, seq_len: int, device: torch.device) -> torch.Tensor:
+    def causal_mask(self, seq_len: int, device: torch.device) -> torch.Tensor:
         """Lower-triangular mask for causal attention (1 = keep, 0 = mask)."""
         return torch.tril(torch.ones(seq_len, seq_len, device=device, dtype=torch.bool))
+
+    # ------------------------------------------------------------------
+    # Commitment loss (spec §8.9)
+    # ------------------------------------------------------------------
+
+    def commitment_loss(self) -> torch.Tensor:
+        """Compute the commitment (encoding) loss from the last forward pass.
+
+        Returns the squared distance between each key and its assigned
+        parent codeword, weighted by ``config.codebook.commitment_loss_weight``.
+
+        Returns:
+            Scalar weighted commitment loss. Returns ``0.0`` if
+            ``commitment_loss_weight`` is set to ``0``.
+
+        Raises:
+            RuntimeError: If called before any forward pass has executed.
+        """
+        if self.last_keys is None or self.last_parent_assignments is None:
+            msg = "commitment_loss() requires at least one prior forward pass"
+            raise RuntimeError(msg)
+        raw_loss = self.codebook.commitment_loss(
+            self.last_keys,
+            self.last_parent_assignments,
+        )
+        return raw_loss * self.config.codebook.commitment_loss_weight
 
     # ------------------------------------------------------------------
     # Forward
@@ -171,9 +222,9 @@ class AVQAttention(nn.Module):
             enabled=autocast_enabled,
             dtype=autocast_dtype,
         ):
-            return self._forward_impl(query, key, value, mask, kv_cache)
+            return self.forward_impl(query, key, value, mask, kv_cache)
 
-    def _forward_impl(  # noqa: PLR0915  # noqa: PLR0915
+    def forward_impl(  # noqa: PLR0915
         self,
         query: torch.Tensor,
         key: torch.Tensor,
@@ -195,45 +246,92 @@ class AVQAttention(nn.Module):
         Returns:
             ``[B, T_q, E]`` attention output.
         """
-        Q = self._maybe_project(query, key, value)
-        q_proj, k_proj, v_proj = Q
+        # H5: Input validation (spec §6.12, §10.5).
+        if not self.config.backend.skip_validation:
+            from avqa.utils.validation import (
+                validate_device_match,
+                validate_dtype,
+                validate_embed_dim,
+                validate_rank,
+            )
+
+            supported_dtypes = (torch.float32, torch.float16, torch.bfloat16)
+            for name, tensor in [("query", query), ("key", key), ("value", value)]:
+                validate_rank(tensor, 3, name=name)
+                validate_dtype(tensor, supported_dtypes, name=name)
+            validate_embed_dim(query, self.config.attention.embed_dim, name="query")
+            validate_embed_dim(key, self.config.attention.embed_dim, name="key")
+            validate_embed_dim(value, self.config.attention.embed_dim, name="value")
+            validate_device_match([query, key, value], name="query/key/value")
+            if query.shape[-1] != key.shape[-1]:
+                from avqa.utils.validation import validate_shape
+
+                validate_shape(key, query.shape, name="key")
+            if key.shape != value.shape:
+                from avqa.utils.validation import validate_shape
+
+                validate_shape(value, key.shape, name="value")
+
+        q_proj, k_proj, v_proj = self.maybe_project(query, key, value)
         H = self.config.attention.num_heads
-        q = self._split_heads(q_proj, H)
-        k = self._split_heads(k_proj, H)
-        v = self._split_heads(v_proj, H)
+        q = self.split_heads(q_proj, H)
+        k = self.split_heads(k_proj, H)
+        v = self.split_heads(v_proj, H)
 
-        # Ensure codebook dtype matches the input dtype (the codebook is
-        # initialized in FP32 at construction time).
-        if self.codebook.parents.dtype != q.dtype:
-            self.codebook.parents = self.codebook.parents.to(dtype=q.dtype)
-            self.codebook.children = self.codebook.children.to(dtype=q.dtype)
+        # Ensure codebook dtype and device match the input.
+        # M5: codebook is initialized on CPU in FP32; move it to the input's
+        # device and dtype when the inputs are on a different device/dtype.
+        if self.codebook.parents.device != q.device or self.codebook.parents.dtype != q.dtype:
+            self.codebook.parents = self.codebook.parents.to(device=q.device, dtype=q.dtype)
+            self.codebook.children = self.codebook.children.to(device=q.device, dtype=q.dtype)
 
-        # Optionally extend the KV cache.
+        # M4: Look up cached K/V and concatenate with current K/V before
+        # running attention. Previously the cache was appended but never
+        # consumed; only the current K/V participated in attention.
         if kv_cache is not None:
+            cached_k, cached_v = kv_cache.lookup()
+            if cached_k.shape[-2] > 0:
+                # Concatenate along the sequence dim (assumed axis -2).
+                k_full = torch.cat([cached_k, k], dim=-2)
+                v_full = torch.cat([cached_v, v], dim=-2)
+            else:
+                k_full, v_full = k, v
             kv_cache.append(k, v)
+        else:
+            k_full, v_full = k, v
 
         # Resolve mask.
         if mask is None and self.config.causal:
-            mask = self._causal_mask(q.shape[-2], q.device)
+            mask = self.causal_mask(q.shape[-2], q.device)
 
         # ISSUE-0018: execution mode controls pipeline selection (spec §4.13, §10.15).
         # "reference" always uses naive attention; "optimized"/"research" use AVQ.
         use_naive = self.scheduler is None or self.config.execution.mode == "reference"
         if use_naive:
-            attn_out = self.backend.naive_attention(q, k, v, mask=mask)
-            out = self._merge_heads(attn_out)
+            attn_out = self.backend.naive_attention(q, k_full, v_full, mask=mask)
+            out = self.merge_heads(attn_out)
             out = self.out_proj(out)
             out = self.dropout(out)
             return out  # type: ignore[no-any-return]
 
+        # Branch 2: full AVQ pipeline (use cached+current K/V).
+        k_for_vq = k_full
+        v_for_vq = v_full
+
         # Branch 2: full AVQ pipeline.
         B, _, T_q, D = q.shape
-        D_v = v.shape[-1]
+        D_v = v_for_vq.shape[-1]
         M0 = self.config.codebook.num_codewords
         C = self.config.codebook.children_per_codeword
 
-        # Stage 2 (spec §10.6): VQ precompute.
-        result = self.backend.quantize(k, v, self.codebook.parents, self.codebook.children)
+        # Stage 2 (spec §10.6): VQ precompute over cached+current K/V.
+        result = self.backend.quantize(
+            k_for_vq, v_for_vq, self.codebook.parents, self.codebook.children
+        )
+
+        # H4: Store keys and assignments for commitment loss computation.
+        self.last_keys = k_for_vq.detach()
+        self.last_parent_assignments = result.parent_assignments.detach()
         expected_parents = (H, M0, D)
         if tuple(self.codebook.parents.shape) != expected_parents:
             self.codebook = HierarchicalCodebook(
@@ -245,26 +343,43 @@ class AVQAttention(nn.Module):
                 dtype=q.dtype,
             )
             self.codebook.initialize_children_around_parents()
-            result = self.backend.quantize(k, v, self.codebook.parents, self.codebook.children)
+            result = self.backend.quantize(
+                k_for_vq, v_for_vq, self.codebook.parents, self.codebook.children
+            )
 
         # Stage 3 (spec §10.7): parent attention via online-softmax tiled approach.
         parent_keys = self.codebook.parents.unsqueeze(0).expand(B, H, M0, D)
-        parent_values = result.parent_aggregates                      # [B, H, M_0, D_v]
-        valid = result.parent_counts > 0                              # [B, H, M_0]
+        parent_values = result.parent_aggregates  # [B, H, M_0, D_v]
+        valid = result.parent_counts > 0  # [B, H, M_0]
 
         # Parent logits: Q · C_p^T / sqrt(D). Shape [B, H, T_q, M_0].
-        parent_logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / (D ** 0.5)
+        parent_logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / (D**0.5)
+        # M3: Apply the supplied mask (e.g., causal). A mask of shape
+        # [T_q, T_k] (bool, True = keep) is broadcast to [B, H, T_q, T_k].
+        # For AVQ, we collapse to [T_q, 1] — if any key position is masked
+        # for a given query, mask the entire parent logit for that query.
         if mask is not None:
-            codeword_mask = torch.ones(T_q, M0, dtype=torch.bool, device=q.device)
-            parent_logits = parent_logits.masked_fill(~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf"))
+            if mask.ndim == 2:
+                # Reduce [T_q, T_k] to [T_q, 1]: True if any key is visible.
+                codeword_mask = mask.any(dim=-1, keepdim=True)  # [T_q, 1]
+            elif mask.ndim == 4:
+                codeword_mask = mask.any(dim=-1).any(dim=1, keepdim=True)  # [B, 1, T_q, 1]
+            else:
+                codeword_mask = torch.ones(T_q, 1, dtype=torch.bool, device=q.device)
+            parent_logits = parent_logits.masked_fill(
+                ~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf")
+            )
         # Empty codewords excluded from softmax (spec §7.15).
         parent_logits = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
 
         # Build running online-softmax state from parent attention.
         # tile_max: amax over M_0 parents → [B, H, T_q, 1].
         tile_max = parent_logits.amax(dim=-1, keepdim=True)
-        tile_exp = torch.exp(parent_logits - tile_max)               # [B, H, T_q, M_0]
-        tile_denom = tile_exp.sum(dim=-1, keepdim=True)              # [B, H, T_q, 1]
+        tile_exp = torch.exp(parent_logits - tile_max)  # [B, H, T_q, M_0]
+        # VQ attention denominator: Σ_a exp(S_ia) n_a (spec §7.7).
+        tile_denom = (tile_exp * result.parent_counts.unsqueeze(2)).sum(
+            dim=-1, keepdim=True
+        )  # [B, H, T_q, 1]
         # Numerator: contract exp(S) over M_0 with parent values.
         # tile_exp: [B, H, T_q, M_0], parent_values: [B, H, M_0, D_v]
         tile_num = torch.einsum("bhta,bhad->bhtd", tile_exp, parent_values)
@@ -283,31 +398,48 @@ class AVQAttention(nn.Module):
         budget = self.scheduler.budget_for(importance)
         # Cap budget at the minimum number of parents with valid children
         # across all (B, H) pairs (spec §9.12).
-        num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)    # [B, H]
+        num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)  # [B, H]
         min_valid = int(num_valid_per_bh.min().item())
         budget = min(budget, min_valid)
         if budget <= 0:
             # No valid parents — fall back to naive attention.
-            attn_out = self.backend.naive_attention(q, k, v, mask=mask) if mask is not None else self.backend.naive_attention(q, k, v)
-            out = self._merge_heads(attn_out)
+            attn_out = (
+                self.backend.naive_attention(q, k, v, mask=mask)
+                if mask is not None
+                else self.backend.naive_attention(q, k, v)
+            )
+            out = self.merge_heads(attn_out)
             out = self.out_proj(out)
             out = self.dropout(out)
             return out  # type: ignore[no-any-return]
         decision = self.router.select(importance, budget)
 
         # Stage 6 (spec §10.10): child attention — compute real Q · C_c^T
-        # for the children of all parents (selected ones will be used).
-        child_keys = self.codebook.children.unsqueeze(0).expand(B, H, M0, C, D)
-        # [B, H, T_q, M_0, C] child attention logits.
-        child_logits = torch.einsum("bhtd,bhmcd->bhtmc", q, child_keys) / (D ** 0.5)
+        # ONLY for the selected parents' children (spec §9.8).
+        selected = decision.selected_indices  # [B, H, P]
+        P = selected.shape[-1]
+        # Gather selected parents' children keys: [B, H, P, C, D].
+        parent_idx = selected.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D)
+        selected_child_keys = torch.gather(
+            self.codebook.children.unsqueeze(0).expand(B, H, M0, C, D),
+            2,
+            parent_idx,
+        )
+        # [B, H, T_q, P, C] child attention logits for selected parents only.
+        child_logits = torch.einsum("bhtd,bhpcd->bhtpc", q, selected_child_keys) / (D**0.5)
         # Mask empty children.
-        child_valid = result.child_counts > 0                         # [B, H, M_0, C]
-        child_logits = child_logits.masked_fill(~child_valid.unsqueeze(2), float("-inf"))
+        selected_child_valid = (
+            torch.gather(
+                result.child_counts,
+                2,
+                selected.unsqueeze(-1).expand(B, H, P, C),
+            )
+            > 0
+        )  # [B, H, P, C] bool
+        child_logits = child_logits.masked_fill(~selected_child_valid.unsqueeze(2), float("-inf"))
 
         # Stage 6 + 7: refine with real child logits.
-        parent_value_per_parent = (
-            parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-        )
+        parent_value_per_parent = parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
         refinement = refine_step(
             state=state,
             parent_probs=parent_attention_probs,
@@ -319,8 +451,18 @@ class AVQAttention(nn.Module):
             attention_probs=parent_attention_probs,
             parent_counts=result.parent_counts,
             child_logits=child_logits,
+            child_counts=result.child_counts,
+            merge_strategy=self.config.merge.strategy,
         )
-        attn_out = refinement.merge_value
+        # C2+C4 + M1: Use the REFINED state from refinement.state (which
+        # includes the correction term), not the original state (spec §7.7,
+        # §7.13, §7.14). The corrected state has all parents updated: the
+        # P selected parents have their coarse contribution replaced by the
+        # child contribution; the unselected ones retain the parent state.
+        refined_state = refinement.state
+        attn_out = refined_state.running_numerator[
+            :, :, :, 0, :
+        ] / refined_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
 
         # ISSUE-0018: research mode emits diagnostics (spec §10.15).
         if self.config.execution.mode == "research":
@@ -331,7 +473,7 @@ class AVQAttention(nn.Module):
                 (result.parent_counts > 0).float().mean().item(),
             )
 
-        out = self._merge_heads(attn_out)
+        out = self.merge_heads(attn_out)
         out = self.out_proj(out)
         out = self.dropout(out)
         return out  # type: ignore[no-any-return]
