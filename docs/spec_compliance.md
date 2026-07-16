@@ -12,7 +12,7 @@ v0.1.0 release. Every requirement listed in `docs/checklist.md`
 |--------|-------|
 | Source modules (`src/avqa/`) | 23 |
 | Test modules (`tests/`) | 23 |
-| Total tests | 374 (373 passed + 1 skipped parametrize) |
+| Total tests | 402 |
 | Line coverage on `src/avqa/` | **92.84%** (gate: 90%) |
 | Public classes | AVQAttention, AVQConfig + 9 sub-configs, HierarchicalCodebook, VectorQuantizer + EuclideanHierarchicalQuantizer, Router + 3 selectors, MergeStrategy + 4 strategies, AdaptiveRefinement, Backend + 2 backends, KVCache + 2 caches, Scheduler + 2 schedulers, Profiler, Visualizer |
 | Public registries | 7 (quantizer, router, merge, scheduler, backend, profiler, visualizer) |

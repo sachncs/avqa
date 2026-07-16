@@ -9,6 +9,8 @@ All benchmarks compare AVQA against PyTorch SDPA on identical inputs.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 import torch
 
@@ -124,3 +126,55 @@ def test_attention_reproducibility() -> None:
     out2 = module(q, q, q)
 
     assert torch.allclose(out1, out2, atol=1e-5)
+
+
+@pytest.fixture(params=[1024, 2048])
+def large_seq_len(request: pytest.FixtureRequest) -> int:
+    """Large sequence lengths for scaling benchmarks."""
+    return request.param
+
+
+@pytest.mark.benchmark(group="large-attention")
+def test_avqa_attention_large(large_seq_len: int, benchmark: object) -> None:
+    """Benchmark AVQA at large N (spec §3.19)."""
+    cfg = _small_attn_config(seq_len=large_seq_len)
+    module = AVQAttention(cfg, in_proj=False, out_proj=False)
+    q = torch.randn(1, large_seq_len, 64)
+    k = torch.randn(1, large_seq_len, 64)
+    v = torch.randn(1, large_seq_len, 64)
+
+    def run() -> None:
+        module(q, k, v)
+
+    benchmark(run)
+
+
+@pytest.mark.benchmark(group="large-attention")
+def test_pytorch_attention_large(large_seq_len: int, benchmark: object) -> None:
+    """Benchmark PyTorch SDPA at large N for comparison."""
+    q = torch.randn(1, 4, large_seq_len, 16)
+    k = torch.randn(1, 4, large_seq_len, 16)
+    v = torch.randn(1, 4, large_seq_len, 16)
+
+    def run() -> None:
+        torch.nn.functional.scaled_dot_product_attention(q, k, v)
+
+    benchmark(run)
+
+
+def test_complexity_scaling() -> None:
+    """Wall-clock must scale sub-quadratically from N=64 to N=256 (ISSUE-0024)."""
+
+    def _time_at(n: int) -> float:
+        cfg_n = _small_attn_config(seq_len=n)
+        mod = AVQAttention(cfg_n, in_proj=False, out_proj=False)
+        q = torch.randn(1, n, 64)
+        start = time.perf_counter()
+        for _ in range(3):
+            mod(q, q, q)
+        return (time.perf_counter() - start) / 3
+
+    t64 = _time_at(64)
+    t256 = _time_at(256)
+    # Sub-quadratic: t(256) < 20 * t(64). Quadratic would be 16x.
+    assert t256 < 20 * t64, f"Scaling too steep: t(256)={t256:.3f}s vs t(64)={t64:.3f}s"

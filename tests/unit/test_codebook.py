@@ -111,6 +111,21 @@ class TestChildInitialization:
         # high probability for Gaussian noise.
         assert diff < 4 * cb.perturbation_scale
 
+    def test_empirical_perturbation_scale(self) -> None:
+        """Empirical std of perturbation matches configured scale (spec §8.10)."""
+        torch.manual_seed(42)
+        scale = 0.2
+        cb = HierarchicalCodebook(
+            num_heads=2, num_parents=32, children_per_parent=16, head_dim=32,
+            perturbation_scale=scale,
+        )
+        cb.initialize_parents_random()
+        cb.initialize_children_around_parents()
+        noise = (cb.children - cb.parents.unsqueeze(2)) / scale
+        # Empirical std should be close to 1.0 (std of N(0,I)).
+        empirical_std = noise.std().item()
+        assert abs(empirical_std - 1.0) < 0.15
+
     def test_custom_perturbation_shape_validated(self) -> None:
         """Wrong-shape perturbation raises CodebookError."""
         cb = HierarchicalCodebook(num_heads=2, num_parents=8, children_per_parent=4, head_dim=16)

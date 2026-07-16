@@ -46,6 +46,7 @@ __all__ = [
     "AVQConfig",
     "AdaptiveRefinement",
     "Backend",
+    "Codebook",
     "HierarchicalCodebook",
     "KVCache",
     "Profiler",
@@ -80,6 +81,10 @@ def __getattr__(name: str) -> object:
         from avqa.codebook import HierarchicalCodebook as _HierarchicalCodebook
 
         return _HierarchicalCodebook
+    if name == "Codebook":
+        from avqa.codebook import HierarchicalCodebook as _Codebook
+
+        return _Codebook
     if name == "Router":
         from avqa.routing import Router as _Router
 

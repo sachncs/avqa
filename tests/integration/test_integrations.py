@@ -161,3 +161,55 @@ class TestXFormersInterop:
         v = torch.randn(1, 2, 6, 8)
         out = xformers_interop(q, k, v)
         assert out.shape == (1, 2, 4, 8)
+
+
+_HASTT = pytest.mark.skipif(not is_vllm_available(), reason="vllm not installed")
+
+
+@_HASTT
+class TestVLLMWhenInstalled:
+    """Integration tests that run only when vllm is available (ISSUE-0027)."""
+
+    def test_vllm_backend_loads(self) -> None:
+        backend = vllm_attention_backend("avqa")
+        assert backend.name == "avqa"
+
+    def test_vllm_torch_backend_loads(self) -> None:
+        backend = vllm_attention_backend("torch")
+        assert backend.name == "torch"
+
+
+_HASSA = pytest.mark.skipif(
+    not (is_flash_attention_available() and torch.cuda.is_available()),
+    reason="flash-attn or CUDA not available",
+)
+
+
+@_HASSA
+class TestFlashAttentionWhenInstalled:
+    """Integration tests that run only when flash_attn+CUDA available (ISSUE-0028)."""
+
+    def test_flash_attention_produces_correct_shape(self) -> None:
+        q = torch.randn(1, 4, 16, 8, device="cuda", dtype=torch.float16)
+        k = torch.randn(1, 4, 16, 8, device="cuda", dtype=torch.float16)
+        v = torch.randn(1, 4, 16, 8, device="cuda", dtype=torch.float16)
+        out = flash_attention_interop(q, k, v)
+        assert out.shape == q.shape
+
+
+_HASXF = pytest.mark.skipif(
+    not (is_xformers_available() and torch.cuda.is_available()),
+    reason="xformers or CUDA not available",
+)
+
+
+@_HASXF
+class TestXFormersWhenInstalled:
+    """Integration tests that run only when xformers+CUDA available (ISSUE-0029)."""
+
+    def test_xformers_produces_correct_shape(self) -> None:
+        q = torch.randn(1, 2, 4, 8, device="cuda")
+        k = torch.randn(1, 2, 6, 8, device="cuda")
+        v = torch.randn(1, 2, 6, 8, device="cuda")
+        out = xformers_interop(q, k, v)
+        assert out.shape == (1, 2, 4, 8)

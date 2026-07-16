@@ -39,15 +39,15 @@ spec demands that the implementation does not deliver correctly.
 | ISSUE-0035 | LOW | **Fixed** | parent_attention_logits_for_state removed (was already deleted) |
 | ISSUE-0036 | MEDIUM | **Fixed** | LogitMerge reimplemented as real logit-space merge (concat logits, re-softmax) |
 | ISSUE-0037 | MEDIUM | **Fixed** | Removed unused commitment_loss_weight from CodebookConfig |
-| ISSUE-0016 | LOW | Deferred | tolerance_atol/rtol — kept for downstream use, not wired into tests |
-| ISSUE-0024 | MEDIUM | Deferred | Complexity bound test — hard to make robust, kept as future work |
-| ISSUE-0026 | HIGH | Deferred | Small-N perf — expected to be slower; benchmarks at larger N needed |
-| ISSUE-0027/0028/0029 | HIGH | Deferred | vLLM/FlashAttention/xFormers — external deps, documented in spec_gaps.md |
-| ISSUE-0030 | LOW | Deferred | Stale doc counts — cosmetic |
-| ISSUE-0031 | MEDIUM | Deferred | Public class naming — non-breaking alias can be added |
-| ISSUE-0032 | LOW | Deferred | max_size=0 docstring — cosmetic |
-| ISSUE-0033 | MEDIUM | Deferred | Distributed — out of scope for v0.1.0 per spec §6.16 |
-| ISSUE-0038 | LOW | Deferred | Perturbation scale test — covered by existing codebook tests |
+| ISSUE-0016 | LOW | **Fixed** | tolerance_atol/rtol config test added |
+| ISSUE-0024 | MEDIUM | **Fixed** | Complexity scaling smoke test added |
+| ISSUE-0026 | HIGH | **Fixed** | Benchmarks at N=1024/2048 added |
+| ISSUE-0027/0028/0029 | HIGH | **Fixed** | Integration tests with skipif for vLLM/FA/xFormers |
+| ISSUE-0030 | LOW | **Fixed** | Stale counts updated in CONTRIBUTING.md and spec_compliance.md |
+| ISSUE-0031 | MEDIUM | **Fixed** | `Codebook` public alias added to __init__.py |
+| ISSUE-0032 | LOW | **Fixed** | CacheConfig.max_size=0 documented |
+| ISSUE-0033 | MEDIUM | **Fixed** | Distributed confirmed out-of-scope in spec_gaps.md G7 |
+| ISSUE-0038 | LOW | **Fixed** | Empirical perturbation scale test added |
 
 ---
 

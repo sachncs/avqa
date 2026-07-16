@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import torch
 
 from avqa.profiling import Profiler
@@ -85,7 +86,6 @@ class TestVisualizerInterface:
 
     def test_cannot_instantiate(self) -> None:
         """Visualizer cannot be instantiated directly."""
-        import pytest
         with pytest.raises(TypeError):
             Visualizer()  # type: ignore[abstract]
 

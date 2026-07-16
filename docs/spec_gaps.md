@@ -76,7 +76,9 @@ respective framework:
 
 All heavy framework deps are optional extras (`pip install avqa[huggingface]`
 etc.). Integration modules perform lazy imports and surface a clear
-`is_available()` helper.
+`is_available()` helper. Integration tests use `pytest.mark.skipif` to run
+only when the dependency is installed; they are not failures in CI without
+the dep.
 
 **Impact:** Until a future spec chapter details the exact mapping, these
 integrations follow the upstream framework's documented patterns. They are

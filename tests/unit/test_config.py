@@ -200,6 +200,12 @@ class TestAVQConfig:
         b = AVQConfig(dropout=0.1)
         assert a != b
 
+    def test_tolerance_fields(self) -> None:
+        """tolerance_atol and tolerance_rtol are accessible (spec §3.16, G6)."""
+        cfg = AVQConfig(tolerance_atol=1e-3, tolerance_rtol=1e-4)
+        assert cfg.tolerance_atol == 1e-3
+        assert cfg.tolerance_rtol == 1e-4
+
 
 class TestAVQConfigSerialization:
     """Tests for AVQConfig (de)serialization (spec §3.20, §5.12)."""

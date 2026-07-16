@@ -154,7 +154,12 @@ class BackendConfig:
 
 @dataclass(frozen=True, slots=True)
 class CacheConfig:
-    """KV cache configuration (spec §3.13)."""
+    """KV cache configuration (spec §3.13).
+
+    Attributes:
+        enabled: Whether to enable KV caching.
+        max_size: Maximum number of cached entries. ``0`` means unbounded.
+    """
 
     enabled: bool = True
     max_size: int = 0  # 0 means unbounded
