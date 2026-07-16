@@ -72,9 +72,7 @@ class TestRoutingConfig:
 class TestMergeConfig:
     """Tests for MergeConfig."""
 
-    @pytest.mark.parametrize(
-        "strategy", ["probability", "weighted", "logit", "normalized"]
-    )
+    @pytest.mark.parametrize("strategy", ["probability", "weighted", "logit", "normalized"])
     def test_valid_strategies(self, strategy: str) -> None:
         """All four documented strategies are accepted."""
         MergeConfig(strategy=strategy)

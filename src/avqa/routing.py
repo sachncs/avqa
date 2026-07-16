@@ -61,7 +61,7 @@ def compute_importance(
             "attention_probs and counts have mismatched codeword dimensions",
         )
     # w_j = n_j * sum_i A_ij.  For normalized probs, Z_i = 1 (no division needed).
-    total_mass = attention_probs.sum(dim=-2)                              # [B, H, M_0]
+    total_mass = attention_probs.sum(dim=-2)  # [B, H, M_0]
     return counts * total_mass
 
 
@@ -180,7 +180,7 @@ class ThresholdRouter(Router):
         """Select codewords whose importance >= ``self.threshold``."""
         if budget <= 0:
             raise RoutingError(f"budget must be > 0, got {budget}")
-        mask = importance >= self.threshold                                  # [B, H, M_0]
+        mask = importance >= self.threshold  # [B, H, M_0]
         # Use top-k on masked values; entries below threshold become -inf.
         masked = torch.where(mask, importance, torch.full_like(importance, float("-inf")))
         indices = masked.topk(min(budget, importance.shape[-1]), dim=-1).indices

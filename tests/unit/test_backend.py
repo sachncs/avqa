@@ -27,7 +27,7 @@ class TestNaiveAttention:
         Q = torch.randn(1, 1, 3, 4)
         K = torch.randn(1, 1, 5, 4)
         V = torch.randn(1, 1, 5, 8)
-        scale = 4 ** -0.5
+        scale = 4**-0.5
         expected = torch.softmax(Q @ K.transpose(-2, -1) * scale, dim=-1) @ V
         out = TorchBackend().naive_attention(Q, K, V)
         assert torch.allclose(out, expected, atol=1e-5)
@@ -37,7 +37,7 @@ class TestNaiveAttention:
         Q = torch.randn(1, 1, 2, 4)
         K = torch.randn(1, 1, 3, 4)
         V = torch.randn(1, 1, 3, 4)
-        mask = torch.tensor([[[1, 1, 0]]])                  # [B, H, N]
+        mask = torch.tensor([[[1, 1, 0]]])  # [B, H, N]
         out = TorchBackend().naive_attention(Q, K, V, mask=mask)
         # Last key/value is masked out.
         K_masked = K[:, :, :2, :]
@@ -144,12 +144,8 @@ class TestCorrection:
         m_new = torch.ones(2)
         l_new = torch.ones(2)
         acc_new = torch.randn(2, 4)
-        m, denom, acc = TorchBackend().correction(
-            m_old, l_old, acc_old, m_new, l_new, acc_new
-        )
-        m_ref, l_ref, acc_ref = online_softmax_step(
-            m_old, l_old, acc_old, m_new, l_new, acc_new
-        )
+        m, denom, acc = TorchBackend().correction(m_old, l_old, acc_old, m_new, l_new, acc_new)
+        m_ref, l_ref, acc_ref = online_softmax_step(m_old, l_old, acc_old, m_new, l_new, acc_new)
         assert torch.allclose(m, m_ref)
         assert torch.allclose(denom, l_ref)
         assert torch.allclose(acc, acc_ref)
@@ -167,8 +163,8 @@ class TestReduction:
 
     def test_division(self) -> None:
         """Output is num / denom (with denom broadcast over the last dim)."""
-        num = torch.tensor([[[2.0, 4.0], [6.0, 8.0]]])           # [1, 2, 2]
-        denom = torch.tensor([[2.0, 3.0]])                          # [1, 2]
+        num = torch.tensor([[[2.0, 4.0], [6.0, 8.0]]])  # [1, 2, 2]
+        denom = torch.tensor([[2.0, 3.0]])  # [1, 2]
         out = TorchBackend().reduction(num, denom)
         # Broadcasting denom[1,2] -> [1,2,1] across num[1,2,2].
         expected = torch.tensor([[[1.0, 2.0], [2.0, 8.0 / 3.0]]])

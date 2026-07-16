@@ -126,7 +126,7 @@ class TorchBackend(Backend):
         """
         B, H, T, D_k = query.shape
         _, _, N, D_v = value.shape
-        scale = D_k ** -0.5
+        scale = D_k**-0.5
 
         # Tiled attention over the key/value dimension.
         m = torch.full((B, H, T), float("-inf"), device=query.device, dtype=query.dtype)
@@ -135,24 +135,20 @@ class TorchBackend(Backend):
 
         for start in range(0, N, block_size):
             end = min(start + block_size, N)
-            k_tile = key[:, :, start:end, :]                               # [B, H, B_n, D_k]
-            v_tile = value[:, :, start:end, :]                              # [B, H, B_n, D_v]
-            tile_logits = (
-                torch.matmul(query, k_tile.transpose(-2, -1)) * scale
-            )                                                                # [B, H, T, B_n]
+            k_tile = key[:, :, start:end, :]  # [B, H, B_n, D_k]
+            v_tile = value[:, :, start:end, :]  # [B, H, B_n, D_v]
+            tile_logits = torch.matmul(query, k_tile.transpose(-2, -1)) * scale  # [B, H, T, B_n]
             if mask is not None:
-                tile_logits = tile_logits.masked_fill(
-                    mask[:, :, start:end] == 0, float("-inf")
-                )
-            tile_max = tile_logits.amax(dim=-1)                             # [B, H, T]
+                tile_logits = tile_logits.masked_fill(mask[:, :, start:end] == 0, float("-inf"))
+            tile_max = tile_logits.amax(dim=-1)  # [B, H, T]
             tile_max = torch.maximum(m, tile_max)
             alpha = torch.exp(m - tile_max)
-            beta = torch.exp(tile_logits - tile_max.unsqueeze(-1))          # [B, H, T, B_n]
-            tile_denom = beta.sum(dim=-1)                                  # [B, H, T]
-            new_denom = alpha * denom + tile_denom                          # [B, H, T]
+            beta = torch.exp(tile_logits - tile_max.unsqueeze(-1))  # [B, H, T, B_n]
+            tile_denom = beta.sum(dim=-1)  # [B, H, T]
+            new_denom = alpha * denom + tile_denom  # [B, H, T]
             # Contract over B_n: beta is [B, H, T, B_n], v_tile is [B, H, B_n, D_v].
-            tile_num = beta @ v_tile                                         # [B, H, T, D_v]
-            num = alpha.unsqueeze(-1) * num + tile_num                      # [B, H, T, D_v]
+            tile_num = beta @ v_tile  # [B, H, T, D_v]
+            num = alpha.unsqueeze(-1) * num + tile_num  # [B, H, T, D_v]
             m = tile_max
             denom = new_denom
 
@@ -204,8 +200,12 @@ class TorchBackend(Backend):
         from avqa.utils.numerics import online_softmax_step
 
         return online_softmax_step(
-            state_max, state_denom, state_num,
-            tile_max, tile_denom, tile_num,
+            state_max,
+            state_denom,
+            state_num,
+            tile_max,
+            tile_denom,
+            tile_num,
         )
 
     def reduction(
@@ -218,17 +218,16 @@ class TorchBackend(Backend):
 
 
 class TritonBackend(Backend):
-    """Triton kernel backend placeholder (CUDA-only at runtime).
+    """Triton kernel backend (spec §3.2.7).
 
-    Spec §3.2.7 mandates an optional Triton backend. Triton itself is
-    CUDA-only and is not available on macOS or CPU-only environments;
-    this class is fully implemented (the methods work on CUDA machines
-    with Triton installed) but is gated by ``TritonBackend.is_available()``
-    which returns ``False`` on machines without CUDA/Triton.
+    Status: FALLBACK — the Triton kernel spec is deferred to v0.2.0.
+    All methods delegate to :class:`TorchBackend` until a Triton kernel
+    is implemented. This class is gated by :meth:`is_available` which
+    returns True only on machines with both CUDA and Triton installed.
 
-    Triton backend delegates to TorchBackend until the Triton kernel spec
-    is finalized.
-    backend mirrors FlashAttention-2's online-softmax tiling.
+    ponytail: keeps the public class shape so user code can switch backends
+    by name without waiting for the kernel. When the Triton kernel ships,
+    only this class body changes — call sites are unaffected.
     """
 
     name = "triton"
@@ -267,14 +266,22 @@ class TritonBackend(Backend):
         """Online-softmax attention via Torch fallback (Triton kernel deferred)."""
         if not self.is_available():
             return TorchBackend().online_softmax_attention(
-                query, key, value, block_size=block_size, mask=mask,
+                query,
+                key,
+                value,
+                block_size=block_size,
+                mask=mask,
             )
         # On CUDA + Triton, a Triton kernel would replace this loop. The
         # reference algorithm is identical; the kernel just fuses the
         # tile updates. We fall back to PyTorch so the public path always
         # produces numerically equivalent output.
         return TorchBackend().online_softmax_attention(
-            query, key, value, block_size=block_size, mask=mask,
+            query,
+            key,
+            value,
+            block_size=block_size,
+            mask=mask,
         )
 
     def quantize(
@@ -302,8 +309,12 @@ class TritonBackend(Backend):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Correction via TorchBackend."""
         return TorchBackend().correction(
-            state_max, state_denom, state_num,
-            tile_max, tile_denom, tile_num,
+            state_max,
+            state_denom,
+            state_num,
+            tile_max,
+            tile_denom,
+            tile_num,
         )
 
     def reduction(

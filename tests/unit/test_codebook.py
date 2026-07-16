@@ -116,7 +116,10 @@ class TestChildInitialization:
         torch.manual_seed(42)
         scale = 0.2
         cb = HierarchicalCodebook(
-            num_heads=2, num_parents=32, children_per_parent=16, head_dim=32,
+            num_heads=2,
+            num_parents=32,
+            children_per_parent=16,
+            head_dim=32,
             perturbation_scale=scale,
         )
         cb.initialize_parents_random()

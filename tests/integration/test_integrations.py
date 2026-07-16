@@ -60,15 +60,11 @@ class TestHFReplacement:
     def test_detect_compatible(self) -> None:
         """detect_compatible returns True for models with attention layers."""
 
-
         model = AutoModel.from_pretrained("hf-internal-testing/tiny-bert")
         assert detect_compatible(model) is True
 
     def test_replace_attention_runs(self) -> None:
         """replace_attention successfully swaps attention modules."""
-
-
-
 
         model = AutoModel.from_pretrained("hf-internal-testing/tiny-bert")
         report = replace_attention(model, AVQConfig())
@@ -77,9 +73,6 @@ class TestHFReplacement:
 
     def test_replaced_model_forward(self) -> None:
         """The replaced model still runs forward."""
-
-
-
 
         model = AutoModel.from_pretrained("hf-internal-testing/tiny-bert")
         replace_attention(model, AVQConfig())
@@ -94,9 +87,6 @@ class TestHFReplacement:
         §3.14.3 requires pretrained weights to be preserved.
         """
 
-
-
-
         model = AutoModel.from_pretrained("hf-internal-testing/tiny-bert")
         # Capture an unrelated parameter (embedding).
         original = model.embeddings.word_embeddings.weight.detach().clone()
@@ -106,9 +96,6 @@ class TestHFReplacement:
 
     def test_predicate_filters(self) -> None:
         """Custom predicate can skip modules."""
-
-
-
 
         model = AutoModel.from_pretrained("hf-internal-testing/tiny-bert")
         report = replace_attention(model, AVQConfig(), predicate=lambda _n, _m: False)

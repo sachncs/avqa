@@ -25,17 +25,16 @@ Public API surface (see avqa/__init__.py and avqa/functional.py):
 Example:
     >>> import torch
     >>> from avqa import AVQAttention, AVQConfig
+    >>> from avqa.config import AttentionShapeConfig, CodebookConfig, RoutingConfig
     >>> config = AVQConfig(
-    ...     embed_dim=512,
-    ...     num_heads=8,
-    ...     num_codewords=64,
-    ...     children_per_codeword=4,
-    ...     refinement_budget=8,
+    ...     attention=AttentionShapeConfig(embed_dim=64, num_heads=4, head_dim=16),
+    ...     codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
+    ...     routing=RoutingConfig(refinement_budget=3),
     ... )
-    >>> attention = AVQAttention(config)
-    >>> query = torch.randn(2, 8, 128, 64)
-    >>> key = torch.randn(2, 8, 128, 64)
-    >>> value = torch.randn(2, 8, 128, 64)
+    >>> attention = AVQAttention(config, in_proj=False, out_proj=False)
+    >>> query = torch.randn(2, 8, 64)
+    >>> key = torch.randn(2, 16, 64)
+    >>> value = torch.randn(2, 16, 64)
     >>> output = attention(query, key, value)
 """
 
@@ -90,9 +89,7 @@ def __getattr__(name: str) -> object:
 
         return _Router
     if name == "AdaptiveRefinement":
-        from avqa.refinement import (  # type: ignore[attr-defined]
-            AdaptiveRefinement as _AdaptiveRefinement,
-        )
+        from avqa.refinement import AdaptiveRefinement as _AdaptiveRefinement
 
         return _AdaptiveRefinement
     if name == "Scheduler":

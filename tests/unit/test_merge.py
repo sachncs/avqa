@@ -16,7 +16,7 @@ from avqa.merge import (
 )
 
 
-def _make_inputs(
+def make_inputs(
     B: int = 1,
     H: int = 1,
     N: int = 4,
@@ -43,7 +43,7 @@ class TestMergeStrategies:
 
     def test_probability_merge_shape(self) -> None:
         """ProbabilityMerge output shape is [B, H, N, D]."""
-        out = ProbabilityMerge().merge(_make_inputs())
+        out = ProbabilityMerge().merge(make_inputs())
         assert out.shape == (1, 1, 4, 5)
 
     def test_probability_merge_no_children(self) -> None:
@@ -52,7 +52,7 @@ class TestMergeStrategies:
         The "replace" semantics of ProbabilityMerge subtracts the parent
         contribution and adds the child contribution (which is zero here).
         """
-        inputs = _make_inputs()
+        inputs = make_inputs()
         inputs.child_probs = torch.zeros_like(inputs.child_probs)
         out = ProbabilityMerge().merge(inputs)
         expected = inputs.parent_value * (1.0 - inputs.parent_probs)
@@ -60,7 +60,7 @@ class TestMergeStrategies:
 
     def test_probability_merge_full_child(self) -> None:
         """With zero parent probs, output is parent_value + child_contribution."""
-        inputs = _make_inputs()
+        inputs = make_inputs()
         inputs.parent_probs = torch.zeros_like(inputs.parent_probs)
         out = ProbabilityMerge().merge(inputs)
         child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
@@ -69,27 +69,26 @@ class TestMergeStrategies:
 
     def test_weighted_merge_shape(self) -> None:
         """WeightedMerge output shape is [B, H, N, D]."""
-        out = WeightedMerge().merge(_make_inputs())
+        out = WeightedMerge().merge(make_inputs())
         assert out.shape == (1, 1, 4, 5)
 
     def test_weighted_merge_weights(self) -> None:
         """Weights combine parent + child contributions."""
-        inputs = _make_inputs()
+        inputs = make_inputs()
         out = WeightedMerge(parent_weight=0.3, child_weight=0.7).merge(inputs)
-        expected = (
-            0.3 * inputs.parent_probs * inputs.parent_value
-            + 0.7 * (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
-        )
+        expected = 0.3 * inputs.parent_probs * inputs.parent_value + 0.7 * (
+            inputs.child_probs.unsqueeze(-1) * inputs.child_value
+        ).sum(dim=-2)
         assert torch.allclose(out, expected, atol=1e-5)
 
     def test_logit_merge_shape(self) -> None:
         """LogitMerge output shape is [B, H, N, D]."""
-        out = LogitMerge().merge(_make_inputs())
+        out = LogitMerge().merge(make_inputs())
         assert out.shape == (1, 1, 4, 5)
 
     def test_normalized_merge_shape(self) -> None:
         """NormalizedMerge output shape is [B, H, N, D]."""
-        out = NormalizedMerge().merge(_make_inputs())
+        out = NormalizedMerge().merge(make_inputs())
         assert out.shape == (1, 1, 4, 5)
 
 
@@ -115,7 +114,7 @@ class TestMergeInputsValidation:
 
     def test_shape_mismatch_parent(self) -> None:
         """parent_probs with wrong shape raises."""
-        inputs = _make_inputs()
+        inputs = make_inputs()
         with pytest.raises(ConfigurationError, match="parent_probs"):
             MergeInputs(
                 parent_probs=torch.zeros(1, 1, 4, 2),
@@ -126,7 +125,7 @@ class TestMergeInputsValidation:
 
     def test_shape_mismatch_child(self) -> None:
         """child_probs with wrong shape raises."""
-        inputs = _make_inputs()
+        inputs = make_inputs()
         with pytest.raises(ConfigurationError, match="child_probs"):
             MergeInputs(
                 parent_probs=inputs.parent_probs,
@@ -145,7 +144,7 @@ class TestMergeConservation:
         The "delta" applied is by construction: subtract parent, add
         children, so total attention weight per row is unchanged.
         """
-        inputs = _make_inputs()
+        inputs = make_inputs()
         out = ProbabilityMerge().merge(inputs)
         # Total value norm should be roughly preserved (modulo values).
         assert out.shape == (1, 1, 4, 5)

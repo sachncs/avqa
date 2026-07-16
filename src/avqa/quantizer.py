@@ -151,7 +151,7 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
         self,
         keys: torch.Tensor,
         values: torch.Tensor,
-codebook: HierarchicalCodebook,
+        codebook: HierarchicalCodebook,
     ) -> QuantizationResult:
         """Fused two-stage VQ with aggregation (spec §8.5 to 8.7)."""
         if keys.shape != values.shape:
@@ -182,35 +182,28 @@ codebook: HierarchicalCodebook,
         keys_flat = keys.reshape(B * H, N, D)
         # Repeat parents across the batch dimension so each (b, h) pair
         # sees the head's codebook. Shape [B*H, M_0, D].
-        parents_flat = (
-            codebook.parents.unsqueeze(0)
-            .expand(B, H, M0, D)
-            .reshape(B * H, M0, D)
-        )
+        parents_flat = codebook.parents.unsqueeze(0).expand(B, H, M0, D).reshape(B * H, M0, D)
         # Compute squared distances via ||k||^2 - 2 k.p^T + ||p||^2.
         # argmin of squared == argmin of L2, so we skip the sqrt.
-        k_sq = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)            # [B*H, N, 1]
-        p_sq = (parents_flat * parents_flat).sum(dim=-1).unsqueeze(1)        # [H, 1, M_0]
-        cross = torch.einsum("bnd,hmd->bnm", keys_flat, parents_flat)        # [B*H, N, M_0]
-        dist_sq = k_sq + p_sq - 2.0 * cross                                  # [B*H, N, M_0]
-        parent_assign = dist_sq.argmin(dim=-1)                               # [B*H, N]
+        k_sq = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)  # [B*H, N, 1]
+        p_sq = (parents_flat * parents_flat).sum(dim=-1).unsqueeze(1)  # [H, 1, M_0]
+        cross = torch.einsum("bnd,hmd->bnm", keys_flat, parents_flat)  # [B*H, N, M_0]
+        dist_sq = k_sq + p_sq - 2.0 * cross  # [B*H, N, M_0]
+        parent_assign = dist_sq.argmin(dim=-1)  # [B*H, N]
         parent_assign = parent_assign.reshape(B, H, N)
 
-# Stage 2: child assignment restricted to each key's parent.
+        # Stage 2: child assignment restricted to each key's parent.
         # For each key, gather that key's parent's children: [B*H, N, C, D].
-        child_assign = torch.empty(B, H, N, dtype=parent_assign.dtype, device=keys.device)
         # Expand children to per-batch: [B*H, M_0, C, D]
         children_flat = (
-            codebook.children.unsqueeze(0)
-            .expand(B, H, M0, C, D)
-            .reshape(B * H, M0, C, D)
+            codebook.children.unsqueeze(0).expand(B, H, M0, C, D).reshape(B * H, M0, C, D)
         )
         # Index per-key: parent_assign.reshape(B*H, N) -> gather over M_0.
         idx = parent_assign.reshape(B * H, N).unsqueeze(-1).unsqueeze(-1).expand(B * H, N, C, D)
-        gathered = torch.gather(children_flat, 1, idx)                        # [B*H, N, C, D]
-        k_sq_c = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)            # [B*H, N, 1]
-        c_sq = (gathered * gathered).sum(dim=-1)                             # [B*H, N, C]
-        cross_c = (keys_flat.unsqueeze(-2) * gathered).sum(dim=-1)            # [B*H, N, C]
+        gathered = torch.gather(children_flat, 1, idx)  # [B*H, N, C, D]
+        k_sq_c = (keys_flat * keys_flat).sum(dim=-1, keepdim=True)  # [B*H, N, 1]
+        c_sq = (gathered * gathered).sum(dim=-1)  # [B*H, N, C]
+        cross_c = (keys_flat.unsqueeze(-2) * gathered).sum(dim=-1)  # [B*H, N, C]
         dist_sq_c = k_sq_c + c_sq - 2.0 * cross_c
         child_assign = dist_sq_c.argmin(dim=-1).reshape(B, H, N)
 
@@ -224,7 +217,7 @@ codebook: HierarchicalCodebook,
 
         # Offset per-(b,h) group to make indices unique across the batch.
         bh_offset = torch.arange(B * H, device=keys.device).unsqueeze(1)  # [B*H, 1]
-        parent_idx = parent_assign_flat + bh_offset * M0                   # [B*H, N]
+        parent_idx = parent_assign_flat + bh_offset * M0  # [B*H, N]
 
         # Parent aggregates: scatter-add into [B*H*M0, D].
         parent_agg = torch.zeros(B * H * M0, D, device=values.device, dtype=values.dtype)
@@ -234,14 +227,15 @@ codebook: HierarchicalCodebook,
         # Parent counts.
         parent_cnt = torch.zeros(B * H * M0, device=values.device, dtype=values.dtype)
         parent_cnt.index_add_(
-            0, parent_idx.reshape(-1),
+            0,
+            parent_idx.reshape(-1),
             torch.ones(B * H * N, device=values.device, dtype=values.dtype),
         )
         parent_counts = parent_cnt.view(B, H, M0)
 
         # Child aggregates: combine parent+child into flat M_0*C index.
-        flat_child_idx = parent_assign_flat * C + child_assign_flat       # [B*H, N]
-        child_idx = flat_child_idx + bh_offset * M0 * C                   # [B*H, N]
+        flat_child_idx = parent_assign_flat * C + child_assign_flat  # [B*H, N]
+        child_idx = flat_child_idx + bh_offset * M0 * C  # [B*H, N]
         child_agg = torch.zeros(B * H * M0 * C, D, device=values.device, dtype=values.dtype)
         child_agg.index_add_(0, child_idx.reshape(-1), values_flat.reshape(-1, D))
         child_aggregates = child_agg.view(B, H, M0, C, D)
@@ -249,7 +243,8 @@ codebook: HierarchicalCodebook,
         # Child counts.
         child_cnt = torch.zeros(B * H * M0 * C, device=values.device, dtype=values.dtype)
         child_cnt.index_add_(
-            0, child_idx.reshape(-1),
+            0,
+            child_idx.reshape(-1),
             torch.ones(B * H * N, device=values.device, dtype=values.dtype),
         )
         child_counts = child_cnt.view(B, H, M0, C)

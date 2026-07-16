@@ -19,22 +19,24 @@ class TestHandComputedReference:
         """Keys assigned to the nearest parent; aggregates match."""
         torch.manual_seed(0)
         cb = HierarchicalCodebook(
-            num_heads=1, num_parents=2, children_per_parent=2, head_dim=2,
+            num_heads=1,
+            num_parents=2,
+            children_per_parent=2,
+            head_dim=2,
         )
         # Set parents to known positions.
         cb.parents = torch.tensor([[[0.0, 0.0], [10.0, 10.0]]])
         # Set children near parents (mean constraint: parent = mean(children)).
-        cb.children = torch.tensor([
-            [[[0.1, 0.1], [-0.1, -0.1]],
-             [[10.1, 10.1], [9.9, 9.9]]],
-        ])
+        cb.children = torch.tensor(
+            [
+                [[[0.1, 0.1], [-0.1, -0.1]], [[10.1, 10.1], [9.9, 9.9]]],
+            ]
+        )
 
         # Keys: two near parent 0, two near parent 1.
-        keys = torch.tensor([[[[0.05, 0.05], [-0.05, -0.05],
-                                [10.05, 10.05], [9.95, 9.95]]]])
+        keys = torch.tensor([[[[0.05, 0.05], [-0.05, -0.05], [10.05, 10.05], [9.95, 9.95]]]])
         # Values: distinct so we can verify aggregation.
-        values = torch.tensor([[[[1.0, 2.0], [3.0, 4.0],
-                                  [5.0, 6.0], [7.0, 8.0]]]])
+        values = torch.tensor([[[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]]])
 
         result = EuclideanHierarchicalQuantizer().precompute(keys, values, cb)
 
@@ -60,18 +62,25 @@ class TestHandComputedReference:
     def test_single_key_exact_match(self) -> None:
         """A key that exactly equals a parent gets assigned there."""
         cb = HierarchicalCodebook(
-            num_heads=1, num_parents=3, children_per_parent=2, head_dim=4,
+            num_heads=1,
+            num_parents=3,
+            children_per_parent=2,
+            head_dim=4,
         )
-        cb.parents = torch.tensor([
-            [[1.0, 0.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0, 0.0],
-             [0.0, 0.0, 1.0, 0.0]],
-        ])
-        cb.children = torch.tensor([
-            [[[1.1, 0.0, 0.0, 0.0], [0.9, 0.0, 0.0, 0.0]],
-             [[0.0, 1.1, 0.0, 0.0], [0.0, 0.9, 0.0, 0.0]],
-             [[0.0, 0.0, 1.1, 0.0], [0.0, 0.0, 0.9, 0.0]]],
-        ])
+        cb.parents = torch.tensor(
+            [
+                [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            ]
+        )
+        cb.children = torch.tensor(
+            [
+                [
+                    [[1.1, 0.0, 0.0, 0.0], [0.9, 0.0, 0.0, 0.0]],
+                    [[0.0, 1.1, 0.0, 0.0], [0.0, 0.9, 0.0, 0.0]],
+                    [[0.0, 0.0, 1.1, 0.0], [0.0, 0.0, 0.9, 0.0]],
+                ],
+            ]
+        )
 
         # Key exactly matches parent 1.
         key = torch.tensor([[[[0.0, 1.0, 0.0, 0.0]]]])
@@ -81,19 +90,25 @@ class TestHandComputedReference:
         assert result.parent_assignments.item() == 1
         # Parent 1 aggregate should equal the key's value.
         assert torch.allclose(
-            result.parent_aggregates[0, 0, 1], value[0, 0], atol=1e-5,
+            result.parent_aggregates[0, 0, 1],
+            value[0, 0],
+            atol=1e-5,
         )
 
     def test_conservation_hand_computed(self) -> None:
         """Conservation invariant with known values."""
         cb = HierarchicalCodebook(
-            num_heads=1, num_parents=2, children_per_parent=2, head_dim=2,
+            num_heads=1,
+            num_parents=2,
+            children_per_parent=2,
+            head_dim=2,
         )
         cb.parents = torch.tensor([[[0.0, 0.0], [5.0, 5.0]]])
-        cb.children = torch.tensor([
-            [[[0.1, 0.1], [-0.1, -0.1]],
-             [[5.1, 5.1], [4.9, 4.9]]],
-        ])
+        cb.children = torch.tensor(
+            [
+                [[[0.1, 0.1], [-0.1, -0.1]], [[5.1, 5.1], [4.9, 4.9]]],
+            ]
+        )
 
         keys = torch.tensor([[[[0.0, 0.0], [5.0, 5.0]]]])
         values = torch.tensor([[[[1.0, 2.0], [3.0, 4.0]]]])

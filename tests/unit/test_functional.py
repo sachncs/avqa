@@ -10,10 +10,12 @@ from avqa.config import AVQConfig, RefinementConfig
 from avqa.functional import attention
 
 
-def _small_config(**overrides: object) -> AVQConfig:
+def small_config(**overrides: object) -> AVQConfig:
     """Tiny config for fast tests."""
     defaults: dict[str, object] = {
-        "attention": __import__("avqa.config", fromlist=["AttentionShapeConfig"]).AttentionShapeConfig(
+        "attention": __import__(
+            "avqa.config", fromlist=["AttentionShapeConfig"]
+        ).AttentionShapeConfig(
             embed_dim=32,
             num_heads=4,
             head_dim=8,
@@ -40,7 +42,7 @@ class TestFunctionalAttention:
             torch.randn(1, 4, 32),
             torch.randn(1, 6, 32),
             torch.randn(1, 6, 32),
-            _small_config(),
+            small_config(),
         )
         assert out.shape == (1, 4, 32)
 
@@ -50,7 +52,7 @@ class TestFunctionalAttention:
             torch.randn(3, 4, 32),
             torch.randn(3, 6, 32),
             torch.randn(3, 6, 32),
-            _small_config(),
+            small_config(),
         )
         assert out.shape == (3, 4, 32)
 
@@ -65,20 +67,20 @@ class TestFunctionalAttention:
             torch.randn(1, 4, 32),
             torch.randn(1, 6, 32),
             torch.randn(1, 6, 32),
-            _small_config(),
+            small_config(),
         )
         out2 = attention(
             torch.randn(1, 4, 32),
             torch.randn(1, 6, 32),
             torch.randn(1, 6, 32),
-            _small_config(),
+            small_config(),
         )
         assert torch.isfinite(out1).all()
         assert torch.isfinite(out2).all()
 
     def test_with_causal_mask(self) -> None:
         """Causal masking is respected via the config."""
-        config = _small_config(causal=True)
+        config = small_config(causal=True)
         out = attention(
             torch.randn(1, 4, 32),
             torch.randn(1, 6, 32),
@@ -90,7 +92,7 @@ class TestFunctionalAttention:
     def test_refinement_disabled(self) -> None:
         """When refinement is disabled, the API still works."""
         config = dataclasses.replace(
-            _small_config(),
+            small_config(),
             refinement=RefinementConfig(enabled=False),
         )
         out = attention(

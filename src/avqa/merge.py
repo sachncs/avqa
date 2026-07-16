@@ -42,14 +42,18 @@ class MergeInputs:
         if tuple(self.parent_probs.shape) != expected_parent:
             raise ConfigurationError(
                 "parent_probs shape must match parent_value[..., -1:]",
-                {"parent_probs": tuple(self.parent_probs.shape),
-                 "parent_value": tuple(self.parent_value.shape)},
+                {
+                    "parent_probs": tuple(self.parent_probs.shape),
+                    "parent_value": tuple(self.parent_value.shape),
+                },
             )
         if tuple(self.child_probs.shape) != self.child_value.shape[:-1]:
             raise ConfigurationError(
                 "child_probs shape must match child_value[..., -1]",
-                {"child_probs": tuple(self.child_probs.shape),
-                 "child_value": tuple(self.child_value.shape)},
+                {
+                    "child_probs": tuple(self.child_probs.shape),
+                    "child_value": tuple(self.child_value.shape),
+                },
             )
 
 
@@ -75,8 +79,9 @@ class ProbabilityMerge(MergeStrategy):
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
         """Subtract parent, add child (already weighted)."""
-        delta = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2) \
-            - inputs.parent_probs * inputs.parent_value
+        delta = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(
+            dim=-2
+        ) - inputs.parent_probs * inputs.parent_value
         return inputs.parent_value + delta
 
 
@@ -95,7 +100,8 @@ class WeightedMerge(MergeStrategy):
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
         return (
             self.parent_weight * inputs.parent_probs * inputs.parent_value
-            + self.child_weight * (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
+            + self.child_weight
+            * (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
         )
 
 
@@ -116,8 +122,8 @@ class LogitMerge(MergeStrategy):
         # Concatenate and softmax: [B,H,T,P, 1+C].
         combined = torch.cat([parent_log, child_log], dim=-1)
         weights = combined.softmax(dim=-1)
-        parent_weight = weights[..., :1]                                  # [B,H,T,P,1]
-        child_weight = weights[..., 1:]                                   # [B,H,T,P,C]
+        parent_weight = weights[..., :1]  # [B,H,T,P,1]
+        child_weight = weights[..., 1:]  # [B,H,T,P,C]
         parent_contrib = parent_weight * inputs.parent_value
         child_contrib = (child_weight.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
         return parent_contrib + child_contrib
