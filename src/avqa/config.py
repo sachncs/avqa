@@ -68,6 +68,13 @@ class CodebookConfig:
         max_depth: Maximum hierarchy depth. Currently only ``2`` (parent +
             child) is supported. Depths > 2 will raise at construction
             time. Arbitrary depth is planned for v0.2.0 (spec §2.7, §3.8).
+        bcar_enabled: When ``True`` the AVQAttention forward pass applies
+            an inference-time EMA update (BCAR, OPT-0003) to the
+            hierarchical codebook. Defaults to ``False`` so the
+            algorithm matches the paper exactly.
+        bcar_decay: EMA decay for BCAR updates (default 0.99). Smaller
+            values adapt faster but trade off stability against
+            distribution shift.
 
     Example:
         >>> cb = CodebookConfig()
@@ -81,6 +88,8 @@ class CodebookConfig:
     ema_decay: float = DEFAULT_EMA_DECAY
     commitment_loss_weight: float = 0.25
     max_depth: int = 2
+    bcar_enabled: bool = False
+    bcar_decay: float = 0.99
 
     def __post_init__(self) -> None:
         require_positive(self.num_codewords, "num_codewords")
@@ -88,6 +97,7 @@ class CodebookConfig:
         require_positive(self.perturbation_scale, "perturbation_scale")
         require_in_range(self.ema_decay, 0.0, 1.0, "ema_decay")
         require_non_negative(self.commitment_loss_weight, "commitment_loss_weight")
+        require_in_range(self.bcar_decay, 0.0, 1.0, "bcar_decay")
         if self.max_depth != 2:
             msg = (
                 f"max_depth={self.max_depth} is not yet supported; "

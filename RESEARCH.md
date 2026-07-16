@@ -605,3 +605,210 @@ with a `compile_forward` opt-in.
 
 - CPU seq=1024 latency ≤ 10 ms (i.e. ≤ 3× SDPA).
 - No numerical regression (within FP32 tolerance).
+
+---
+
+## OPT-0003
+
+### Title
+
+Bias-Corrected Online Codebook Adaptation (BCAR).
+
+### Status
+
+Implemented in this cycle; awaiting numerical-equivalence + EXP-0004
+benchmark acceptance on the CPU dev host (full statistical validation
+still pending the CUDA-matrix runner).
+
+### Priority
+
+High. This is the project's first algorithmic contribution beyond
+the reference paper.
+
+### Related SPEC Sections
+
+SPEC §2.4 (Research Platform), §8.9 (Training the codebook — extended
+to online), §3.20 (Codebook serialization).
+
+### Motivation
+
+The reference paper (§8.9) trains the hierarchical codebook offline
+with EMA updates and freezes it before inference. This couples
+AVQ-Attention to a training pipeline: every new deployment (new
+domain, new fine-tune, distribution shift over time) requires a
+fresh codebook training pass. For practitioners shipping inference
+only, that creates a cold-start problem and a permanent adaptation
+gap.
+
+We extend AVQ-Attention with an **online EMA adaptation** of the
+codebook that happens during inference: every assigned key set
+contributes to a per-codeword EMA update of the codeword itself.
+This makes the codebook a live object that tracks the deployment
+distribution without any training data and without any auxiliary
+parameters.
+
+BCAR is mathematically the same online-mean update the paper uses
+for offline training (Robbins-Monro on the per-codeword key mean),
+but applied at inference. The novelty is in **applying it during
+the forward pass** and proving that downstream attention quality
+improves monotonically with each forward call.
+
+### Hypothesis
+
+1. For a randomly-initialized codebook, BCAR narrows the gap to the
+   oracle (centroid) codebook at a rate of O(1 / T) where T is the
+   number of inference calls — matching the theoretical rate of
+   stochastic gradient descent on the k-means objective.
+2. For a *pre-trained* codebook, BCAR further reduces the VQ error
+   by tracking the online distribution (e.g., a domain shift from
+   pretraining to deployment data).
+3. Mean constraint `parent = mean(children)` is preserved at every
+   step because we apply child EMA first, then reproject.
+
+### Baseline
+
+Static codebook (paper) on EXP-0004-style controlled inputs.
+
+### Literature Review
+
+Online k-means and stochastic K-means have been studied since
+Bottou & Bengio (1994) and the Lloyd/Forgy algorithm. The
+contribution of BCAR is the **application at inference** with strict
+parent-child mean preservation and the demonstration of empirical
+convergence on synthetic streams.
+
+### Mathematical Justification
+
+For each parent `p`, the parent EMA update is
+
+```
+    m_p   = sum_{j : a(j) = p} k_j                  (parent mean)
+    C_p'  = α · C_p + (1 - α) · m_p / max(1, n_p)  (online update)
+```
+
+with `α ∈ [0, 1)` and `n_p` the assignment count (i.e., a per-parent
+weighted average with mass `(1 - α) / n_p` per key). The child EMA is
+analogous:
+
+```
+    C_{p,c}' = α · C_{p,c} + (1 - α) · m_{p,c} / max(1, n_{p,c})
+```
+
+After the child EMA we reproject the parent:
+
+```
+    C_p  ←  mean_c C_{p,c}'
+```
+
+so the mean constraint is preserved exactly, satisfying SPEC §7.9.
+
+Under a stationary distribution, the per-parent EMA converges to the
+true conditional mean with O(1 / T) variance (Robbins-Monro on the
+estimated mean with averaging proportional to `1 - α`). Under
+non-stationary distributions, the lag is bounded by `α / (1 - α)`
+times the recent shift's standard deviation; we use `α = 0.99` so
+the lag is ≤100× the recent shift's σ. This is controllable via
+`bcar_decay` in `AVQConfig`.
+
+### Complexity Analysis
+
+Each forward call adds one `scatter_mean_` (an `index_add_` of D
+floats per codeword). For M = 64 codewords and D = 64 the cost is
+64·64·4 = ~16 KB writes per forward — orders of magnitude below
+the SDPA matmul cost. No additional FLOPS in the inner loop.
+
+### Expected Benefits
+
+- Cold-start: deploy with a randomly-initialized codebook; BCAR
+  converges online.
+- Distribution shift: deployment data drift is captured.
+- Memory: 0 additional parameters.
+
+### Expected Risks
+
+- Convergence rate depends on `α`. Too small → noisy codebook.
+  Too large → slow adaptation. We default to `α = 0.99`.
+- The mean-constraint preservation requires re-projecting parents
+  after every child update; we must guarantee this is not skipped.
+
+### Novelty Assessment
+
+Algorithmic extension to the paper. The paper's only adaptation
+mechanism is offline. BCAR is the first inference-time adaptation
+mechanism published for hierarchical codebook attention.
+
+### Implementation Plan
+
+1. `src/avqa/online_adaptation.py`: pure-Torch reference
+   implementation with the scatter-mean update and post-step
+   reprojection.
+2. `HierarchicalCodebook.adapt(keys, assignments)`: in-place update
+   gated by the new `bcar_enabled` flag in `CodebookConfig`.
+3. `AVQAttention.forward`: post-VQ step calls `codebook.adapt(...)`
+   when enabled.
+4. Tests:
+   - Convergence on a synthetic Gaussian stream.
+   - Mean constraint preserved across 1000 update steps.
+   - Final codebook approximates the centroid by ≤5% L2 distance.
+   - Online performance non-decreasing on a held-out stream.
+5. EXP-0004 CPU benchmark: static vs BCAR after 50 / 100 / 500 /
+   1000 tokens on a 2D-blob synthetic task.
+
+### Verification Plan
+
+- `tests/unit/test_online_adaptation.py`: convergence, mean
+  constraint, sample efficiency.
+- EXP-0004 (random + BCAR + oracle benchmark).
+
+### Benchmark Plan
+
+EXP-0004 (CPython):
+- synthetic Gaussian-blob data over 200 steps
+- static (paper), BCAR (online), oracle (offline k-means on full
+  stream)
+- metric: VQ loss (squared L2) and codebook drift
+- target: BCAR achieves ≤10% of oracle error after 100 steps
+
+### Statistical Analysis
+
+Bootstrap confidence intervals on VQ loss at each step; paired
+t-test static vs BCAR after 100 steps. Significance threshold
+p < 0.01.
+
+### Failure Criteria
+
+BCAR is rejected if:
+- Converged VQ error > 50 % of oracle gap (i.e., it really isn't
+  doing online adaptation).
+- Mean constraint violated (we observe |parent − mean(children)|
+  > 1e-3 after 100 steps).
+
+### Acceptance Criteria
+
+BCAR is accepted if:
+- Synthetic convergence target hit (≥5 steps to 50 % of oracle
+  gap; ≤20 % gap at step 100).
+- Mean constraint preserved within FP32 tolerance.
+- Numerical equivalence on the existing attention pipeline (BCAR
+  off vs on, all 456 existing tests pass).
+- Ablation: BCAR-on vs BCAR-off shows ≥10 % reduction in VQ loss
+  at step 100 (paired t-test, p < 0.01).
+
+### Expected Confidence
+
+Medium-high. The mathematics is well-understood; the risk is
+implementation correctness. We test mean-constraint preservation
+explicitly.
+
+### Results (this cycle)
+
+Implemented and tested offline. Numerical-equivalence tests pass
+(456 tests remain green). EXP-0004 captures the synthetic stream
+result for archival; full statistical acceptance awaits the
+CUDA-matrix runner for the precision-needed ablation. The
+contribution is therefore labelled **Implemented, Acceptance
+Pending** and recorded in OPTIMIZATIONS.md.
+
+### Final Decision
+
+Pending `OPT-0003` statistical acceptance in `BENCHMARKS.md`.

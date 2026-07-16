@@ -351,6 +351,23 @@ class AVQAttention(nn.Module):
         # H4: Store keys and assignments for commitment loss computation.
         self.last_keys = k_for_vq.detach()
         self.last_parent_assignments = result.parent_assignments.detach()
+
+        # OPT-0003 (BCAR): Inference-time codebook adaptation. Applied
+        # after the VQ precompute so the assignment counts in this
+        # forward pass contribute to the running mean. Disabled by
+        # default to match the paper exactly; opt in via
+        # ``CodebookConfig(bcar_enabled=True)``.
+        if self.config.codebook.bcar_enabled:
+            from avqa.online_adaptation import online_codebook_adaptation
+
+            online_codebook_adaptation(
+                keys=k_for_vq.detach(),
+                parents=self.codebook.parents,
+                children=self.codebook.children,
+                parent_assignments=result.parent_assignments.detach(),
+                child_assignments=result.child_assignments.detach(),
+                decay=self.config.codebook.bcar_decay,
+            )
         expected_parents = (H, M0, D)
         if tuple(self.codebook.parents.shape) != expected_parents:
             self.codebook = HierarchicalCodebook(
