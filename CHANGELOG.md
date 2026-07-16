@@ -102,3 +102,44 @@ All notable changes to AVQA are documented here. Versions follow
 - Distributed execution is deferred to a future release.
 - This is an independent, community-driven implementation of
   AVQ-Attention. See `README.md` for the disclaimer.
+
+## Unreleased (governance refresh)
+
+### Governance (added 2026-07-16)
+
+- TASK-1.004: Black configuration + CI gate (`ce76d46`).
+- Renamed `spec.md` → `SPEC.md` to match governance references (`9d02aa5`).
+- Refreshed TODO.md ledger under the v2 numbering scheme (`c8b1f0a`).
+
+### Configuration
+
+- TASK-5.004: `AVQConfig.save_json` / `load_json` round-trip helpers (`442d1d0`).
+
+### Specification
+
+- Chapter 11 (Triton kernels) + Chapter 12 (adapter protocols) appended (`aa34dec`).
+
+### Performance infrastructure
+
+- EXP-0001: CPU AVQA-vs-SDPA baseline reproduction (`74bfd37`).
+- Triton kernel package (vq, parent_attention, child_attention, correction) shipped (`bb660fd`).
+- TritonBackend wired to SPEC §11 kernels with TorchBackend fallback (`1fede67`).
+- GPU-gated Triton equivalence tests under `tests/integration/test_triton_kernels_gpu.py` (`cf48850`).
+
+### Framework adapters
+
+- TASK-12.001: HF weight copy handles biases and Identity projections (`155285a`).
+- TASK-12.002: vLLM paged-attention adapter via PagedKVCache (`2131523`).
+- TASK-12.003 / TASK-12.004: FlashAttention + xFormers numerical-equivalence tests (`ac6a841`).
+- TASK-12.005: end-to-end AVQA + HF replacement integration test (`e7c818d`).
+
+### Benchmarks
+
+- EXP-0002: post-governance CPU baseline reproduction; AVQA at
+  seq=1024 dropped from 22.215 ms (EXP-0001) to 19.618 ms (`b3e91a5`).
+
+### Compliance
+
+- SPEC_COMPLIANCE.md refresh — RTM with per-module coverage, v2 ledger, and 14-commit audit trail (`5af9e28`).
+- OPTIMIZATIONS.md seed — OPT-0001 tracked as Proposed pending GPU acceptance (`d642e10`).
+- PUBLICATION.md readiness score + outstanding-gap list (`f88c78a`).
