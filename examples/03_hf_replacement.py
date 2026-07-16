@@ -21,8 +21,7 @@ def main() -> None:
 
     report = replace_attention(model, AVQConfig())
     print(
-        f"Replaced {report.modules_replaced} attention modules, "
-        f"skipped {report.modules_skipped}.",
+        f"Replaced {report.modules_replaced} attention modules, skipped {report.modules_skipped}.",
     )
 
     token_ids = torch.randint(0, 1000, (1, 8))

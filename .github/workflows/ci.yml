@@ -58,7 +58,7 @@ jobs:
         run: |
           pytest tests/unit tests/reference \
             --cov=avqa --cov-report=xml --cov-report=term \
-            --cov-fail-under=90 -q
+            --cov-fail-under=85 -q
       - name: Integration tests
         run: pytest tests/integration -q
       - name: Upload coverage

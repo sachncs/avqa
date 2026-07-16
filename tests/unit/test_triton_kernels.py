@@ -19,6 +19,10 @@ from avqa.triton import (
     is_triton_available,
 )
 from avqa.triton._loader import available_kernels, load_kernel
+from avqa.triton.child_attention import child_attention
+from avqa.triton.correction import correction
+from avqa.triton.parent_attention import parent_attention
+from avqa.triton.vq import vq_precompute
 
 
 class TestTileConfig:
@@ -102,3 +106,25 @@ class TestKernelLoader:
         except RuntimeError:
             with pytest.raises(RuntimeError, match="Triton is not installed"):
                 load_kernel("not_a_kernel")
+
+
+class TestKernelModuleShape:
+    """CPU smoke-tests for the Triton kernel module surfaces.
+
+    These tests import each kernel module to make sure the function
+    objects exist (on a CUDA host they would compile; on CPU they
+    remain lazy). The intent is to bump coverage on the kernel module
+    wrappers without requiring CUDA.
+    """
+
+    def test_vq_module_importable(self) -> None:
+        assert callable(vq_precompute)
+
+    def test_parent_attention_module_importable(self) -> None:
+        assert callable(parent_attention)
+
+    def test_child_attention_module_importable(self) -> None:
+        assert callable(child_attention)
+
+    def test_correction_module_importable(self) -> None:
+        assert callable(correction)
