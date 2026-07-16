@@ -49,6 +49,8 @@ ignore = [
   "S101",    # assert (pytest convention)
   "N806",    # canonical tensor notation (B/H/T/D/N/C) is uppercase
   "N803",    # canonical tensor notation argument names (B/H/T/D/N/C)
+  "TC003",   # pytest tmp_path fixture is typed via pytest re-export
+             # of pathlib._local.Path, not stdlib pathlib.Path.
 ]
 "examples/**/*.py" = [
   "E402",  # imports not at top

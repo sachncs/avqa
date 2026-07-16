@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from avqa.config import (
@@ -241,6 +243,65 @@ class TestAVQConfigSerialization:
         """Non-dict input is rejected."""
         with pytest.raises(ConfigurationError):
             AVQConfig.from_dict("not a dict")  # type: ignore[arg-type]
+
+
+class TestAVQConfigFileIO:
+    """Tests for AVQConfig JSON file I/O (SPEC §3.20, §5.12)."""
+
+    def test_save_json_creates_file(self, tmp_path: Path) -> None:
+        """save_json writes a parseable JSON file under tmp_path."""
+        target = tmp_path / "nested" / "cfg.json"
+        cfg = AVQConfig()
+        result = cfg.save_json(target)
+        assert result == target
+        assert target.is_file()
+
+    def test_round_trip_default(self, tmp_path: Path) -> None:
+        """Default config round-trips through JSON file I/O."""
+        cfg = AVQConfig()
+        file_path = tmp_path / "default.json"
+        cfg.save_json(file_path)
+        restored = AVQConfig.load_json(file_path)
+        assert restored == cfg
+
+    def test_round_trip_custom(self, tmp_path: Path) -> None:
+        """Custom config round-trips through JSON file I/O."""
+        cfg = AVQConfig(
+            dropout=0.2,
+            causal=True,
+            codebook=CodebookConfig(num_codewords=128, children_per_codeword=8),
+            routing=RoutingConfig(refinement_budget=4),
+        )
+        file_path = tmp_path / "custom.json"
+        cfg.save_json(file_path)
+        restored = AVQConfig.load_json(file_path)
+        assert restored == cfg
+
+    def test_load_missing_file_raises(self, tmp_path: Path) -> None:
+        """Missing file raises ConfigurationError with context."""
+        with pytest.raises(ConfigurationError, match="failed to read"):
+            AVQConfig.load_json(tmp_path / "absent.json")
+
+    def test_load_malformed_json_raises(self, tmp_path: Path) -> None:
+        """Malformed JSON raises ConfigurationError, not JSONDecodeError."""
+        bad = tmp_path / "bad.json"
+        bad.write_text("not valid json")
+        with pytest.raises(ConfigurationError, match="invalid JSON"):
+            AVQConfig.load_json(bad)
+
+    def test_load_non_object_json_raises(self, tmp_path: Path) -> None:
+        """A JSON array at the top level is rejected with a clear message."""
+        arr = tmp_path / "arr.json"
+        arr.write_text("[1, 2, 3]")
+        with pytest.raises(ConfigurationError, match="must be an object"):
+            AVQConfig.load_json(arr)
+
+    def test_str_path_is_accepted(self, tmp_path: Path) -> None:
+        """save_json / load_json accept both string and Path arguments."""
+        cfg = AVQConfig()
+        cfg.save_json(str(tmp_path / "cfg.json"))
+        restored = AVQConfig.load_json(str(tmp_path / "cfg.json"))
+        assert restored == cfg
 
 
 class TestAVQConfigEquality:

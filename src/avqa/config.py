@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import asdict, dataclass, field, fields
+import json
+from pathlib import Path
 
 from avqa.exceptions import ConfigurationError
 
@@ -33,7 +35,7 @@ def require_positive(value: float, field_name: str) -> None:
         raise ConfigurationError(msg, {field_name: value})
 
 
-def require_non_negative(value: int, field_name: str) -> None:
+def require_non_negative(value: float, field_name: str) -> None:
     if value < 0:
         msg = f"{field_name} must be >= 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
@@ -399,6 +401,64 @@ class AVQConfig:
             if isinstance(cls_obj, type):
                 return cls_obj
         return object
+
+    # ------------------------------------------------------------------
+    # JSON file I/O (SPEC §3.20, §5.12)
+    # ------------------------------------------------------------------
+
+    def save_json(self, path: str | Path) -> Path:
+        """Serialize this configuration to a JSON file.
+
+        Args:
+            path: Destination filesystem path. Parent directories are
+                created if missing.
+
+        Returns:
+            The resolved path written to.
+
+        Raises:
+            ConfigurationError: If the file cannot be written.
+        """
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = self.to_dict()
+        # Spec §3.20.2: human-readable and diff-friendly JSON.
+        try:
+            target.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        except OSError as exc:  # pragma: no cover - filesystem errors
+            msg = f"failed to write AVQConfig JSON to {target}"
+            raise ConfigurationError(msg, {"path": str(target)}) from exc
+        return target
+
+    @classmethod
+    def load_json(cls, path: str | Path) -> AVQConfig:
+        """Load and reconstruct an :class:`AVQConfig` from a JSON file.
+
+        Args:
+            path: Source path produced by :meth:`save_json`.
+
+        Returns:
+            The reconstructed :class:`AVQConfig`.
+
+        Raises:
+            ConfigurationError: If the file is missing, unreadable, or
+                carries an incompatible schema version.
+        """
+        source = Path(path)
+        try:
+            text = source.read_text()
+        except OSError as exc:
+            msg = f"failed to read AVQConfig JSON from {source}"
+            raise ConfigurationError(msg, {"path": str(source)}) from exc
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            msg = f"invalid JSON in AVQConfig file {source}: {exc.msg}"
+            raise ConfigurationError(msg, {"path": str(source)}) from exc
+        if not isinstance(data, dict):
+            msg = f"AVQConfig JSON must be an object, got {type(data).__name__}"
+            raise ConfigurationError(msg, {"path": str(source)})
+        return cls.from_dict(data)
 
 
 def to_primitive(value: object) -> object:
