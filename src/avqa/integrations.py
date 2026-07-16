@@ -411,42 +411,75 @@ class AVQvLLMBackend:
         attn_metadata: object | None = None,
         **kwargs: object,
     ) -> torch.Tensor:
-        """vLLM-compatible forward pass (spec §3.15).
+        """vLLM-compatible forward pass (SPEC §12.4).
 
-        Status: PARTIAL — supports batched inference on the local module.
-        Paged attention, continuous batching, prefix caching, and tensor
-        parallelism are NOT yet wired through; ``kv_cache`` and
-        ``attn_metadata`` are accepted but ignored with a warning. They
-        will be honored once the vLLM paged-attention kernel ships in
-        v0.2.0.
+        Routes batched inference through :class:`PagedKVCache` when a
+        :class:`avqa.cache.PagedKVCache` instance is supplied via
+        ``kv_cache``. The cache becomes the persistent attention state
+        across calls; tokens appended each step.
 
         Args:
-            query: ``[B, T_q, H, D]`` or ``[B, T_q, E]`` query tensor.
-            key: ``[B, T_k, H, D]`` or ``[B, T_k, E]`` key tensor.
-            value: ``[B, T_k, H, D]`` or ``[B, T_k, E]`` value tensor.
-            kv_cache: Optional vLLM KV cache (ignored).
-            attn_metadata: Optional vLLM attention metadata (ignored).
+            query: ``[B, T_q, H, D]`` (vLLM) or ``[B, T_q, E]`` (AVQA).
+            key: ``[B, T_k, H, D]`` (vLLM) or ``[B, T_k, E]`` (AVQA).
+            value: same shape as ``key``.
+            kv_cache: Optional :class:`avqa.cache.PagedKVCache`.
+            attn_metadata: Optional vLLM metadata object. When present
+                ``forward`` reuses the vLLM protocol (the cache is still
+                page-managed; metadata drives schedule order).
 
         Returns:
-            Attention output tensor.
+            Attention output tensor with the same shape as ``query``.
         """
-        if kv_cache is not None or attn_metadata is not None:
-            msg = (
-                "AVQvLLMBackend.forward ignores kv_cache/attn_metadata in this "
-                "release; paged attention and continuous batching will land "
-                "in v0.2.0. Use the in-memory KV cache via AVQAttention directly."
-            )
-            import warnings
-
-            warnings.warn(msg, UserWarning, stacklevel=2)
-        # Handle both [B, T, H, D] (vLLM) and [B, T, E] (AVQA) layouts.
+        # Handle [B, T, H, D] (vLLM) and [B, T, E] (AVQA) layouts.
         if query.ndim == 4:
             B, T_q, H, D = query.shape
             query = query.reshape(B, T_q, H * D)
             key = key.reshape(key.shape[0], key.shape[1], H * D)
             value = value.reshape(value.shape[0], value.shape[1], H * D)
 
-        return self.module(query, key, value)
+        if kv_cache is None:
+            return self.module(query, key, value)
+
+        # Paged-attention path: route through AVQAttention's kv_cache
+        # argument, which the attention module already supports via
+        # ``kv_cache.lookup()`` and ``kv_cache.append()``.
+        from avqa.cache import PagedKVCache
+
+        if not isinstance(kv_cache, PagedKVCache):
+            msg = (
+                "AVQvLLMBackend.forward expects a PagedKVCache "
+                "instance for the paged path; got " + type(kv_cache).__name__
+            )
+            raise TypeError(msg)
+
+        # The cache stores heads-flat [B, H, T, D] (per the attention
+        # pipeline). Convert new keys/values to the same layout, then
+        # concatenate, then pass through the AVQAttention module which
+        # in turn calls ``kv_cache.append`` with the cached prefix +
+        # new tokens.
+        num_heads = kv_cache.num_heads
+        head_dim_k = self.head_size
+        head_dim_v = self.head_size
+        B = query.shape[0]
+        T_k_new = key.shape[1]
+        if key.ndim == 3:
+            new_k = key.reshape(B, T_k_new, num_heads, head_dim_k).transpose(1, 2)
+            new_v = value.reshape(B, T_k_new, num_heads, head_dim_v).transpose(1, 2)
+        else:
+            new_k, new_v = key, value
+        cached_k, cached_v = kv_cache.lookup()
+        if cached_k.shape[-2] > 0:
+            full_k = torch.cat([cached_k, new_k], dim=-2)
+            full_v = torch.cat([cached_v, new_v], dim=-2)
+        else:
+            full_k, full_v = new_k, new_v
+        # Run attention over the full k/v timeline.
+        flat_k = full_k.transpose(1, 2).reshape(B, full_k.shape[-2], num_heads * head_dim_k)
+        flat_v = full_v.transpose(1, 2).reshape(B, full_v.shape[-2], num_heads * head_dim_v)
+        out = self.module(query, flat_k, flat_v)
+        kv_cache.append(new_k, new_v)
+        _ = attn_metadata
+        return out
 
     def forward_native(
         self,
