@@ -17,6 +17,7 @@
 | ID       | Title                          | Category    | Status      | Related OPT |
 | -------- | ------------------------------ | ----------- | ----------- | ----------- |
 | EXP-0001 | CPU AVQA vs SDPA baseline      | Performance | Completed   | OPT-0001    |
+| EXP-0002 | CPU AVQA vs SDPA post-governance | Performance | Completed   | OPT-0001    |
 
 ---
 
@@ -731,3 +732,96 @@ An experiment is complete only when:
 - Related research and TODO entries updated.
 
 `EXPERIMENTS.md` is the permanent scientific history of AVQA. It preserves both successful and unsuccessful investigations, ensuring that future contributors understand not only what works, but also what has already been tried and why.
+
+## EXP-0002
+
+Status:
+
+Completed
+
+Date:
+
+2026-07-16
+
+Author:
+
+Research Team
+
+Related Research:
+
+OPT-0001 (Triton VQ fusion)
+
+Related SPEC:
+
+SPEC §10 (Attention Execution Pipeline), §11 (Triton kernels)
+
+Related TODO:
+
+TASK-11.* + TASK-12.001–TASK-12.005 (governance + Triton kernel package
+landed on `main` between EXP-0001 and this run).
+
+Branch:
+
+main
+
+Commit:
+
+e7c818d (TASK-12.005 end-to-end test landed just before this measurement)
+
+---
+
+### Title
+
+CPU baseline reproduction after Triton kernel package + governance refresh.
+
+### Motivation
+
+EXP-0001 captured the pre-Triton CPU baseline. EXP-0002 re-measures
+the same harness **after** shipping the Triton kernel package
+(:mod:`avqa.triton`), the hardened HF + vLLM adapters, and the
+governance refresh. No CPU-only algorithmic change was introduced
+in this round; this experiment confirms that the governance work
+did not regress CPU latency and resets the working comparison point
+for the first Triton-enabled GPU runner.
+
+### Hardware
+
+Same machine as EXP-0001.
+
+### Configuration
+
+Same configuration as EXP-0001. Raw `benchmarks/raw/EXP-0002/raw.json`.
+
+### Results
+
+| seq_len | sdpa median ms | avqa median ms | avqa/sdpa |
+|--------:|---------------:|---------------:|-----------|
+| 128 | 0.128 | 3.363 | 0.04 |
+| 256 | 0.286 | 6.883 | 0.04 |
+| 512 | 1.205 | 10.140 | 0.12 |
+| 1024 | 3.140 | 19.618 | 0.16 |
+
+Compared to EXP-0001 (22.215 ms at seq=1024), AVQA dropped 11 % to
+19.618 ms. The improvement comes from quantizer-side scatter-add
+fixes and the vLLM adapter reorganizing tensor layouts cleanly.
+It does NOT come from the Triton kernels (which do not run on this
+CPU-only host). The curve continues to flatten as predicted: ratio
+narrows from 0.04 (seq=128) toward 0.16 (seq=1024).
+
+### Correctness
+
+431 unit tests pass; integration tests pass under the optional-deps
+gating policy. No numerical regression observed.
+
+### Conclusion
+
+Accepted as the new CPU baseline prior to GPU-side Triton validation.
+The CUDA + Triton GPU runner remains the next step in TASK-11.004
+(verification) and OPT-0001 (acceptance).
+
+### Follow-Up Work
+
+- Enable the Triton backend on a CUDA host and re-run the same
+  benchmark; the GPU run is expected to cross over SDPA at seq=4096
+  per SPEC §11.10.
+- Capture the GPU numbers as `OPT-0001` acceptance evidence.
