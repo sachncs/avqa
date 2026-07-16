@@ -4522,3 +4522,123 @@ This chapter closes the v0.3.0 specification set. Subsequent chapters
 (multi-GPU scheduling, FP8 kernels, fine-tuning integration, etc.)
 will be appended as the project evolves.
 
+---
+
+# Chapter 16 — Hopfield-VQ-Attention (HVAQ)
+
+## 16.1 Purpose
+
+The paper's attention kernel is a fixed-temperature softmax:
+``attn(q, k, v) = softmax(q · k^T / √d) · v``. The temperature
+``1 / √d`` is constant across heads, parents, and queries. This
+chapter specifies a strict generalisation in which each parent
+codeword carries its own learnable inverse temperature ``β_p`` and
+each query derives an effective temperature from the router's
+attention-mass distribution.
+
+The mathematical core: replace the per-parent logit
+``q · p^T / √d`` with ``β_p · q · p^T`` and add a per-query temperature
+``β_q`` derived from the router's top-P selection. When
+``β_q = β_p = 1 / √d`` for all parents the result is **bit-identical
+to the paper**. Any other setting sharpens or flattens the parent
+attention distribution per parent and per query.
+
+## 16.2 Algorithm
+
+For each forward call with the top-`P` parents selected by the
+router, the parent-attention computation becomes:
+
+```
+    parent_logits[b, h, q, p] = β[b, h, q] · β_p[h, p] · q[b, h, q, d] · p[h, p, d]
+    parent_probs = softmax(parent_logits)
+```
+
+where `β[b, h, q]` is a per-query scalar that the router computes
+from the **attention-mass entropy** of the top-P distribution:
+
+```
+    H_top[b, h, q] = -Σ_p parent_probs · log parent_probs
+    β[b, h, q] = β0 · (1 + 1 / (1 + H_top))        (HVAQ-ENT)
+```
+
+or, as a stricter alternative:
+
+```
+    β[b, h, q] = β0 · (1 + α · H_top)                (HVAQ-LIN)
+```
+
+with default `α = 1`. When `H_top = 0` (peaked distribution) the
+temperature doubles; when `H_top = log P` (uniform distribution) the
+temperature matches the paper's `β0`. The default `β0 = 1 / √d`
+recovers the paper.
+
+The per-parent β is similarly configurable; the default
+`β_p = 1.0` leaves the parent attention mass unchanged up to the
+overall scaling `β_q · β0`.
+
+The online softmax machinery (SPEC §7.14) is reused unchanged
+because the per-tile max-and-subtract trick absorbs any positive
+scalar scaling. The child-refinement step is likewise unchanged:
+the child logits pick up the same `β_q · β_p` scaling.
+
+## 16.3 Configuration
+
+HVAQ is opt-in via:
+
+- `BackendConfig.hopfield: bool = False` (default — paper-exact).
+- `HopfieldConfig.beta_init: float = 1 / sqrt(d)` (default
+  paper-exact).
+- `HopfieldConfig.adaptive: Literal["none", "entropy", "linear"]` —
+  `none` (paper-exact), `entropy` (HVAQ-ENT, ``β · (1 + 1 / (1 + H))``),
+  `linear` (HVAQ-LIN, ``β · (1 + H)``).
+- `HopfieldConfig.alpha: float = 1.0` — slope of the linear
+  schedule (HVAQ-LIN only).
+
+## 16.4 Theorem 16.1 (Equivalence)
+
+When `hopfield = False` (or `β_init = 1 / √d` and `adaptive = "none"`),
+``HVAQ(q, k, v) = softmax(q · k^T / √d) · v`` **exactly**. The
+OnlineSoftmaxState produced by the existing reference path is
+preserved bit-for-bit (within FP32 rounding).
+
+## 16.5 Theorem 16.2 (β-monotonicity)
+
+Let ``ε = β_q · β_p``. For any positive ε the resulting attention
+distribution is a strict monotone transformation of the paper's
+distribution: ``probs[i] ∝ exp(ε · log p_paper[i])`` for the same
+paper probabilities ``p_paper``. Hence:
+
+- ``ε → 0`` recovers the uniform distribution.
+- ``ε → ∞`` recovers the one-hot argmax.
+- The relative ranking of the parents is preserved for any positive
+  ε (the temperature only rescales logits, never reorders them).
+
+This monotonicity guarantees that the router's top-`P` selection is
+identical to the paper's for any positive ε.
+
+## 16.6 Acceptance Criteria
+
+- `β_init = 1 / √d` with `adaptive = "none"` MUST produce the same
+  OnlineSoftmaxState as the paper path within FP32.
+- The entropy-schedule β is always positive: for `H_top ∈ [0, log P]`
+  the schedule factor stays in `[1, 1 + 1 / (1 + log P)]` (HVAQ-ENT)
+  or `[1, 1 + log P]` (HVAQ-LIN), and `β_init > 0` keeps the
+  effective temperature positive.
+- The router's top-`P` selection is **invariant** under positive
+  β: the change in temperature never reorders parents.
+- Numerical equivalence on a regression suite of synthetic
+  attention tasks (EXP-0006).
+
+## 16.7 Reference
+
+- Ramsauer et al., "Hopfield Networks is All You Need" (2021):
+  original modern Hopfield formulation. HVAQ is a temperature
+  generalisation of the paper's softmax.
+- Softmax-temperature scaling is classical; the per-parent + per-query
+  temperature schedule and its invariance under top-`P` reordering
+  are the novel contributions of HVAQ.
+
+---
+
+This chapter closes the v0.3.1 specification set.
+
