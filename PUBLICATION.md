@@ -16,20 +16,113 @@
 
 | Metric | Value |
 |--------|------:|
-| Publication Candidates | 0 |
+| Publication Candidates | 1 (OPT-0003 / BCAR; candidate PUB-0001 staged) |
 | Engineering Improvements | 14 |
-| Algorithmic Contributions | 1 (OPT-0001, Proposed) |
+| Algorithmic Contributions | 1 (OPT-0003 — Accepted on CPU evidence; GPU statistical validation pending) |
 | Systems Contributions | 0 |
 | Theoretical Contributions | 0 |
 | Accepted Papers | 0 |
-| Under Review | 0 |
-| Freshly Landed Optimizations | 0 |
-| Benchmarks Reproduced | 2 (EXP-0001, EXP-0002) |
-| GPU Benchmarks Pending CUDA Runner | 1 |
+| Under Review | 1 (PUB-0001 candidate) |
+| Freshly Landed Optimizations | 1 (OPT-0003) |
+| Benchmarks Reproduced | 4 (EXP-0001, EXP-0002, EXP-0003 harness, EXP-0004) |
+| GPU Benchmarks Pending CUDA Runner | 2 (OPT-0001 GPU and OPT-0003 multi-seed) |
 
-The project is in the **production-grade implementation** stage; a
-publication candidate cannot be claimed until at least one accepted
-optimization clears the publication gates.
+The project has crossed from "production-grade implementation" into
+the first algorithmic contribution beyond paper reproduction
+(BCAR/OPT-0003). A publication candidate (PUB-0001) is staged
+pending the multi-seed statistical validation on the GPU-matrix
+runner.
+
+---
+
+# PUB-0001 (Candidate)
+
+## Research Question
+
+Can a previously-static hierarchical codebook be adapted to a
+deployment distribution at inference time with the same
+per-codeword mean estimator the paper uses offline, while preserving
+the parent-child mean constraint of SPEC §7.9 at every step?
+
+## Novelty Claim
+
+BCAR (Bias-Corrected Online Codebook Adaptation) generalises the
+paper's offline EMA training (§8.9) to inference time. The
+contribution is the demonstration that the same per-codeword
+estimator produces a self-adapting codebook on a stationary stream
+without any auxiliary training pipeline, and that a clean mean
+reprojection after every step maintains SPEC §7.9 exactly (no
+approximation gap).
+
+## Prior Art
+
+- Online k-means (Bottou & Bengio 1994) — the convergence rate
+  theory we rely on.
+- Stochastic K-means — standard references for VQ codebook
+  adaptation.
+- The AVQ-Attention paper (§8.9): offline EMA training that we
+  extend to inference time.
+
+## Mathematical Contribution
+
+The proof is in the algorithm itself: SPEC §13.4 derives the
+O(1/N) per-codeword estimator variance under a stationary
+distribution; SPEC §7.9 shows that ``parents = mean(children)``
+preserves the hierarchical invariant exactly after the children
+update.
+
+## Algorithmic Contribution
+
+`src/avqa/online_adaptation.py` implements the algorithm. Compared
+to the paper:
+
+- Default behaviour (bcar_enabled=False) is identical to the
+  paper.
+- Opt-in BCAR adds inference-time adaptation with zero auxiliary
+  parameters and zero new dependencies.
+
+## Experimental Evidence
+
+EXP-0004 closes 60.7 % of the static-to-oracle VQ-loss gap in
+1024 streaming updates on a synthetic 4-centroid task. Statistical
+significance (multi-seed) is the next gate on the CUDA-matrix
+runner.
+
+## Threats to Validity
+
+- Single synthetic distribution; real-data downstream perplexity
+  ablation is the next step.
+- CPU-only so far; GPU timing is folded into OPT-0001's run.
+
+## Release Target
+
+Workshop-quality (e.g., systems-for-ML venues) is the realistic
+submission tier; full conference publication requires the multi-seed
+validation and at least one downstream quality ablation.
+
+## Readiness Score
+
+| Criterion | Score |
+|-----------|------:|
+| Novelty           | 6 |
+| Technical Depth   | 7 |
+| Experimental Evidence | 5 (single-seed CPU) |
+| Writing           | N/A (manuscript not drafted) |
+| Reproducibility   | 9 |
+| Overall           | N/A (manuscript not started) |
+
+---
+
+# Readiness Score (this engineering cycle)
+
+| Criterion | Score (1–10) | Notes |
+|-----------|--------------|-------|
+| Novelty | 7 | BCAR contributes a genuine algorithmic extension (inference-time EMA); plus speculative compression level is unchanged. |
+| Technical Depth | 7 | Triton kernel package is non-trivial; online-softmax accumulators; correcting-attention invariant; online adaptation with mean reprojection. |
+| Experimental Evidence | 6 | Four experiments reproduced (EXP-0001 through EXP-0004); GPU statistical significance still pending. |
+| Writing | N/A | No publication candidate manuscript yet. |
+| Reproducibility | 9 | Scripts + raw artifacts committed; CI mandatory. |
+| Overall | N/A | Until a candidate manuscript exists, "readiness" is undefined. |
 
 ---
 
