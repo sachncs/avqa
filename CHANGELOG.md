@@ -8,7 +8,7 @@ All notable changes to AVQA are documented here. Versions follow
 ### Added
 
 - Reference PyTorch implementation of Adaptive Vector Quantized
-  Attention (AVQ-Attention) covering spec.md Chapters 2–10.
+  Attention (AVQ-Attention).
 - Hierarchical codebook with mean-constrained parent-child structure
   (spec §7.9, §8.3).
 - Two-stage hierarchical Euclidean vector quantizer with fused value

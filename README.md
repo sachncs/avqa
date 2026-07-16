@@ -157,7 +157,7 @@ avqa/
 │   ├── reference/             # Hand-computed reference tests
 │   ├── integration/           # Integration tests (HF, vLLM, FA, xF)
 │   └── performance/           # pytest-benchmark suite
-├── docs/                      # Architecture + compliance docs
+├── docs/                      # API docs
 ├── examples/                  # Usage examples
 ├── pyproject.toml             # Build & tool config
 └── .github/                   # CI workflow
