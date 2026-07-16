@@ -161,3 +161,42 @@ All notable changes to AVQA are documented here. Versions follow
   in 1024 streaming updates; ablation over decay recorded.
 - Publication candidate `PUB-0001` staged; multi-seed statistical
   validation is the next gate on the CUDA-matrix runner.
+
+## Unreleased (HVAQ — algorithmic contribution to the attention mechanism)
+
+### Algorithmic contribution (OPT-0005)
+
+- **HVAQ (Hopfield-VQ-Attention)** ships. This is the project's
+  first **algorithmic contribution to the attention kernel itself**,
+  not just an engineering wrapper. HVAQ generalises the paper's
+  fixed-temperature softmax with a per-query temperature ``β_q``
+  derived from the router's top-P attention-mass entropy.
+- SPEC §16 documents the algorithm, the two schedules (HVAQ-ENT,
+  HVAQ-LIN), and the two theorems (Equivalence and β-monotonicity).
+- ``src/avqa/hopfield.py``: ``paper_beta``, ``per_query_beta``,
+  ``hopfield_logits``, ``validate_adaptive``.
+- ``src/avqa/config.py``: ``HopfieldConfig`` dataclass and
+  ``BackendConfig.hopfield`` master switch.
+- ``src/avqa/attention_module.py``: HVAQ block in ``forward_impl``,
+  gated on ``backend.hopfield and hopfield.adaptive != "none"``.
+- ``tests/unit/test_hopfield.py``: 24 SPEC §16 unit tests covering
+  the temperature schedules, HopfieldConfig validation, and
+  Theorem 16.1 paper equivalence.
+- EXP-0006 captures the latency curve and output difference on a
+  small synthetic task. The integration is gated off by default so
+  every prior test continues to pass.
+
+### Benchmarks
+
+- EXP-0006 raw + summary: paper single-pass + hvaq entropy +
+  hvaq linear latency comparison; ``benchmarks/raw/EXP-0006/`` is
+  the canonical raw archive.
+
+### Compliance
+
+- REQ-3.50.004 (HVAQ integration) tracked in SPEC_COMPLIANCE.md.
+
+### Publications
+
+- PUB-0002 (HVAQ) candidate staged; multi-seed + downstream-quality
+  validation is the next gate.

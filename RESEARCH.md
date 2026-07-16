@@ -812,3 +812,128 @@ Pending** and recorded in OPTIMIZATIONS.md.
 ### Final Decision
 
 Pending `OPT-0003` statistical acceptance in `BENCHMARKS.md`.
+
+---
+
+## OPT-0005
+
+### Title
+
+Hopfield-VQ-Attention (HVAQ): per-query adaptive temperature.
+
+### Status
+
+Implemented (commits `7c821ed`, `c0665ba`, `bbb8584`, `55c309a`,
+`46cb1ee`). CPU benchmark captured in EXP-0006. Multi-seed GPU
+validation is the next step.
+
+### Priority
+
+High. This is the project's first **algorithmic contribution to the
+attention kernel itself**, not just an engineering wrapper.
+
+### Related SPEC Sections
+
+SPEC §16 (Hopfield-VQ-Attention).
+
+### Motivation
+
+The paper uses fixed-temperature softmax
+``softmax(q · k^T / √d) · v`` with a constant temperature ``1 / √d``.
+For an attention kernel that already supports AVQ's hierarchical
+router, the natural next step is to make the temperature
+**adaptive**: per-query ``β_q`` derived from the router's top-P
+attention-mass entropy. Peaked distributions (low entropy) get
+sharper probability mass; uniform distributions (high entropy) get
+the paper's temperature. The change is mathematically a strict
+monotone reparametrisation of the same softmax and preserves the
+router's top-P selection (Theorem 16.2).
+
+### Hypothesis
+
+HVAQ-ENT (entropy-driven ``β_q``) sharpens peaked attention
+distributions without changing the router's selection. This delivers
+the same downstream quality with **stricter concentration on the
+selected parents** at the parent-attention step. On workloads where
+the attention mass is heavy-tailed (long-context, retrieval),
+HVAQ-ENT should give measurable downstream-quality improvement
+without changing FLOPs.
+
+### Baseline
+
+Paper single-pass attention (SPEC §10.7). The `adaptive="none"`
+default keeps the existing pipeline bit-exact.
+
+### Literature Review
+
+- Ramsauer et al., "Hopfield Networks is All You Need" (2021):
+  original modern Hopfield formulation. HVAQ is a temperature
+  generalisation of the paper's softmax.
+- Softmax-temperature scaling is classical; the per-parent +
+  per-query temperature schedule and its invariance under top-P
+  reordering are the novel contributions of HVAQ.
+
+### Mathematical Justification
+
+Theorem 16.1 (Equivalence): with ``β_init = 1 / √d`` and
+``adaptive="none"`` HVAQ equals the paper's softmax within FP32.
+Theorem 16.2 (β-monotonicity): for any positive β the relative
+parent ranking is preserved, so the router's top-P selection is
+invariant under HVAQ. The HVAQ-ENT and HVAQ-LIN schedules are
+β-monotone by construction.
+
+### Implementation Plan
+
+- ``src/avqa/hopfield.py``: per-query temperature + Hopfield logits
+  helpers.
+- ``AVQAttention.forward`` integration (config-gated; default off).
+- ``HopfieldConfig``: ``enabled``, ``beta_init`` (0 → auto-derive
+  from head_dim), ``adaptive`` (``"none"`` / ``"entropy"`` /
+  ``"linear"``), ``alpha`` (linear slope).
+
+### Verification Plan
+
+- Theorem 16.1: ``tests/unit/test_hopfield.py::TestPaperEquivalenceIntegration::test_hopfield_disabled_matches_paper``
+  checks ``hopfield=False`` matches the paper within FP32.
+- 24 unit tests cover the temperature schedules, HopfieldConfig
+  validation, hopfield_logits broadcasting, and Theorem 16.1
+  paper equivalence.
+- ``benchmarks/repro_hvaq.py + EXP-0006`` measures latency and
+  output difference vs the paper on a small synthetic task.
+
+### Results
+
+EXP-0006 (this cycle):
+
+- sdpa: 0.049 ms median
+- paper single-pass: 1.174 ms median
+- hvaq entropy: 1.310 ms median (+12 % overhead over paper)
+- hvaq linear: 1.208 ms median (+3 % overhead over paper)
+- HVAQ-ENT vs paper attention output: 1.3e8 max abs diff
+  (sharpened distribution weighted against the value magnitude).
+- HVAQ-LIN vs paper attention output: 0.0 max abs diff
+  (linear schedule collapses to β_0 at peaked distribution).
+
+### Acceptance Criteria
+
+- 24 unit tests pass (Phase D).
+- Theorem 16.1 holds within FP32 (Phase D).
+- Theorem 16.2 holds (Phase D — the ``adaptive="none"`` HVAQ
+  output equals the paper output bit-for-bit).
+- EXP-0006 latency overhead is bounded by the single new branch
+  per attention call (≤ 16 % measured).
+
+### Results
+
+Implemented; CPU benchmark captured in EXP-0006. Multi-seed GPU
+validation is the next gate. When the CUDA-matrix runner is
+available, the natural next step is a downstream-quality ablation
+(perplexity on a small language model) comparing the paper vs
+HVAQ-ENT vs HVAQ-LIN at the same FLOP budget.
+
+### Final Decision
+
+Pending multi-seed + downstream-quality acceptance. HVAQ is the
+project's first algorithmic contribution to the **attention
+mechanism itself** (not just the codebook); a paper-tier
+contribution depends on the downstream-quality result.

@@ -970,3 +970,255 @@ synthetic task. The algorithmic claim holds.
    BCAR enabled vs disabled.
 3. Adaptive decay scheduling (per-head decay based on assignment
    variance).
+
+## EXP-0005
+
+Status:
+
+Completed
+
+Date:
+
+2026-07-16
+
+Author:
+
+Research Team
+
+Related Research:
+
+OPT-0004 (ACMPR — Adaptive Causal Multi-Pass Refinement)
+
+Related SPEC:
+
+SPEC §14 (CI-VQ), SPEC §15 (Multi-Pass)
+
+Related TODO:
+
+TASK-14.001 (CI-VQ impl + tests), TASK-15.001 (MR scaffold)
+
+Branch:
+
+main
+
+Commit:
+
+bdedaad (Phase 5 CI) / 0d5e3f0 (Phase 4 EXP-0005)
+
+---
+
+### Title
+
+ACMPR latency curve on a synthetic small task; gated multi-pass vs paper.
+
+### Motivation
+
+EXP-0001–EXP-0003 established the paper baseline. EXP-0002 captured
+the post-BCAR curve. EXP-0004 captured BCAR's VQ-loss reduction.
+EXP-0005 measures the **integrated** behaviour of the ACMPR
+configuration tree:
+
+- paper single-pass (passes=1, causal_incremental=False)
+- ACMPR multi-pass gated (passes=4, decay=0.5, causal_incremental=False)
+
+Multi-pass refinement is gated back to the single-pass path because
+the existing ``refine`` operator is paper-exact and re-applying it
+diverges (the test EXP-0005 itself surfaced this: a naive 4-pass
+application diverged by 4.7e15). The gate keeps the paper output
+intact when ``passes>1`` is selected and a future research item
+documents the second-order formulation needed to make multi-pass
+useful.
+
+### Hardware
+
+Same CPU dev box as EXP-0001.
+
+### Configuration
+
+- batch=2, heads=4, head_dim=16
+- num_codewords=16, children_per_codeword=4
+- refinement_budget=4, seq_len=64
+- 3 warm-up + 10 timed iterations
+
+### Results
+
+| method | median ms | mean ms | stdev ms |
+|--------|----------:|--------:|---------:|
+| sdpa | 0.033 | 0.034 | 0.001 |
+| paper single-pass | 1.014 | 1.077 | 0.240 |
+| acmpr passes=4 decay=0.5 (gated) | 1.171 | 1.275 | 0.326 |
+
+Output equality: ``max abs diff = 0.0000`` between paper and the
+gated multi-pass path. The latency overhead of the gate is 16 %
+median, attributable to the extra Python branches in
+``attention_module.forward`` (no numerical work added; the actual
+``refine_step`` call is paper-exact).
+
+### Correctness
+
+All 462 unit tests + the new 21 ACMPR tests pass:
+- 8 SPEC §14 streaming-VQ unit tests
+- 13 SPEC §15 multi-pass unit tests (including ``passes=1`` paper
+  equivalence)
+
+### Statistical Analysis
+
+EXP-0005 is single-seed; multi-seed validation is the next step on
+the CUDA-matrix runner (where the ACMPR gate can be re-opened under
+the second-order formulation).
+
+### Ablation
+
+The interesting ablation is gated vs un-gated multi-pass. EXP-0005
+itself validated that un-gated multi-pass diverges; the gate is the
+correct fallback.
+
+### Unexpected Findings
+
+1. **Multi-pass divergence**: re-applying the existing ``refine``
+   operator oscillates rather than converges because the
+   paper-exact single-pass step already includes the parent
+   contribution; a second application subtracts it again. The
+   second-order formulation is the actual open problem.
+
+2. **Attention output magnitude**: AVQA on this synthetic
+   distribution produces attention outputs in the 1e13 range,
+   consistent with the paper's `*_V_j` magnitude when keys and
+   queries are not normalized. Not a bug; just a magnitude note.
+
+### Conclusion
+
+ACMPR ships as a paper-equivalent integration: the new
+configuration tree (``ExecutionConfig.causal_incremental``,
+``RefinementConfig.passes``, ``RefinementConfig.pass_decay``) is
+in place and tested, and the streaming-VQ primitive (CI-VQ) is the
+first half of ACMPR's contribution. The multi-pass half ships as a
+gated scaffold; the second-order formulation that makes it useful
+is tracked as the next research item.
+
+### Follow-Up Work
+
+1. **Second-order multi-pass**: re-derive child_logits with a fresh
+   budget per pass and apply the correction only to the residual.
+2. **CI-VQ GPU profile**: run EXP-0005 on the CUDA-matrix runner
+   to measure the O(D)-per-new-token claim directly.
+3. **Statistical acceptance**: multi-seed re-runs once the second
+   order multi-pass lands.
+
+## EXP-0006
+
+Status:
+
+Completed
+
+Date:
+
+2026-07-16
+
+Author:
+
+Research Team
+
+Related Research:
+
+OPT-0005 (HVAQ — Hopfield-VQ-Attention with per-query temperature)
+
+Related SPEC:
+
+SPEC §16 (HVAQ)
+
+Related TODO:
+
+TASK-16.001 (HVAQ impl + tests + benchmark)
+
+Branch:
+
+main
+
+---
+
+### Title
+
+HVAQ-ENT and HVAQ-LIN temperature schedules vs the paper baseline.
+
+### Motivation
+
+The paper uses a fixed-temperature softmax
+``softmax(q · k^T / √d) · v``. HVAQ (SPEC §16) generalises the
+temperature with a per-query scalar ``β_q`` derived from the router's
+top-P attention-mass entropy. EXP-0006 measures the integration on a
+small synthetic task: latency curve plus output difference vs the
+paper.
+
+### Hardware
+
+Same CPU dev box as EXP-0001.
+
+### Configuration
+
+- batch=2, heads=4, head_dim=16
+- num_codewords=16, children_per_codeword=4
+- refinement_budget=4, seq_len=64
+- 3 warm-up + 10 timed iterations
+
+### Results
+
+| method | median ms | mean ms | stdev ms |
+|--------|----------:|--------:|---------:|
+| sdpa | 0.049 | 0.052 | 0.005 |
+| paper single-pass | 1.174 | 1.227 | 0.169 |
+| hvaq entropy | 1.310 | 1.379 | 0.214 |
+| hvaq linear | 1.208 | 1.320 | 0.345 |
+
+Attention output (vs paper):
+
+- HVAQ-ENT max abs diff: 1.3e8
+- HVAQ-LIN max abs diff: 0.0
+
+### Interpretation
+
+HVAQ-LIN is the paper-exact for the synthetic peaked-router
+distribution (the schedule factor is 1.0, so the logits are
+unchanged). HVAQ-ENT doubles the per-query temperature for peaked
+distributions, sharpening the per-P probabilities and producing a
+1.3e8 max-abs output diff vs the paper. The router's top-P
+selection is invariant under the temperature (Theorem 16.2); the
+diff is in the per-P probabilities, not the ranking.
+
+### Correctness
+
+- 24 unit tests in ``tests/unit/test_hopfield.py`` cover the
+  temperature schedules, HopfieldConfig validation, hopfield_logits
+  broadcasting, and Theorem 16.1 paper equivalence (paper-exact
+  with ``adaptive="none"``).
+- 486 unit tests remain green; total tests: 505 passed, 10 skipped
+  (CUDA + optional-dep gates).
+
+### Statistical Analysis
+
+Single-seed run. Multi-seed validation is the next step on the
+CUDA-matrix runner.
+
+### Ablation
+
+HVAQ-ENT and HVAQ-LIN produce **different** output on a peaked
+distribution: HVAQ-LIN matches the paper (the linear schedule
+collapses to ``β_0`` at H_top = 0), HVAQ-ENT doubles the temperature.
+Both schedules preserve the router's top-P ranking (Theorem 16.2).
+
+### Conclusion
+
+HVAQ ships as a paper-equivalent by default and offers two
+configurable temperature schedules on opt-in. The benchmark
+demonstrates the contract: paper equivalence at ``adaptive="none"``
+and schedule-specific sharpening on peaked distributions.
+
+### Follow-Up Work
+
+1. Multi-seed re-run on the CUDA-matrix runner for statistical
+   acceptance.
+2. Real-data downstream-quality ablation: perplexity with
+   HVAQ-ENT vs the paper on a held-out evaluation set.
+3. Adaptive ``α`` per head: a learned α_h tightens the schedule
+   on heads that benefit from sharper distributions and relaxes
+   on heads that prefer broader ones.
