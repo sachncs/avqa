@@ -14,16 +14,18 @@ import torch
 
 from avqa import AVQAttention, AVQConfig
 from avqa.backend import TorchBackend
+from avqa.codebook import HierarchicalCodebook
+from avqa.config import (
+    AttentionShapeConfig,
+    CodebookConfig,
+    RoutingConfig,
+)
+from avqa.quantizer import EuclideanHierarchicalQuantizer
+from avqa.utils.seed import seed_everything
 
 
 def _small_attn_config(seq_len: int, num_heads: int = 4, embed_dim: int = 64) -> AVQConfig:
     """Construct a small AVQConfig for benchmarks."""
-    from avqa.config import (
-        AttentionShapeConfig,
-        CodebookConfig,
-        RoutingConfig,
-    )
-
     return AVQConfig(
         attention=AttentionShapeConfig(
             embed_dim=embed_dim,
@@ -92,9 +94,6 @@ def test_online_softmax_attention(seq_len: int, benchmark: object) -> None:
 @pytest.mark.benchmark(group="quantization")
 def test_vq_precompute(seq_len: int, benchmark: object) -> None:
     """Benchmark hierarchical VQ precompute."""
-    from avqa.codebook import HierarchicalCodebook
-    from avqa.quantizer import EuclideanHierarchicalQuantizer
-
     torch.manual_seed(0)
     cb = HierarchicalCodebook(
         num_heads=4, num_parents=16, children_per_parent=4, head_dim=16,
@@ -113,8 +112,6 @@ def test_vq_precompute(seq_len: int, benchmark: object) -> None:
 @pytest.mark.benchmark(group="reproducibility")
 def test_attention_reproducibility() -> None:
     """Same seed produces identical attention output (spec §3.19.3)."""
-    from avqa.utils.seed import seed_everything
-
     seed_everything(42)
     cfg = _small_attn_config(seq_len=64)
     module = AVQAttention(cfg, in_proj=False, out_proj=False)
