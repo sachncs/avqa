@@ -145,6 +145,19 @@ class AVQAttention(nn.Module):
 
         self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
 
+        # OPT-0005 (HVAQ): learnable parameters for per-parent β_p
+        # and per-head α. When disabled these are absent from
+        # parameters() and have zero overhead.
+        hopfield_active = config.backend.hopfield and config.hopfield.adaptive != "none"
+        if hopfield_active and config.hopfield.learnable_parent_beta:
+            M0 = config.codebook.num_codewords
+            self._parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0))
+        if hopfield_active and config.hopfield.learnable_alpha:
+            H = config.attention.num_heads
+            self._alpha = nn.Parameter(
+                torch.full((H,), config.hopfield.alpha)
+            )
+
         # H4: Store last forward pass data for commitment loss computation.
         self.last_keys: torch.Tensor | None = None
         self.last_parent_assignments: torch.Tensor | None = None
@@ -541,11 +554,12 @@ class AVQAttention(nn.Module):
             paper_probs,
             beta_init=beta_init,
             adaptive=self.config.hopfield.adaptive,
-            alpha=self.config.hopfield.alpha,
+            alpha=self._alpha.view(1, -1, 1) if hasattr(self, "_alpha") else self.config.hopfield.alpha,
         )
         # hopfield_logits expects raw (unscaled) base logits; undo /sqrt(D).
         raw_logits = parent_logits * (D**0.5)
-        return hopfield_logits(raw_logits, beta_q)
+        parent_beta = self._parent_beta if hasattr(self, "_parent_beta") else 1.0
+        return hopfield_logits(raw_logits, beta_q, parent_beta=parent_beta)
 
     def _compute_online_softmax(
         self,

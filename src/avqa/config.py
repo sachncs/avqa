@@ -267,12 +267,22 @@ class HopfieldConfig:
             (β_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
             (β_0 · (1 + α · H_top)).
         alpha: Slope of the linear schedule; HVAQ-LIN only.
+        learnable_parent_beta: When ``True``, adds a per-parent
+            learnable inverse temperature ``β_p`` as an
+            ``nn.Parameter`` (initialized to 1.0). Gradient flows
+            through :func:`hopfield_logits`.
+        learnable_alpha: When ``True``, adds a per-head learnable
+            ``α`` as an ``nn.Parameter`` (initialized from
+            ``alpha``). Overrides the fixed ``alpha`` in entropy
+            and linear schedules.
     """
 
     enabled: bool = False
     beta_init: float = 0.0
     adaptive: str = "none"
     alpha: float = 1.0
+    learnable_parent_beta: bool = False
+    learnable_alpha: bool = False
 
     def __post_init__(self) -> None:
         if self.beta_init < 0.0:

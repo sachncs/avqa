@@ -60,9 +60,9 @@ def validate_adaptive(value: str) -> str:
 def per_query_beta(
     parent_probs: torch.Tensor,
     *,
-    beta_init: float,
+    beta_init: float | torch.Tensor,
     adaptive: str,
-    alpha: float = 1.0,
+    alpha: float | torch.Tensor = 1.0,
 ) -> torch.Tensor:
     """Compute the per-query temperature ``\u03b2_q`` (SPEC \u00a716.2).
 
@@ -103,8 +103,8 @@ def per_query_beta(
         torch.zeros((), dtype=parent_probs.dtype, device=parent_probs.device),
     )
     h_top = -(parent_probs * log_p).sum(dim=-1)  # [B, H, N]
-    schedule = 1.0 + 1.0 / (1.0 + h_top) if adaptive == "entropy" else 1.0 + float(alpha) * h_top
-    return float(beta_init) * schedule
+    schedule = 1.0 + 1.0 / (1.0 + h_top) if adaptive == "entropy" else 1.0 + alpha * h_top
+    return beta_init * schedule
 
 
 def hopfield_logits(
