@@ -219,6 +219,20 @@ historically — see ledger below).
 
 ---
 
+## Recent Work (2026-07-17)
+
+- [x] Forward refactor: broke `forward_impl` into 10+ pipeline stage helpers
+- [x] Learnable HVAQ parameters: `_parent_beta` and `_alpha` nn.Parameters
+- [x] Code quality: dead code removal, renamed public classes, specific exceptions, docstrings
+- [x] CI/CD: build job, pip-audit, release workflow, pre-commit updates
+- [x] Dead test removal: deleted `@parametrize([])` test
+- [x] Multi-pass refinement: disjoint-set re-routing with converging residual norms
+- [x] torch.compile numerical equivalence test on CPU
+- [x] HF adapter: head_mask/past_key_value debug logging when dropped
+- [x] Docs: CHANGELOG, README (project structure, features, test count), math.md (HVAQ, BCAR, multi-pass)
+
+---
+
 ## Historical Completeness Ledger (append-only)
 
 | SPEC Chapter | First SHA      | Last SHA       | Notes                                          |

@@ -83,21 +83,6 @@ include = [
 path = "src/avqa/_version.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
-[tool.black]
-line-length = 100
-target-version = ["py310", "py311", "py312"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.git
-  | \.venv
-  | build
-  | dist
-  | docs/_build
-  | src/avqa/_version\.py
-)/
-'''
-
 [tool.coverage.run]
 # CUDA-only Triton kernel bodies cannot run on the CPU CI matrix.
 # The Python wrappers in src/avqa/triton/ are exercised by smoke tests

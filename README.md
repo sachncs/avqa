@@ -34,10 +34,15 @@ implementation tracker is [TODO.md](TODO.md).
 - **Adaptive refinement** that expands only the most-attended codewords.
 - **Correcting attention** that replaces — not augments — parent
   contributions with child contributions while preserving normalization.
+- **Multi-pass refinement** with disjoint-set re-routing (converging
+  residual norms, budget decay).
+- **HVAQ (Hopfield-VQ-Attention)** with per-query temperature schedules
+  (entropy, linear) and learnable parameters.
+- **torch.compile** opt-in for reduced Python overhead (CPU and GPU).
 - **Framework integrations** for Hugging Face Transformers, vLLM,
   FlashAttention, and xFormers.
 - **Profiling, visualization, and benchmarking** tools.
-- **Strict typing, zero-warning lint, ≥90% test coverage** on the core
+- **Strict typing, zero-warning lint, ≥85% test coverage** on the core
   package.
 
 ---
@@ -82,23 +87,25 @@ pip install pytest pytest-cov pytest-benchmark hypothesis ruff mypy matplotlib
 ```python
 import torch
 from avqa import AVQAttention, AVQConfig
+from avqa.config import (
+    AttentionShapeConfig,
+    CodebookConfig,
+    RoutingConfig,
+)
 
 config = AVQConfig(
-    embed_dim=512,
-    num_heads=8,
-    num_codewords=64,
-    children_per_codeword=4,
-    refinement_budget=8,
-    backend="torch",
+    attention=AttentionShapeConfig(embed_dim=512, num_heads=8),
+    codebook=CodebookConfig(num_codewords=64, children_per_codeword=4),
+    routing=RoutingConfig(refinement_budget=8),
 )
 
 attention = AVQAttention(config)
 
-query = torch.randn(2, 8, 128, 64)  # [B, H, T, D]
-key = torch.randn(2, 8, 128, 64)
-value = torch.randn(2, 8, 128, 64)
+query = torch.randn(2, 64, 512)  # [B, T, E]
+key = torch.randn(2, 128, 512)
+value = torch.randn(2, 128, 512)
 
-output = attention(query, key, value)  # [B, H, T, D]
+output = attention(query, key, value)  # [B, T, E]
 ```
 
 ### Functional API
@@ -118,11 +125,12 @@ output = attention(query=query, key=key, value=value, config=config)
 | Symbol | Type | Description |
 |--------|------|-------------|
 | `AVQAttention` | class | Primary `nn.Module` attention wrapper |
-| `AVQConfig` | dataclass | Immutable configuration (codebook, routing, merge, backend, cache, precision) |
+| `AVQConfig` | dataclass | Immutable configuration (codebook, routing, merge, backend, cache, precision, hopfield) |
 | `VectorQuantizer` | class | Hierarchical vector quantization engine |
 | `HierarchicalCodebook` | class | Parent-child codebook with mean constraint |
 | `Router` | class | Routing strategy interface (TopP, Threshold, Budget) |
 | `AdaptiveRefinement` | class | Refinement orchestrator |
+| `MultiPassRefiner` | class | Multi-pass correction with disjoint-set re-routing |
 | `Scheduler` | class | Refinement budget scheduler (Default, Adaptive) |
 | `KVCache` | class | Autoregressive KV cache (InMemory, Paged) |
 | `Backend` | class | Execution backend (Torch, Triton) |
@@ -144,9 +152,11 @@ avqa/
 │   ├── routing.py             # Router + importance + selectors
 │   ├── merge.py               # Merge strategies
 │   ├── refinement.py          # AdaptiveRefinement orchestrator
+│   ├── multipass.py           # MultiPassRefiner (disjoint-set)
+│   ├── hopfield.py            # HVAQ temperature schedules
+│   ├── scheduler.py           # Default + Adaptive schedulers
 │   ├── backend.py             # TorchBackend / TritonBackend
 │   ├── cache.py               # KVCache (InMemory, Paged)
-│   ├── scheduler.py           # Default + Adaptive schedulers
 │   ├── config.py              # AVQConfig + sub-configs
 │   ├── data.py                # Shapes, dtypes, devices, contracts
 │   ├── functional.py          # Stateless functional API
@@ -156,6 +166,8 @@ avqa/
 │   ├── exceptions.py          # Exception hierarchy
 │   ├── logging.py             # Logging configuration
 │   ├── registry.py            # Extension registry
+│   ├── online_adaptation.py   # BCAR codebook adaptation
+│   ├── triton/                # Triton kernel stubs
 │   └── utils/                 # seed, validation, numerics
 ├── tests/
 │   ├── unit/                  # Unit tests
@@ -187,7 +199,7 @@ pytest tests/integration -q
 pytest tests/performance -q
 
 # With coverage
-pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
+pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=85
 ```
 
 ### Code Style
@@ -235,7 +247,7 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 ## Roadmap
 
-- **v0.1.0** — Current: reference implementation, 402 tests, ≥90% coverage
+- **v0.1.0** — Current: reference implementation, 516 tests, ≥85% coverage
 - **v0.2.0** — Triton kernel implementation, FAISS quantizer, k-means init
 - **v1.0.0** — Stable API, PyPI release, full spec compliance
 

@@ -113,3 +113,62 @@ Per-key cost $\mathcal{O}(M_0 + \mathcal{C})$ instead of $\mathcal{O}(M_0 \mathc
 5. Recompute attention for the children.
 6. Correct parent contributions.
 7. Produce the final output.
+
+## HVAQ Temperature Schedule (SPEC §16)
+
+Per-query inverse temperature:
+
+$$
+\beta_q = \beta_0 \cdot s(H_{\text{top}})
+$$
+
+where $\beta_0 = 1 / \sqrt{D}$ and $H_{\text{top}} = -\sum_j p_j \log p_j$
+is the attention-mass entropy over the top-$P$ parents.
+
+Schedules:
+
+- **HVAQ-ENT**: $s(H) = 1 + 1 / (1 + H)$
+- **HVAQ-LIN**: $s(H) = 1 + \alpha \cdot H$
+- **None**: $s(H) = 1$ (paper-exact)
+
+Learnable parameters (OPT-0005):
+
+- Per-parent $\beta_p \in \mathbb{R}^{M_0}$: ``nn.Parameter`` initialized to 1.
+- Per-head $\alpha \in \mathbb{R}^H$: ``nn.Parameter`` initialized from config.
+
+Parent logits after HVAQ:
+
+$$
+S_p = \beta_q \cdot \beta_p \cdot (Q \cdot C_p^\top)
+$$
+
+## BCAR (SPEC §13)
+
+Bias-Corrected Online Codebook Adaptation. Per-codeword EMA on
+inference-time assignments:
+
+$$
+C_a^{(t+1)} = \delta \cdot C_a^{(t)} + (1 - \delta) \cdot \bar{K}_a^{(t)}
+$$
+
+where $\delta$ is the EMA decay and $\bar{K}_a$ is the centroid of
+keys assigned to codeword $a$.  The parent-child mean constraint
+(spec §7.9) is preserved via post-step reprojection.
+
+## Multi-Pass Refinement (SPEC §15)
+
+Disjoint-set correction: each pass $k$ corrects a different subset
+of parents.  Budget decays geometrically:
+
+$$
+P_k = \lceil P_0 \cdot \rho^k \rceil
+$$
+
+where $\rho \in (0, 1]$ is the decay rate.  After pass $k$,
+already-refined parents are masked out and the router re-selects
+the top-$P_k$ from the remaining set.  Fresh child logits are
+recomputed as $Q \cdot C_c^\top / \sqrt{D}$.
+
+Convergence: residual norms $||\text{attn}_k - \text{attn}_{k-1}||$
+decrease monotonically because each pass corrects less-important
+parents.

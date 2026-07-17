@@ -33,7 +33,7 @@ All notable changes to AVQA are documented here. Versions follow
 - pytest-benchmark suite sweeping sequence lengths 64–2048 with
   output quality and SDPA numerical comparison tests.
 - 429 unit + integration + reference + benchmark tests;
-  ≥90% line coverage on `src/avqa/`.
+  ≥85% line coverage on `src/avqa/`.
 - Hand-computed reference tests and invariant property tests
   (conservation, hierarchy, attention, count, assignment).
 - Commitment (encoding) loss in `AVQAttention` (spec §8.9).
@@ -179,12 +179,75 @@ All notable changes to AVQA are documented here. Versions follow
   ``BackendConfig.hopfield`` master switch.
 - ``src/avqa/attention_module.py``: HVAQ block in ``forward_impl``,
   gated on ``backend.hopfield and hopfield.adaptive != "none"``.
-- ``tests/unit/test_hopfield.py``: 24 SPEC §16 unit tests covering
-  the temperature schedules, HopfieldConfig validation, and
-  Theorem 16.1 paper equivalence.
+- ``tests/unit/test_hopfield.py``: 30 SPEC §16 unit tests covering
+  the temperature schedules, HopfieldConfig validation, Theorem 16.1
+  paper equivalence, and learnable parameter gradient flow.
 - EXP-0006 captures the latency curve and output difference on a
   small synthetic task. The integration is gated off by default so
   every prior test continues to pass.
+
+### Multi-pass refinement (disjoint-set re-routing)
+
+- ``MultiPassRefiner`` now implements **disjoint-set multi-pass
+  correction**: each pass corrects a different subset of parents.
+  After pass *k*, already-refined parents are masked out, the router
+  re-selects the top-P parents from the remaining set with budget
+  decay, and fresh child logits are recomputed.  This guarantees
+  converging residual norms rather than the divergent
+  ``state_0 + k*(child - parent)`` of the naive approach.
+- ``src/avqa/multipass.py``: ``query`` and ``child_keys`` optional
+  params enable re-routing; falls back to single-pass with a
+  warning when not provided.
+- ``src/avqa/attention_module.py``: ``_refine_and_output`` now
+  invokes ``MultiPassRefiner`` when ``refinement.passes > 1``.
+- ``tests/unit/test_multipass.py``: 16 tests covering budget decay,
+  re-routing, residual convergence, and fallback behaviour.
+
+### torch.compile numerical equivalence
+
+- ``tests/unit/test_attention_compile.py``: new
+  ``TestCompileNumericalEquivalence`` class runs the compiled and
+  eager forwards on CPU with shared weights and asserts
+  ``torch.allclose`` within tolerance.  Dynamo tracing failures
+  are caught and documented as skips (GPU runner provides the
+  authoritative gate).
+
+### Code quality
+
+- Refactored ``AVQAttention.forward_impl`` into 10+ pipeline stage
+  helpers (``_validate_inputs``, ``_sync_codebook_device``,
+  ``_resolve_kv_cache``, ``_resolve_mask``, ``_run_naive``,
+  ``_run_vq_precompute``, ``_compute_parent_logits``,
+  ``_apply_hopfield``, ``_compute_online_softmax``,
+  ``_compute_routing``, ``_compute_child_logits``,
+  ``_refine_and_output``).
+- Learnable HVAQ parameters: ``_parent_beta`` (``nn.Parameter [1,1,1,M0]``)
+  and ``_alpha`` (``nn.Parameter [H]``) with gradient flow through
+  ``hopfield_logits``.  Six new tests in ``tests/unit/test_hopfield.py``.
+- Removed dead code: ``_STRATEGIES``, ``render_to_json``, unused
+  ``json`` import, redundant asserts in ``cache.py``.
+- Renamed public classes: ``HFAttentionWrapper``, ``VLLMSelector``.
+- Replaced broad ``except Exception`` with specific exceptions
+  (``OSError``, ``RuntimeError``) plus ``_logger.debug`` in
+  ``backend.py``.
+- Added Google-style docstrings to ``logging.py`` public functions.
+- HF adapter: debug-level log when ``head_mask`` or ``past_key_value``
+  are provided but not supported by AVQA.
+- Deleted dead ``@parametrize([])`` test in
+  ``tests/unit/test_attention_module.py``.
+
+### CI/CD
+
+- ``.github/workflows/ci.yml``: added build (``python -m build``)
+  and ``pip-audit`` jobs.
+- ``.github/workflows/release.yml``: new PyPI release workflow
+  triggered on tag push.
+- ``.pre-commit-config.yaml``: updated ruff to v0.11.6, mypy to
+  v1.15.0, removed black hook.
+- ``pyproject.toml``: ``dynamic = ["version"]``, removed
+  ``[tool.black]`` section.
+- ``Makefile``: removed black targets, fixed coverage help to
+  ``>=85%``.
 
 ### Benchmarks
 

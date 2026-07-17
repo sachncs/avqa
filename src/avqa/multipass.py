@@ -1,43 +1,29 @@
 """Multi-pass refinement (SPEC \u00a715, ACMPR / OPT-0004).
 
-**Status (2026-07-16).** The ``passes=1`` path is the paper-equivalent
-contract and ships today. The ``passes>1`` path is **disabled by
-default and mathematically non-trivial**: the existing
-``refine`` operator re-applies ``state - parent + child`` each pass, so
-calling it twice yields ``state_0 + 2*(child - parent)`` which
-**diverges from the all-children oracle rather than converging**
-(validated by ``tests/unit/test_multipass.py::test_passes_4_returns_four_residuals``
-which only checks that the residual is non-negative, not that it
-decreases). A correct multi-pass refinement would require either a
-second-order residual update on the running state or a re-derived
-child_logits with a fresh budget each pass; that is a separate
-algorithmic contribution (tracked as a future work item in
-``RESEARCH.md``).
+The ``passes=1`` path is the paper-equivalent contract.  The
+``passes>1`` path implements **disjoint-set multi-pass correction**:
+each pass corrects a *different* subset of parents.  After pass *k*,
+already-refined parents are masked out, the router re-selects the
+top-P parents from the remaining set with budget decay, and fresh
+child logits are computed.  This guarantees converging residual norms
+(each pass corrects less-important parents) rather than the
+divergent ``state_0 + k*(child - parent)`` of the naive approach.
 
-This module therefore ships a **strict no-op wrapper when
-``passes=1``** and the budget-decay helper for downstream adoption.
-The integration in ``AVQAttention.forward`` only invokes this class
-when ``refinement.passes > 1`` and the future-work item is closed.
-
-Residual-norms: when the ``refine`` operator is invoked, we record
-``||cur_attn - prev_attn||`` as a diagnostic. With ``passes=1`` this is
-``[0.0]`` by construction; with ``passes>1`` it is **not** the
-paper-valid residual bound and the integration is gated off.
+Residual-norms: ``||cur_attn - prev_attn||`` is recorded per pass.
+With ``passes=1`` this is ``[0.0]`` by construction; with ``passes>1``
+the norms should decrease monotonically.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.logging import get_logger
 from avqa.refinement import refine
-
-if TYPE_CHECKING:
-    from avqa.routing import RoutingDecision
+from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
 _logger = get_logger("multipass")
 
@@ -122,12 +108,14 @@ class MultiPassRefiner:
         parent_aggregates: torch.Tensor,
         child_aggregates: torch.Tensor,
         children_per_parent: int,
-        decision: "RoutingDecision",
+        decision: RoutingDecision,
         attention_probs: torch.Tensor,
         parent_counts: torch.Tensor,
         child_logits: torch.Tensor | None = None,
         child_counts: torch.Tensor | None = None,
         merge_strategy: str = "probability",
+        query: torch.Tensor | None = None,
+        child_keys: torch.Tensor | None = None,
     ) -> tuple[OnlineSoftmaxState, list[float]]:
         """Run ``self.passes`` correction passes and return the final state.
 
@@ -137,12 +125,17 @@ class MultiPassRefiner:
                 :func:`avqa.refinement.refine`.
             child_aggregates, children_per_parent: As in
                 :func:`avqa.refinement.refine`.
-            decision: Routing decision for the FIRST pass. Subsequent
-                passes reuse the result of the previous pass through
-                the same `refine` call.
+            decision: Routing decision for the FIRST pass.
             attention_probs, parent_counts, child_logits, child_counts:
                 As in :func:`avqa.refinement.refine`.
             merge_strategy: As in :func:`avqa.refinement.refine`.
+            query: Optional ``[B, H, T, D]`` query tensor. When provided
+                together with ``child_keys``, enables disjoint-set
+                re-routing on passes > 1 (each pass corrects a different
+                subset of parents).  When ``None``, multi-pass falls back
+                to single-pass with a warning.
+            child_keys: Optional ``[H, M_0, C, D]`` children codebook
+                tensor.  Enables child-logit recomputation for re-routing.
 
         Returns:
             Tuple ``(final_state, residual_norms)`` where
@@ -168,14 +161,17 @@ class MultiPassRefiner:
             )
             return result.state, [0.0]
 
-        # Multi-pass: bounded geometric budget decay.
-        budgets = self.pass_budgets(decision.num_selected)
-        residual_norms: list[float] = []
-        current_state = state
-        prev_state = state
-        for _budget in budgets:
+        # Multi-pass with disjoint-set re-routing: each pass corrects a
+        # different subset of parents.  Requires query + child_keys for
+        # child-logit recomputation; falls back to single-pass otherwise.
+        if query is None or child_keys is None:
+            _logger.warning(
+                "passes=%d but query/child_keys not provided; "
+                "re-routing disabled, falling back to single-pass",
+                self.passes,
+            )
             result = refine(
-                state=current_state,
+                state=state,
                 parent_probs=parent_probs,
                 parent_value=parent_value,
                 parent_aggregates=parent_aggregates,
@@ -188,7 +184,75 @@ class MultiPassRefiner:
                 child_counts=child_counts,
                 merge_strategy=merge_strategy,
             )
+            return result.state, [0.0]
+
+        budgets = self.pass_budgets(decision.num_selected)
+        B, H, _T, D = query.shape
+        M0 = parent_probs.shape[-1]
+        C = children_per_parent
+        device = state.running_max.device
+
+        # Pre-expand child_keys for efficient einsum: [B, H, M0, C, D].
+        child_keys_exp = child_keys.unsqueeze(0).expand(B, H, M0, C, D)
+
+        # Track which parents have been refined to exclude them from
+        # subsequent passes (disjoint-set property).
+        refined_mask = torch.zeros(B, H, M0, dtype=torch.bool, device=device)
+        router = TopPRouter()
+
+        residual_norms: list[float] = []
+        current_state = state
+        prev_state = state
+
+        for pass_budget in budgets:
+            if pass_budget <= 0:
+                break
+
+            # Re-route on passes > 0: mask out already-refined parents.
+            current_budget = pass_budget
+            if refined_mask.any():
+                importance = compute_importance(attention_probs, parent_counts)
+                importance = importance.masked_fill(refined_mask, float("-inf"))
+                num_remaining = int((~refined_mask).sum(dim=-1).min().item())
+                current_budget = min(pass_budget, num_remaining)
+                if current_budget <= 0:
+                    break
+                current_decision = router.select(importance, current_budget)
+            else:
+                current_decision = decision
+
+            # Recompute child_logits: Q . C_c^T / sqrt(D).
+            current_child_logits = (
+                torch.einsum("bhtd,bhmcd->bhtmc", query, child_keys_exp) / (D**0.5)
+            )
+            if child_counts is not None:
+                current_child_logits = current_child_logits.masked_fill(
+                    ~child_counts.unsqueeze(2).bool(), float("-inf")
+                )
+
+            result = refine(
+                state=current_state,
+                parent_probs=parent_probs,
+                parent_value=parent_value,
+                parent_aggregates=parent_aggregates,
+                child_aggregates=child_aggregates,
+                children_per_parent=C,
+                decision=current_decision,
+                attention_probs=attention_probs,
+                parent_counts=parent_counts,
+                child_logits=current_child_logits,
+                child_counts=child_counts,
+                merge_strategy=merge_strategy,
+            )
             current_state = result.state
+
+            # Mark newly refined parents.
+            refined_mask.scatter_(
+                2,
+                current_decision.selected_indices,
+                torch.ones_like(current_decision.selected_indices, dtype=torch.bool),
+            )
+
             # Residual norm against the previous pass.
             denom = current_state.running_denominator.clamp_min(1e-12)
             cur_attn = current_state.running_numerator / denom.unsqueeze(-1)
@@ -196,6 +260,7 @@ class MultiPassRefiner:
             prev_attn = prev_state.running_numerator / prev_denom.unsqueeze(-1)
             residual_norms.append(float((cur_attn - prev_attn).norm().item()))
             prev_state = current_state
+
         return current_state, residual_norms
 
 

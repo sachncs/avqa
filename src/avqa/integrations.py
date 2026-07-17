@@ -219,6 +219,16 @@ class HFAttentionWrapper(nn.Module):
         convention; ``output_attentions`` is accepted but ignored
         (AVQA does not expose raw attention probabilities).
         """
+        if head_mask is not None:
+            _logger.debug(
+                "HFAttentionWrapper: head_mask provided but not supported "
+                "by AVQA; ignoring"
+            )
+        if past_key_value is not None:
+            _logger.debug(
+                "HFAttentionWrapper: past_key_value provided but not "
+                "supported by AVQA wrapper; ignoring"
+            )
         # If cross-attention is requested, fall back to the inner
         # module's standard attention over encoder_hidden_states.
         kv_source = encoder_hidden_states if encoder_hidden_states is not None else hidden_states

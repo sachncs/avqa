@@ -325,6 +325,7 @@ class AVQAttention(nn.Module):
         attn_out = self._refine_and_output(
             state, parent_attention_probs, parent_values,
             child_logits, result, decision, budget, C, D_v,
+            q=q,
         )
 
         out = self.merge_heads(attn_out)
@@ -658,33 +659,61 @@ class AVQAttention(nn.Module):
         budget: int,
         C: int,
         D_v: int,
+        q: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Run refinement and extract the final attention output (spec §7.7)."""
         if self.config.refinement.passes > 1:
-            _logger.debug(
-                "refinement.passes=%d > 1; falling back to single-pass",
-                self.config.refinement.passes,
+            from avqa.multipass import MultiPassRefiner
+
+            refiner = MultiPassRefiner(
+                passes=self.config.refinement.passes,
+                decay=self.config.refinement.pass_decay,
             )
-        refinement = refine_step(
-            state=state,
-            parent_probs=parent_attention_probs,
-            parent_value=(
-                parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-            ),
-            parent_aggregates=parent_values,
-            child_aggregates=result.child_aggregates,
-            children_per_parent=C,
-            decision=decision,
-            attention_probs=parent_attention_probs,
-            parent_counts=result.parent_counts,
-            child_logits=child_logits,
-            child_counts=result.child_counts,
-            merge_strategy=self.config.merge.strategy,
-        )
-        refined_state = refinement.state
+            current_state, residual_norms = refiner.refine(
+                state=state,
+                parent_probs=parent_attention_probs,
+                parent_value=(
+                    parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
+                ),
+                parent_aggregates=parent_values,
+                child_aggregates=result.child_aggregates,
+                children_per_parent=C,
+                decision=decision,
+                attention_probs=parent_attention_probs,
+                parent_counts=result.parent_counts,
+                child_logits=child_logits,
+                child_counts=result.child_counts,
+                merge_strategy=self.config.merge.strategy,
+                query=q,
+                child_keys=self.codebook.children,
+            )
+            _logger.debug(
+                "multi-pass refinement: %d passes, residual norms=%s",
+                len(residual_norms),
+                [f"{r:.6f}" for r in residual_norms],
+            )
+        else:
+            refinement = refine_step(
+                state=state,
+                parent_probs=parent_attention_probs,
+                parent_value=(
+                    parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
+                ),
+                parent_aggregates=parent_values,
+                child_aggregates=result.child_aggregates,
+                children_per_parent=C,
+                decision=decision,
+                attention_probs=parent_attention_probs,
+                parent_counts=result.parent_counts,
+                child_logits=child_logits,
+                child_counts=result.child_counts,
+                merge_strategy=self.config.merge.strategy,
+            )
+            current_state = refinement.state
+
         attn_out = (
-            refined_state.running_numerator[:, :, :, 0, :]
-            / refined_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
+            current_state.running_numerator[:, :, :, 0, :]
+            / current_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
         )
 
         if self.config.execution.mode == "research":
