@@ -123,14 +123,6 @@ class TestSpecRegistries:
         """Each spec-required registry exists."""
         assert isinstance(registry, Registry)
 
-    @pytest.mark.parametrize(
-        "registry",
-        [],
-    )
-    def test_registry_empty_until_subsystem_registered(self, registry: Registry) -> None:
-        """Each registry starts empty until subsystems register."""
-        assert len(registry) == 0
-
     def test_quantizer_registry_populated_by_codebook(self) -> None:
         """QUANTIZER_REGISTRY is populated by avqa.codebook at import time."""
         assert "hierarchical_codebook" in QUANTIZER_REGISTRY
