@@ -44,6 +44,8 @@ implementation tracker is [TODO.md](TODO.md).
 
 ## Installation
 
+> **Note:** AVQA is not yet published on PyPI. Install from source.
+
 ### From source
 
 ```bash

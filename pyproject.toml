@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "avqa"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Adaptive Vector Quantized Attention — production-grade attention infrastructure for PyTorch"
 readme = "README.md"
 license = { text = "Apache-2.0" }

@@ -21,8 +21,6 @@ jobs:
       - run: pip install ruff
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
-      - run: pip install black
-      - run: black --check --diff src/ tests/ benchmarks/ examples/ scripts/
 
   typecheck:
     name: Type-check
@@ -67,3 +65,26 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit
