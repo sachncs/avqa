@@ -30,18 +30,21 @@ DEFAULT_EMA_DECAY: float = 0.99
 
 
 def require_positive(value: float, field_name: str) -> None:
+    """Raise ``ConfigurationError`` if ``value`` is not positive."""
     if value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_non_negative(value: float, field_name: str) -> None:
+    """Raise ``ConfigurationError`` if ``value`` is negative."""
     if value < 0:
         msg = f"{field_name} must be >= 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_in_range(value: float, lo: float, hi: float, field_name: str) -> None:
+    """Raise ``ConfigurationError`` if ``value`` is outside ``[lo, hi]``."""
     if not lo <= value <= hi:
         msg = f"{field_name} must be in [{lo}, {hi}], got {value}"
         raise ConfigurationError(msg, {field_name: value})

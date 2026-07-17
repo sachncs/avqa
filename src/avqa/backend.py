@@ -22,7 +22,10 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from avqa.logging import get_logger
 from avqa.registry import BACKEND_REGISTRY
+
+_logger = get_logger("backend")
 
 if TYPE_CHECKING:
     from avqa.merge import MergeInputs
@@ -252,7 +255,8 @@ class TritonBackend(Backend):
             from avqa.triton._loader import load_kernel
 
             out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
-        except Exception:  # pragma: no cover - defensive
+        except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
+            _logger.debug("Triton vq_precompute unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         from avqa.quantizer import QuantizationResult
 
@@ -335,7 +339,8 @@ class TritonBackend(Backend):
                 tile_denom,
                 tile_num,
             )
-        except Exception:  # pragma: no cover - defensive
+        except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
+            _logger.debug("Triton correction unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().correction(
                 state_max,
                 state_denom,

@@ -27,6 +27,7 @@ _logger = get_logger("codebook")
 
 
 def require_positive(value: int, field_name: str) -> None:
+    """Raise ``CodebookError`` if ``value`` is not positive."""
     if value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
         raise CodebookError(msg, {field_name: value})

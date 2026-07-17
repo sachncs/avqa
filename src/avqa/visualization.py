@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-import json
 
 import torch
 
@@ -156,10 +155,3 @@ __all__ = [
     "Visualizer",
     "tree_to_dict",
 ]
-
-
-# Avoid circular import: provide a JSON-serialize helper at module level.
-def render_to_json(visualizer: Visualizer, kind: str, *args: object) -> str:
-    """Helper: render and return a JSON string."""
-    renderer = getattr(visualizer, kind)
-    return json.dumps(renderer(*args), indent=2)

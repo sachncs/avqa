@@ -18,8 +18,6 @@ import torch
 from avqa.exceptions import ConfigurationError
 from avqa.registry import MERGE_REGISTRY
 
-_STRATEGIES: frozenset[str] = frozenset({"probability", "weighted", "logit", "normalized"})
-
 
 @dataclass
 class MergeInputs:

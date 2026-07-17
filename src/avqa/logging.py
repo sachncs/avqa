@@ -31,10 +31,12 @@ _CONFIGURED: list[bool] = [False]
 
 
 def set_configured(value: bool) -> None:
+    """Mark the logger as configured (internal use)."""
     _CONFIGURED[0] = value
 
 
 def is_internal_configured() -> bool:
+    """Return whether the logger has been configured (internal use)."""
     return _CONFIGURED[0]
 
 

@@ -127,7 +127,7 @@ def make_hf_attention_replacement(
     if original_module is not None:
         copy_hf_weights(original_module, inner, embed_dim)
 
-    return _HFAttentionWrapper(inner)
+    return HFAttentionWrapper(inner)
 
 
 def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None:
@@ -187,7 +187,7 @@ def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None
         _copy(src_name, dst_name, with_bias=True)
 
 
-class _HFAttentionWrapper(nn.Module):
+class HFAttentionWrapper(nn.Module):
     """Adapter that exposes AVQAttention via HF's attention call signature.
 
     HF attention modules pass additional kwargs (``attention_mask``,
@@ -523,10 +523,10 @@ def vllm_attention_backend(backend: str = "torch") -> object:
     if backend == "avqa":
         return AVQvLLMBackend()
 
-    class _Selector:
+    class VLLMSelector:
         name = backend
 
-    return _Selector()
+    return VLLMSelector()
 
 
 # ---------------------------------------------------------------------------

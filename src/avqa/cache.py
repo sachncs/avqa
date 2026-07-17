@@ -113,10 +113,8 @@ class InMemoryKVCache(KVCache):
             self.cache_value = value.to(device=self.device, dtype=self.dtype)
         else:
             existing_key = self.cache_key
-            assert existing_key is not None
             self.cache_key = torch.cat([existing_key, key.to(existing_key.dtype)], dim=-2)
             existing_value = self.cache_value
-            assert existing_value is not None
             self.cache_value = torch.cat(
                 [existing_value, value.to(existing_value.dtype)],
                 dim=-2,
@@ -124,8 +122,6 @@ class InMemoryKVCache(KVCache):
         if self.max_size > 0 and self.size > self.max_size:
             # Drop the oldest tokens.
             excess = self.size - self.max_size
-            assert self.cache_key is not None
-            assert self.cache_value is not None
             self.cache_key = self.cache_key[..., excess:, :]
             self.cache_value = self.cache_value[..., excess:, :]
 
