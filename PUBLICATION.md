@@ -24,7 +24,7 @@
 | Accepted Papers | 0 |
 | Under Review | 2 (PUB-0001 BCAR, PUB-0002 HVAQ) |
 | Freshly Landed Optimizations | 2 (OPT-0003 BCAR, OPT-0005 HVAQ) |
-| Benchmarks Reproduced | 5 (EXP-0001 through EXP-0005) |
+| Benchmarks Reproduced | 6 (EXP-0001 through EXP-0006) |
 | GPU Benchmarks Pending CUDA Runner | 4 (OPT-0001 GPU, OPT-0003 multi-seed, OPT-0005 multi-seed, OPT-0005 downstream quality) |
 
 The project has crossed from "production-grade implementation" into
@@ -91,21 +91,26 @@ difference:
 - HVAQ-ENT vs paper attention output: 1.3e8 max abs diff
 - HVAQ-LIN vs paper attention output: 0.0 max abs diff
 
-24 SPEC §16 unit tests in ``tests/unit/test_hopfield.py`` cover
+33 SPEC §16 unit tests in ``tests/unit/test_hopfield.py`` cover
 the temperature schedules, HopfieldConfig validation,
-hopfield_logits broadcasting, and Theorem 16.1 paper equivalence.
+hopfield_logits broadcasting, Theorem 16.1 paper equivalence,
+Theorem 16.2 downstream-consumer invariants (top-K
+index invariance under positive β), and learnable β_p / α
+parameter gradient flow.
 
 ### Threats to Validity
 
-- Multi-seed + downstream-quality validation is the next gate.
-  The synthetic 64-token benchmark is not a proxy for real
-  attention mass distribution. A small language model with the
-  paper baseline vs HVAQ-ENT vs HVAQ-LIN at the same FLOP budget
-  is the next experiment.
+- Multi-seed + downstream-quality validation is the next gate
+  (see "GPU Benchmarks Pending CUDA Runner" dashboard above and
+  `OPTIMIZATIONS.md` L207-213 "Risks"). The synthetic 64-token
+  benchmark is not a proxy for real attention mass distribution.
+  A small language model with the paper baseline vs HVAQ-ENT vs
+  HVAQ-LIN at the same FLOP budget is the next experiment.
 - The router's top-P selection is invariant under positive ``β``
   (Theorem 16.2) but the per-P probabilities are not. Downstream
   consumers that assume a particular parent attention mass may
-  need updating once the GPU-matrix runner is available.
+  need updating once the GPU-matrix runner is available
+  (cross-ref: "Outstanding Gaps Before Publication" #1 below).
 
 ### Release Target
 
@@ -177,7 +182,8 @@ to the paper:
 EXP-0004 closes 60.7 % of the static-to-oracle VQ-loss gap in
 1024 streaming updates on a synthetic 4-centroid task. Statistical
 significance (multi-seed) is the next gate on the CUDA-matrix
-runner.
+runner (see "Outstanding Gaps Before Publication" #1 below and
+`OPTIMIZATIONS.md` L67-68).
 
 ## Threats to Validity
 
@@ -210,21 +216,8 @@ validation and at least one downstream quality ablation.
 |-----------|--------------|-------|
 | Novelty | 7 | BCAR contributes a genuine algorithmic extension (inference-time EMA); plus speculative compression level is unchanged. |
 | Technical Depth | 7 | Triton kernel package is non-trivial; online-softmax accumulators; correcting-attention invariant; online adaptation with mean reprojection. |
-| Experimental Evidence | 6 | Four experiments reproduced (EXP-0001 through EXP-0004); GPU statistical significance still pending. |
+| Experimental Evidence | 6 | Six experiments reproduced (EXP-0001 through EXP-0006); GPU statistical significance still pending. |
 | Writing | N/A | No publication candidate manuscript yet. |
-| Reproducibility | 9 | Scripts + raw artifacts committed; CI mandatory. |
-| Overall | N/A | Until a candidate manuscript exists, "readiness" is undefined. |
-
----
-
-# Readiness Score (this engineering cycle)
-
-| Criterion | Score (1–10) | Notes |
-|-----------|--------------|-------|
-| Novelty | 6 | AVQ-Attention is the paper's contribution; AVQA reproduces it. Optimization work is engineering unless a novel algorithmic improvement lands. |
-| Technical Depth | 7 | Triton kernel package is non-trivial; online-softmax accumulators; correcting-attention invariant. |
-| Experimental Evidence | 5 | CPU baselines captured (EXP-0001, EXP-0002); GPU evidence pending CI runner. |
-| Writing | N/A | No publication candidate yet. |
 | Reproducibility | 9 | Scripts + raw artifacts committed; CI mandatory. |
 | Overall | N/A | Until a candidate manuscript exists, "readiness" is undefined. |
 

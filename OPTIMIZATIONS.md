@@ -80,6 +80,18 @@ first CUDA runner activates the Triton kernels.
 | v0.1.0 baseline (EXP-0001) | 4.146 ms | 11.592 ms | 22.215 ms | CPU TorchBackend (PyTorch 2.10.0 / macOS arm64) |
 | v0.1.0 + governance (EXP-0002) | 3.363 ms | 10.140 ms | 19.618 ms | Same harness after Triton staging and adapter hardening |
 
+ACMPR gated multi-pass (EXP-0005, seq_len=64, batch=2, heads=4,
+head_dim=16, refinement_budget=4):
+
+| method                                  |   median ms |   mean ms |  stdev ms |
+|-----------------------------------------|------------:|----------:|----------:|
+| sdpa                                    |       0.033 |     0.034 |     0.001 |
+| paper single-pass                       |       1.014 |     1.077 |     0.240 |
+| acmpr passes=4 decay=0.5 (gated)        |       1.171 |     1.275 |     0.326 |
+
+Output equality: ``max abs diff = 0.0000`` between paper and the gated
+multi-pass path; the 16 % median overhead is the Python gate cost.
+
 BCAR stream-on-stream VQ-loss reduction (EXP-0004):
 
 |            | VQ loss (after 1024 steps) | improvement vs static |
@@ -188,11 +200,15 @@ small synthetic 64-token task:
 
 ### Tests
 
-- ``tests/unit/test_hopfield.py``: 24 SPEC §16 unit tests covering
-  paper_beta, validate_adaptive, per_query_beta, hopfield_logits
-  broadcasting, HopfieldConfig validation, and Theorem 16.1
-  paper equivalence (with synced codebooks).
-- 486 unit tests + 10 integration tests remain green.
+- ``tests/unit/test_hopfield.py``: 33 SPEC §16 unit tests (31 functions
+  + parametrize variants) covering paper_beta, validate_adaptive,
+  per_query_beta, hopfield_logits broadcasting, HopfieldConfig
+  validation, Theorem 16.1 paper equivalence (with synced
+  codebooks), learnable β_p / α parameter flow, and Theorem 16.2
+  downstream-consumer invariants (top-K index invariance under
+  positive β).
+- 500 unit tests + 16 integration tests (4 skipped for missing
+  optional deps `flash-attn` / `xformers` / `vllm`) remain green.
 
 ### Rollback
 
@@ -206,11 +222,14 @@ paper-exact so existing users see no behaviour change.
 - HVAQ-ENT sharpens peaked distributions, which can amplify
   outlier values in the attention output. On real workloads the
   downstream-quality impact (perplexity, classification) is the
-  real metric. Multi-seed GPU validation is the next gate.
+  real metric. Multi-seed GPU validation is the next gate
+  (cross-ref: `PUBLICATION.md` "Outstanding Gaps Before Publication" #1
+  and "GPU Benchmarks Pending CUDA Runner" dashboard row).
 - The router's top-P selection is invariant under positive ``β``
   (Theorem 16.2) but the per-P probabilities are not. Existing
   tests that assume a particular parent attention mass may need
-  updating once the GPU-matrix runner is available.
+  updating once the GPU-matrix runner is available
+  (same blocker as the line above).
 
 ### References
 

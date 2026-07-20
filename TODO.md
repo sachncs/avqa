@@ -108,114 +108,118 @@ Every completed task MUST satisfy:
 
 ### Foundation
 
-- [ ] TASK-1.001 Initialize package structure (historical `86dcaed`)
-- [ ] TASK-1.002 Configure pyproject.toml (historical `86dcaed`)
-- [ ] TASK-1.003 Configure Ruff (historical `b6b2439`)
+- [x] TASK-1.001 Initialize package structure (commit `86dcaed`)
+- [x] TASK-1.002 Configure pyproject.toml (commit `86dcaed`)
+- [x] TASK-1.003 Configure Ruff (commit `b6b2439`)
 - [x] TASK-1.004 Configure Black (commit `ce76d46`)
-- [ ] TASK-1.005 Configure mypy (historical `1a8052a`)
-- [ ] TASK-1.006 Configure pytest (historical `2a974ed`)
-- [ ] TASK-1.007 Configure CI (historical `30d81b1` + `b40875b`,
+- [x] TASK-1.005 Configure mypy (commit `1a8052a`)
+- [x] TASK-1.006 Configure pytest (commit `2a974ed`)
+- [x] TASK-1.007 Configure CI (commits `30d81b1` + `b40875b`,
       reformulated to single workflow `d10e056` family)
 
 ### Configuration
 
-- [ ] TASK-5.001 AVQConfig dataclass (historical `ab35160`)
-- [ ] TASK-5.002 Configuration validation (historical `ab35160`)
-- [ ] TASK-5.003 Configuration serialization (historical `ab35160`)
-- [ ] TASK-5.004 Configuration file I/O
-- [ ] TASK-5.005 Configuration unit tests (historical `ab35160`)
+- [x] TASK-5.001 AVQConfig dataclass (commit `ab35160`)
+- [x] TASK-5.002 Configuration validation (commit `ab35160`)
+- [x] TASK-5.003 Configuration serialization (commit `ab35160`)
+- [x] TASK-5.004 Configuration file I/O (commit `442d1d0`)
+- [x] TASK-5.005 Configuration unit tests (commit `ab35160`)
 
 ### Codebook
 
-- [ ] TASK-8.001 HierarchicalCodebook (historical `5e4bea4`)
-- [ ] TASK-8.002 Parent node representation (historical `5e4bea4`)
-- [ ] TASK-8.003 Child node representation (historical `5e4bea4`)
-- [ ] TASK-8.004 Parent-child projection (historical `5e4bea4`)
-- [ ] TASK-8.005 Serialization (historical `5e4bea4`)
-- [ ] TASK-8.006 EMA updates (historical `5e4bea4`)
-- [ ] TASK-8.007 Initialization (historical `5e4bea4`)
-- [ ] TASK-8.008 Unit tests (historical `5e4bea4`)
+- [x] TASK-8.001 HierarchicalCodebook (commit `5e4bea4`)
+- [x] TASK-8.002 Parent node representation (commit `5e4bea4`)
+- [x] TASK-8.003 Child node representation (commit `5e4bea4`)
+- [x] TASK-8.004 Parent-child projection (commit `5e4bea4`)
+- [x] TASK-8.005 Serialization (commit `5e4bea4`)
+- [x] TASK-8.006 EMA updates (commit `5e4bea4`)
+- [x] TASK-8.007 Initialization (commit `5e4bea4`)
+- [x] TASK-8.008 Unit tests (commit `5e4bea4`)
 
 ### Quantizer
 
-- [ ] TASK-8.101 VectorQuantizer interface (historical `2073498`)
-- [ ] TASK-8.102 Parent assignment (historical `2073498`,
+- [x] TASK-8.101 VectorQuantizer interface (commit `2073498`)
+- [x] TASK-8.102 Parent assignment (commit `2073498`,
       refactor `cd28499`)
-- [ ] TASK-8.103 Child assignment (historical `2073498`,
+- [x] TASK-8.103 Child assignment (commit `2073498`,
       fix `09ec75d`)
-- [ ] TASK-8.104 Aggregation (historical `2073498`)
-- [ ] TASK-8.105 Count accumulation (historical `2073498`)
-- [ ] TASK-8.106 Validation (historical `2073498`)
-- [ ] TASK-8.107 Unit tests (historical `2073498`,
+- [x] TASK-8.104 Aggregation (commit `2073498`)
+- [x] TASK-8.105 Count accumulation (commit `2073498`)
+- [x] TASK-8.106 Validation (commit `2073498`)
+- [x] TASK-8.107 Unit tests (commit `2073498`,
       fix `03f0c70`, `ec347c1`)
 
 ### Adaptive Attention
 
-- [ ] TASK-9.001 Parent attention (historical `de51f00`,
+- [x] TASK-9.001 Parent attention (commit `de51f00`,
       fix `d1a5b03`)
-- [ ] TASK-9.002 Importance estimation (historical `c203ee2`,
+- [x] TASK-9.002 Importance estimation (commit `c203ee2`,
       fix `cd28499`)
-- [ ] TASK-9.003 Parent selection (historical `c203ee2`,
+- [x] TASK-9.003 Parent selection (commit `c203ee2`,
       refactor `d5cf197`)
-- [ ] TASK-9.004 Child refinement (historical `e37d70c`)
-- [ ] TASK-9.005 Correcting attention (historical `de51f00`,
+- [x] TASK-9.004 Child refinement (commit `e37d70c`)
+- [x] TASK-9.005 Correcting attention (commit `de51f00`,
       fix `d1a5b03`, `85d98c9`)
-- [ ] TASK-9.006 Numerical validation (historical `7d18646`,
+- [x] TASK-9.006 Numerical validation (commit `7d18646`,
       `95a5a38`)
-- [ ] TASK-9.007 Unit tests (historical `e37d70c`,
+- [x] TASK-9.007 Unit tests (commit `e37d70c`,
       polish `d9fc802`)
 
 ### Execution Engine
 
-- [ ] TASK-10.001 Execution engine (historical `bce845f`)
-- [ ] TASK-10.002 Pipeline orchestration (historical `bce845f`,
+- [x] TASK-10.001 Execution engine (commit `bce845f`)
+- [x] TASK-10.002 Pipeline orchestration (commit `bce845f`,
       wire autocast `85d98c9`)
-- [ ] TASK-10.003 Backend dispatch (historical `6eec666`)
-- [ ] TASK-10.004 Output reduction (historical `bce845f`,
+- [x] TASK-10.003 Backend dispatch (commit `6eec666`)
+- [x] TASK-10.004 Output reduction (commit `bce845f`,
       fix `d1a5b03`)
-- [ ] TASK-10.005 Integration tests (next-open after framework
-      adapters)
+- [x] TASK-10.005 Integration tests (`tests/integration/test_*.py`;
+      include vLLM, FlashAttention, xFormers, AVQA end-to-end)
+      (commit `e7c818d`)
 
 ### Triton Backend
 
-- [ ] TASK-11.001 Triton VQ precompute kernel
-      (currently `src/avqa/backend.py:220` delegates to TorchBackend;
-      deferred in `6eec666`)
-- [ ] TASK-11.002 Triton online-softmax attention kernel
-      (deferred in `6eec666`)
-- [ ] TASK-11.003 Triton correcting-attention kernel
-      (deferred in `6eec666`)
+- [~] TASK-11.001 Triton VQ precompute kernel
+      (skeleton staged in `bb660fd`; CPU-only stub delegates to
+      TorchBackend in `6eec666`/`1fede67`; real GPU kernel blocked
+      on OPT-0001 acceptance gate, see `PUBLICATION.md`
+      "Outstanding Gaps Before Publication" #1)
+- [~] TASK-11.002 Triton online-softmax attention kernel
+      (CPU stub in `bb660fd`/`1fede67`; GPU kernel same OPT-0001
+      blocker as 11.001)
+- [~] TASK-11.003 Triton correcting-attention kernel
+      (CPU stub in `bb660fd`/`1fede67`; GPU kernel same OPT-0001
+      blocker as 11.001)
 - [ ] TASK-11.004 Numerical verification + Triton versus Torch
-      benchmarks (BENCHMARKS.md)
+      benchmarks (BENCHMARKS.md) — blocked on OPT-0001 GPU runner
+      (same blocker as 11.001)
 
 ### Framework Integrations
 
-- [ ] TASK-12.001 Hugging Face adapter
-      (historical `0e0d397`, hardening required for weight transfer)
-- [ ] TASK-12.002 vLLM paged-attention adapter
-      (historical `0e0d397`, current ignores `kv_cache` /
-      `attn_metadata` per `src/avqa/integrations.py:415`)
-- [ ] TASK-12.003 FlashAttention interop
-      (historical `0e0d397`, equivalence test required)
-- [ ] TASK-12.004 xFormers interop
-      (historical `0e0d397`, equivalence test required)
-- [ ] TASK-12.005 End-to-end integration tests
-      (historical `0e0d397`, to be hardened)
+- [x] TASK-12.001 Hugging Face adapter (commit `0e0d397`;
+      weight-transfer hardening `155285a`)
+- [x] TASK-12.002 vLLM paged-attention adapter (commit `2131523`;
+      `attn_metadata` accepted by `AVQvLLMBackend.forward`, routed via
+      `PagedKVCache`)
+- [x] TASK-12.003 FlashAttention interop (commit `ac6a841`;
+      GPU equivalence in `tests/integration/test_attention_interops_gpu.py`)
+- [x] TASK-12.004 xFormers interop (commit `ac6a841`;
+      GPU equivalence in `tests/integration/test_attention_interops_gpu.py`)
+- [x] TASK-12.005 End-to-end integration tests
+      (commit `e7c818d`; `tests/integration/test_avqa_end_to_end.py`,
+      `tests/integration/test_integrations.py`)
 
 ---
 
 ## Live next-open task
 
-`TASK-5.004 Configuration file I/O` is the next item in numerical
-order that is genuinely unimplemented: the current `AVQConfig`
-exposes `to_dict`/`from_dict` in `src/avqa/config.py:329` but no
-JSON-path helper. Per SPEC §3.20/§5.12, configurations SHALL support
-serialization, and the file-path read/write helper closes the gap.
-
-Subsequent live items after `TASK-5.004` are `TASK-1.001`–`TASK-1.003`
-/ `1.005`–`1.007` / `TASK-5.001`–`TASK-5.003` / `5.005` / `8.*` /
-`8.101`-`8.107` / `9.*` / `10.001`-`10.005` (most are already shipped
-historically — see ledger below).
+All items in the "Active Tasks" section above are now `[x]` except for
+`TASK-11.001`–`TASK-11.004` (Triton GPU kernels and benchmarking), which
+remain blocked on the CUDA-matrix CI runner. See
+`PUBLICATION.md` "Outstanding Gaps Before Publication" and `OPTIMIZATIONS.md`
+"Optimization Backlog" for the cross-referenced gates. The HVAQ
+downstream-consumer invariant (per-parent probability) test is the next
+incremental addition; tracked under HVAQ Risks in `PUBLICATION.md` L106.
 
 ---
 

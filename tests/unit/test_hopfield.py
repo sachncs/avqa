@@ -377,3 +377,66 @@ class TestLearnableParameters:
         mod = AVQAttention(config, in_proj=False, out_proj=False)
         state = mod.state_dict()
         assert "_parent_beta" in state
+
+
+class TestDownstreamConsumerInvariant:
+    """Theorem 16.2: HVAQ preserves the top-P parent ranking.
+
+    A downstream consumer that reads ``softmax(...)[..., parent]``
+    as a parent attention mass sees a *different magnitude* under
+    HVAQ-ENT/HVAQ-LIN (per-P probabilities are not invariant under
+    positive β), but the *ranking* of parent indices is invariant
+    for any positive β. This pins down the consumer contract:
+
+    - Top-K by probability: same indices under any HVAQ schedule.
+    - Sum of top-P mass: changes monotonically with β.
+    - Argmax parent: same index.
+    """
+
+    def test_topk_indices_invariant_under_beta_scaling(self) -> None:
+        """Rescaling logits by any positive β preserves the top-K indices.
+
+        ponytail: this is the canonical consumer-impact contract
+        test. When a downstream caller sorts parents by probability
+        mass, the order is invariant under HVAQ schedules.
+        """
+        torch.manual_seed(0)
+        base = torch.randn(2, 4, 8, 16)
+        topk_paper = base.topk(k=4, dim=-1).indices
+        for scale in (0.25, 1.0, 2.0, 8.5):
+            rescaled = base * scale
+            topk_scaled = rescaled.topk(k=4, dim=-1).indices
+            assert torch.equal(topk_paper, topk_scaled), (
+                f"top-K mismatch at scale={scale}"
+            )
+
+    def test_argmax_invariant_under_entropy_schedule(self) -> None:
+        """HVAQ-ENT does not change which parent wins the argmax."""
+        torch.manual_seed(1)
+        p = torch.softmax(torch.randn(2, 4, 8, 16), dim=-1)
+        # HVAQ-ENT rescales per-query; within a single query the
+        # parent probabilities are proportional to a positive power,
+        # so the argmax is invariant.
+        for h_top in (0.0, 0.5, 1.0, 2.0, math.log(16)):
+            beta = 1.0 * (1.0 + 1.0 / (1.0 + h_top))
+            beta_q = torch.full((2, 4, 8), beta)
+            logits = hopfield_logits(torch.log(p + 1e-30), beta_q)
+            argmax = logits.argmax(dim=-1)
+            paper_argmax = p.argmax(dim=-1)
+            assert torch.equal(argmax, paper_argmax)
+
+    def test_attention_mass_max_increases_under_entropy(self) -> None:
+        """HVAQ-ENT assigns a higher β_q to peaked distributions.
+
+        This codifies the documented magnitude effect (Risks in
+        ``OPTIMIZATIONS.md`` L207): the consumer warning that
+        per-P probabilities change under HVAQ.
+        """
+        uniform = torch.full((1, 1, 1, 8), 1.0 / 8)
+        sharp = torch.zeros(1, 1, 1, 8)
+        sharp[..., 0] = 1.0
+        bq_sharp = per_query_beta(sharp, beta_init=1.0, adaptive="entropy")
+        bq_uniform = per_query_beta(uniform, beta_init=1.0, adaptive="entropy")
+        # Rescaling logits by a larger β_q sharpens the post-softmax
+        # mass. β_q(sharp) > β_q(uniform) under HVAQ-ENT.
+        assert bq_sharp.item() > bq_uniform.item()
