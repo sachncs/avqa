@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import torch
 from torch import nn
 
+from avqa._pipeline import run_pipeline as _run_pipeline
 from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
@@ -269,6 +270,9 @@ class AVQAttention(nn.Module):
     ) -> torch.Tensor:
         """Run the AVQ-Attention forward pass (eager path).
 
+        The orchestration lives in :func:`avqa._pipeline.run_pipeline` so
+        this method stays focused on parameter state and dispatch.
+
         Args:
             query: ``[B, T_q, E]`` queries.
             key: ``[B, T_k, E]`` keys.
@@ -279,60 +283,7 @@ class AVQAttention(nn.Module):
         Returns:
             ``[B, T_q, E]`` attention output.
         """
-        self._validate_inputs(query, key, value)
-
-        q_proj, k_proj, v_proj = self.maybe_project(query, key, value)
-        H = self.config.attention.num_heads
-        q = self.split_heads(q_proj, H)
-        k = self.split_heads(k_proj, H)
-        v = self.split_heads(v_proj, H)
-
-        self._sync_codebook_device(q)
-        k_full, v_full = self._resolve_kv_cache(k, v, kv_cache)
-        mask = self._resolve_mask(mask, q)
-
-        use_naive = self.scheduler is None or self.config.execution.mode == "reference"
-        if use_naive:
-            return self._run_naive(q, k_full, v_full, mask)
-
-        B, _, T_q, D = q.shape
-        D_v = v_full.shape[-1]
-        M0 = self.config.codebook.num_codewords
-        C = self.config.codebook.children_per_codeword
-
-        result = self._run_vq_precompute(k_full, v_full, q, H, M0, C, D, kv_cache)
-
-        parent_logits, valid, parent_values = self._compute_parent_logits(
-            q, result, mask, B, H, T_q, M0, D,
-        )
-        parent_logits = self._apply_hopfield(parent_logits, valid, D)
-
-        state, parent_attention_probs = self._compute_online_softmax(
-            parent_logits, parent_values, result, B, H, T_q, D, D_v,
-        )
-
-        _importance, budget, decision, result = self._compute_routing(
-            parent_attention_probs, result, q, k, v, mask, B, H, M0,
-        )
-        if budget <= 0:
-            return self._run_naive(q, k, v, mask)
-        assert decision is not None
-
-        child_logits = self._compute_child_logits(
-            q, result, decision.selected_indices, H,
-            decision.selected_indices.shape[-1], C, D, M0,
-        )
-
-        attn_out = self._refine_and_output(
-            state, parent_attention_probs, parent_values,
-            child_logits, result, decision, budget, C, D_v,
-            q=q,
-        )
-
-        out = self.merge_heads(attn_out)
-        out = self.out_proj(out)
-        out = self.dropout(out)
-        return out  # type: ignore[no-any-return]
+        return _run_pipeline(self, query, key, value, mask, kv_cache)
 
     # ------------------------------------------------------------------
     # Pipeline stage helpers (extracted from forward_impl)
@@ -404,20 +355,6 @@ class AVQAttention(nn.Module):
             return self.causal_mask(q.shape[-2], q.device)
         return mask
 
-    def _run_naive(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        mask: torch.Tensor | None,
-    ) -> torch.Tensor:
-        """Run naive (non-AVQ) attention and project output."""
-        attn_out = self.backend.naive_attention(q, k, v, mask=mask)
-        out = self.merge_heads(attn_out)
-        out = self.out_proj(out)
-        out = self.dropout(out)
-        return out  # type: ignore[no-any-return]
-
     def _run_vq_precompute(
         self,
         k_full: torch.Tensor,
@@ -469,101 +406,6 @@ class AVQAttention(nn.Module):
             )
         return result
 
-    def _compute_parent_logits(
-        self,
-        q: torch.Tensor,
-        result: QuantizationResult,
-        mask: torch.Tensor | None,
-        B: int,
-        H: int,
-        T_q: int,
-        M0: int,
-        D: int,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Compute parent attention logits with mask applied.
-
-        Returns:
-            Tuple of (parent_logits, valid, parent_values).
-        """
-        parent_keys = self.codebook.parents.unsqueeze(0).expand(B, H, M0, D)
-        parent_values = result.parent_aggregates
-        valid = result.parent_counts > 0
-
-        parent_logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / (D**0.5)
-        if mask is not None:
-            if mask.ndim == 2:
-                codeword_mask = mask.any(dim=-1, keepdim=True)
-            elif mask.ndim == 4:
-                codeword_mask = mask.any(dim=-1).any(dim=1, keepdim=True)
-            else:
-                codeword_mask = torch.ones(T_q, 1, dtype=torch.bool, device=q.device)
-            parent_logits = parent_logits.masked_fill(
-                ~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf")
-            )
-        parent_logits = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
-        return parent_logits, valid, parent_values
-
-    def _apply_hopfield(
-        self,
-        parent_logits: torch.Tensor,
-        valid: torch.Tensor,
-        D: int,
-    ) -> torch.Tensor:
-        """Apply HVAQ per-query temperature schedule (OPT-0005, SPEC §16).
-
-        ``parent_logits`` arrives as ``Q · C_p^T / sqrt(D)``.  We undo
-        the ``1/sqrt(D)`` factor, apply the schedule, and return the
-        rescaled logits.
-
-        When disabled, returns ``parent_logits`` unchanged.
-        """
-        if not (self.config.backend.hopfield and self.config.hopfield.adaptive != "none"):
-            return parent_logits
-        from avqa.hopfield import hopfield_logits, paper_beta, per_query_beta
-
-        beta_init = self.config.hopfield.beta_init
-        if beta_init <= 0.0:
-            beta_init = paper_beta(D)
-        base_for_entropy = parent_logits.masked_fill(~valid.unsqueeze(2), float("-inf"))
-        paper_probs = base_for_entropy.softmax(dim=-1)
-        paper_probs = paper_probs * valid.unsqueeze(2).to(paper_probs.dtype)
-        denom = paper_probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-        paper_probs = paper_probs / denom
-        beta_q = per_query_beta(
-            paper_probs,
-            beta_init=beta_init,
-            adaptive=self.config.hopfield.adaptive,
-            alpha=self._alpha.view(1, -1, 1) if hasattr(self, "_alpha") else self.config.hopfield.alpha,
-        )
-        # hopfield_logits expects raw (unscaled) base logits; undo /sqrt(D).
-        raw_logits = parent_logits * (D**0.5)
-        parent_beta = self._parent_beta if hasattr(self, "_parent_beta") else 1.0
-        return hopfield_logits(raw_logits, beta_q, parent_beta=parent_beta)
-
-    def _compute_online_softmax(
-        self,
-        parent_logits: torch.Tensor,
-        parent_values: torch.Tensor,
-        result: QuantizationResult,
-        B: int,
-        H: int,
-        T_q: int,
-        D: int,
-        D_v: int,
-    ) -> tuple[OnlineSoftmaxState, torch.Tensor]:
-        """Build running online-softmax state and parent attention probs."""
-        tile_max = parent_logits.amax(dim=-1, keepdim=True)
-        tile_exp = torch.exp(parent_logits - tile_max)
-        tile_denom = (tile_exp * result.parent_counts.unsqueeze(2)).sum(
-            dim=-1, keepdim=True
-        )
-        tile_num = torch.einsum("bhta,bhad->bhtd", tile_exp, parent_values)
-        tile_num = tile_num.unsqueeze(-2)
-        state = OnlineSoftmaxState.empty(B, H, T_q, D, D_v)
-        state = state.merge(tile_max, tile_denom, tile_num)
-        parent_attention_probs = tile_exp / tile_exp.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-        return state, parent_attention_probs
-
     def _compute_routing(
         self,
         parent_attention_probs: torch.Tensor,
@@ -591,40 +433,6 @@ class AVQAttention(nn.Module):
             return importance, budget, None, result
         decision = self.router.select(importance, budget)
         return importance, budget, decision, result
-
-    def _compute_child_logits(
-        self,
-        q: torch.Tensor,
-        result: QuantizationResult,
-        selected: torch.Tensor,
-        H: int,
-        P: int,
-        C: int,
-        D: int,
-        M0: int,
-    ) -> torch.Tensor:
-        """Compute child attention logits for selected parents (spec §10.10)."""
-        B = q.shape[0]
-        parent_idx = selected.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D)
-        selected_child_keys = torch.gather(
-            self.codebook.children.unsqueeze(0).expand(B, H, M0, C, D),
-            2,
-            parent_idx,
-        )
-        child_logits: torch.Tensor = (
-            torch.einsum("bhtd,bhpcd->bhtpc", q, selected_child_keys) / (D**0.5)
-        )
-        selected_child_valid = (
-            torch.gather(
-                result.child_counts, 2,
-                selected.unsqueeze(-1).expand(B, H, P, C),
-            )
-            > 0
-        )
-        child_logits = child_logits.masked_fill(
-            ~selected_child_valid.unsqueeze(2), float("-inf")
-        )
-        return child_logits
 
     def _refine_and_output(
         self,
