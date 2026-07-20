@@ -46,6 +46,12 @@ _logger = get_logger("attention.module")
 class AVQAttention(nn.Module):
     """AVQ-Attention module (spec §3.4, §5.6, §10.4).
 
+    Owns Q/K/V projections, the hierarchical codebook, the router, the
+    scheduler, and the optional HVAQ parameters. The 12-stage AVQ
+    forward (validate → split heads → VQ precompute → parent logits
+    → HVAQ → online softmax → routing → child logits → refinement →
+    output) is orchestrated by :func:`avqa._pipeline.run_pipeline`.
+
     Args:
         config: Immutable :class:`AVQConfig`.
         in_proj: If ``True``, apply a learnable ``E -> E`` linear layer to

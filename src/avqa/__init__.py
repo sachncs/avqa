@@ -8,7 +8,7 @@ Quantized Attention (AVQ-Attention) as described in:
 This is an independent, community-driven implementation. See the README
 for the disclaimer and citation information.
 
-Public API surface (see avqa/__init__.py and avqa/functional.py):
+Public API (see avqa/functional.py for the functional entry point):
 
 - AVQAttention: primary attention module
 - AVQConfig: immutable configuration object
@@ -37,79 +37,126 @@ Example:
     >>> value = torch.randn(2, 16, 64)
     >>> output = attention(query, key, value)
 """
+
 from __future__ import annotations
 
-
+import warnings
 
 from avqa._version import __version__
+from avqa.attention_module import AVQAttention
+from avqa.backend import Backend, TorchBackend
+from avqa.cache import KVCache
+from avqa.codebook import HierarchicalCodebook
+from avqa.config import AVQConfig
+from avqa.exceptions import (
+    AVQAError,
+    BackendError,
+    CodebookError,
+    ConfigurationError,
+    DeviceError,
+    DtypeError,
+    RoutingError,
+    ShapeError,
+)
+from avqa.profiling import Profiler
+from avqa.refinement import AdaptiveRefinement
+from avqa.routing import Router
+from avqa.scheduler import Scheduler
+from avqa.utils.validation import (
+    validate_contiguous,
+    validate_device,
+    validate_device_match,
+    validate_dtype,
+    validate_embed_dim,
+    validate_finite,
+    validate_rank,
+    validate_shape,
+)
 
 __all__ = [
+    "AVQAError",
     "AVQAttention",
     "AVQConfig",
     "AdaptiveRefinement",
     "Backend",
+    "BackendError",
     "Codebook",
+    "CodebookError",
+    "ConfigurationError",
+    "DeviceError",
+    "DtypeError",
     "HierarchicalCodebook",
     "KVCache",
     "Profiler",
     "Router",
+    "RoutingError",
     "Scheduler",
+    "ShapeError",
+    "TorchBackend",
     "VectorQuantizer",
+    "Visualizer",
     "__version__",
+    "validate_contiguous",
+    "validate_device",
+    "validate_device_match",
+    "validate_dtype",
+    "validate_embed_dim",
+    "validate_finite",
+    "validate_rank",
+    "validate_shape",
 ]
 
-__version_info__ = tuple(int(part) for part in __version__.split(".") if part.isdigit())
+
+def _parse_version(v: str) -> tuple[int, ...]:
+    """Parse a dotted version string into a tuple of ints.
+
+    Falls back to (0,) for unparseable strings so downstream consumers
+    can still do ``avqa.__version_info__[0]`` without erroring.
+    """
+    out: list[int] = []
+    for part in v.split("."):
+        digits = ""
+        for c in part:
+            if c.isdigit():
+                digits += c
+            elif digits:
+                break
+        if digits:
+            out.append(int(digits))
+    return tuple(out) or (0,)
+
+
+__version_info__ = _parse_version(__version__)
+
+# Aliases for the two most common user-facing names.
+Codebook = HierarchicalCodebook
+
+# :class:`Visualizer` is the abstract base; the concrete JSONVisualizer
+# remains on avqa.visualization. We re-export via a lazy attribute to
+# avoid importing matplotlib/graphviz at module-load time.
+_BUILTIN_VISUALIZERS = {"json"}
 
 
 def __getattr__(name: str) -> object:
-    """Lazy import of public API.
+    """Lazy attribute lookup for genuinely expensive imports only.
 
-    Public symbols are imported on first access to keep ``import avqa`` cheap
-    and avoid forcing every optional dependency at module load time.
+    Eager imports live at module top so ``from avqa import AVQAttention``
+    is straightforward. The :class:`Visualizer` factory and the
+    :class:`TritonBackend` need optional heavy dependencies, so they
+    remain lazy.
     """
-    if name == "AVQAttention":
-        from avqa.attention_module import AVQAttention as _AVQAttention
+    if name == "Visualizer":
+        from avqa.visualization import Visualizer as _Visualizer
 
-        return _AVQAttention
-    if name == "AVQConfig":
-        from avqa.config import AVQConfig as _AVQConfig
-
-        return _AVQConfig
-    if name == "VectorQuantizer":
-        from avqa.quantizer import VectorQuantizer as _VectorQuantizer
-
-        return _VectorQuantizer
-    if name == "HierarchicalCodebook":
-        from avqa.codebook import HierarchicalCodebook as _HierarchicalCodebook
-
-        return _HierarchicalCodebook
-    if name == "Codebook":
-        from avqa.codebook import HierarchicalCodebook as _Codebook
-
-        return _Codebook
-    if name == "Router":
-        from avqa.routing import Router as _Router
-
-        return _Router
-    if name == "AdaptiveRefinement":
-        from avqa.refinement import AdaptiveRefinement as _AdaptiveRefinement
-
-        return _AdaptiveRefinement
-    if name == "Scheduler":
-        from avqa.scheduler import Scheduler as _Scheduler
-
-        return _Scheduler
-    if name == "KVCache":
-        from avqa.cache import KVCache as _KVCache
-
-        return _KVCache
-    if name == "Backend":
-        from avqa.backend import Backend as _Backend
-
-        return _Backend
-    if name == "Profiler":
-        from avqa.profiling import Profiler as _Profiler
-
-        return _Profiler
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
+        return _Visualizer
+    if name == "TritonBackend":
+        try:
+            from avqa.backend import TritonBackend as _TritonBackend
+        except ImportError as exc:
+            warnings.warn(
+                f"TritonBackend unavailable in this environment: {exc}",
+                stacklevel=2,
+            )
+            raise
+        return _TritonBackend
+    raise AttributeError(name)

@@ -55,23 +55,25 @@ def parent_logits(
         q: ``[B, H, T, D]`` queries.
         codebook_parents: ``[H, M_0, D]``.
         valid_mask: ``[H, M_0]`` (broadcast to queries).
-        mask: Optional ``[T_q, T_k]`` boolean mask.
+        mask: Optional ``[T_q, T_k]`` boolean mask (True = attend).
+            Rank-2 only; the caller's contract is 2-D.
         head_dim: ``D``.
 
     Returns:
         ``[B, H, T, M_0]`` logits ready for softmax.
+
+    Raises:
+        ValueError: If ``mask`` is not rank-2 when provided.
     """
     B, H, T_q, D = q.shape
     M_0 = codebook_parents.shape[-2]
     parent_keys = codebook_parents.unsqueeze(0).expand(B, H, M_0, D)
     logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / math.sqrt(head_dim)
     if mask is not None:
-        if mask.ndim == 2:
-            codeword_mask = mask.any(dim=-1, keepdim=True)
-        elif mask.ndim == 4:
-            codeword_mask = mask.any(dim=-1).any(dim=1, keepdim=True)
-        else:
-            codeword_mask = torch.ones(T_q, 1, dtype=torch.bool, device=q.device)
+        if mask.ndim != 2:
+            msg = f"mask must be rank 2 [T_q, T_k], got rank {mask.ndim}"
+            raise ValueError(msg)
+        codeword_mask = mask.any(dim=-1, keepdim=True)
         logits = logits.masked_fill(
             ~codeword_mask.unsqueeze(0).unsqueeze(0), float("-inf")
         )

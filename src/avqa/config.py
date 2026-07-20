@@ -305,19 +305,15 @@ class AttentionShapeConfig:
         embed_dim: Embedding dimension (E).
         num_heads: Number of attention heads (H). Must divide ``embed_dim``.
         head_dim: Per-head dimension (D). Defaults to ``embed_dim // num_heads``.
-        max_sequence_length: Optional upper bound for sequence lengths.
-            ``0`` means unbounded.
     """
 
     embed_dim: int = 512
     num_heads: int = 8
     head_dim: int = 0  # 0 -> auto-derive as embed_dim // num_heads
-    max_sequence_length: int = 0
 
     def __post_init__(self) -> None:
         require_positive(self.embed_dim, "embed_dim")
         require_positive(self.num_heads, "num_heads")
-        require_non_negative(self.max_sequence_length, "max_sequence_length")
         if self.embed_dim % self.num_heads != 0:
             msg = f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})"
             raise ConfigurationError(
@@ -390,7 +386,6 @@ class AVQConfig:
                     embed_dim=self.attention.embed_dim,
                     num_heads=self.attention.num_heads,
                     head_dim=self.attention.embed_dim // self.attention.num_heads,
-                    max_sequence_length=self.attention.max_sequence_length,
                 ),
             )
 
