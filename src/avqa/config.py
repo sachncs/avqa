@@ -260,21 +260,21 @@ class HopfieldConfig:
             temperature schedule to the parent attention logits.
             ``BackendConfig.hopfield`` is the user-facing master
             switch; this attribute exists for forward compatibility.
-        beta_init: Base temperature ``β_0``. The paper uses
+        beta_init: Base temperature ``beta_0``. The paper uses
             ``1 / √d``; the HVAQ schedules scale around this
             base. ``0.0`` (default) auto-derives from the attention
             head dimension so the schedule is paper-exact when
             ``adaptive="none"``.
-        adaptive: ``"none"`` (constant β_0), ``"entropy"``
-            (β_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
-            (β_0 · (1 + α · H_top)).
+        adaptive: ``"none"`` (constant beta_0), ``"entropy"``
+            (beta_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
+            (beta_0 · (1 + alpha * H_top)).
         alpha: Slope of the linear schedule; HVAQ-LIN only.
         learnable_parent_beta: When ``True``, adds a per-parent
-            learnable inverse temperature ``β_p`` as an
+            learnable inverse temperature ``beta_p`` as an
             ``nn.Parameter`` (initialized to 1.0). Gradient flows
             through :func:`hopfield_logits`.
         learnable_alpha: When ``True``, adds a per-head learnable
-            ``α`` as an ``nn.Parameter`` (initialized from
+            ``alpha`` as an ``nn.Parameter`` (initialized from
             ``alpha``). Overrides the fixed ``alpha`` in entropy
             and linear schedules.
     """

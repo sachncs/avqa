@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import torch
 
+from avqa.backend import TorchBackend
+
 
 def is_flash_attention_available() -> bool:
     """Return True iff ``flash_attn`` is importable."""
@@ -36,8 +38,6 @@ def flash_attention_interop(
         Attention output with the same layout.
     """
     if not is_flash_attention_available() or not torch.cuda.is_available():
-        from avqa.backend import TorchBackend
-
         # Convert HF layout [B, T, H, D] -> [B, H, T, D] for the backend.
         def to_avqa(t: torch.Tensor) -> torch.Tensor:
             return t.transpose(1, 2).contiguous()

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import torch
 
+from avqa.backend import TorchBackend
+
 
 def is_xformers_available() -> bool:
     """Return True iff ``xformers`` is importable."""
@@ -34,8 +36,6 @@ def xformers_interop(
         Attention output with the same layout.
     """
     if not is_xformers_available() or not torch.cuda.is_available():
-        from avqa.backend import TorchBackend
-
         return TorchBackend().naive_attention(query, key, value)
 
     import xformers.ops as xops  # type: ignore[import-not-found]

@@ -28,17 +28,15 @@ Triton are available).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 import torch
 
+from avqa.codebook import HierarchicalCodebook
 from avqa.logging import get_logger
+from avqa.merge import MergeInputs, ProbabilityMerge
+from avqa.quantizer import EuclideanHierarchicalQuantizer, QuantizationResult
 
 _logger = get_logger("backend")
-
-if TYPE_CHECKING:
-    from avqa.merge import MergeInputs
-    from avqa.quantizer import QuantizationResult
 
 
 # Numerical constants reused by both TorchBackend and free-function helpers.
@@ -168,7 +166,7 @@ def correction(
 
     Module-level helper; thin re-export of :func:`avqa.utils.numerics.online_softmax_step`.
     """
-    from avqa.utils.numerics import online_softmax_step
+    from avqa.utils.numerics import online_softmax_step  # noqa: PLC0415
 
     return online_softmax_step(
         state_max,
@@ -225,10 +223,6 @@ class TorchBackend(Backend):
         codebook_children: torch.Tensor,
     ) -> QuantizationResult:
         """Hierarchical VQ precompute using :class:`EuclideanHierarchicalQuantizer`."""
-        # Lazy import to break the quantizer ↔ backend module cycle.
-        from avqa.codebook import HierarchicalCodebook
-        from avqa.quantizer import EuclideanHierarchicalQuantizer
-
         _, H, _, D_k = keys.shape
         M0 = codebook_parents.shape[-2]
         C = codebook_children.shape[-2]
@@ -246,8 +240,6 @@ class TorchBackend(Backend):
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
         """Apply :class:`ProbabilityMerge` (the spec default)."""
-        from avqa.merge import ProbabilityMerge
-
         return ProbabilityMerge().merge(inputs)
 
     def correction(
@@ -287,7 +279,7 @@ class TritonBackend(Backend):
     @classmethod
     def is_available(cls) -> bool:
         """Return True iff Triton and CUDA are both available."""
-        from avqa.triton import is_triton_available
+        from avqa.triton import is_triton_available  # noqa: PLC0415
 
         return is_triton_available()
 
@@ -302,14 +294,12 @@ class TritonBackend(Backend):
         if not self.is_available():
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         try:
-            from avqa.triton._loader import load_kernel
+            from avqa.triton._loader import load_kernel  # noqa: PLC0415
 
             out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
         except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
             _logger.debug("Triton vq_precompute unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
-        from avqa.quantizer import QuantizationResult
-
         return QuantizationResult(
             parent_assignments=out["parent_assignments"],
             child_assignments=out["child_assignments"],
@@ -366,7 +356,7 @@ class TritonBackend(Backend):
                 tile_num,
             )
         try:
-            from avqa.triton._loader import load_kernel
+            from avqa.triton._loader import load_kernel  # noqa: PLC0415
 
             out = load_kernel("correction")(
                 state_max,

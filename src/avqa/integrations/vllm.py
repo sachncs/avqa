@@ -8,14 +8,12 @@ backend. Falls back to the inner :class:`AVQAttention` when no
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import torch
 
+from avqa.attention_module import AVQAttention
+from avqa.cache import PagedKVCache
+from avqa.config import AVQConfig
 from avqa.logging import get_logger
-
-if TYPE_CHECKING:
-    from avqa.config import AVQConfig
 
 _logger = get_logger("integrations.vllm")
 
@@ -56,14 +54,11 @@ class AVQvLLMBackend:
 
     def __init__(
         self,
-        config: "AVQConfig | None" = None,
+        config: AVQConfig | None = None,
         num_kv_heads: int | None = None,
         head_size: int | None = None,
     ) -> None:
-        from avqa.attention_module import AVQAttention
-        from avqa.config import AVQConfig as _AVQConfig
-
-        self.config = config or _AVQConfig()
+        self.config = config or AVQConfig()
         self.num_kv_heads = num_kv_heads or self.config.attention.num_heads
         self.head_size = head_size or (
             self.config.attention.embed_dim // self.config.attention.num_heads
@@ -116,8 +111,6 @@ class AVQvLLMBackend:
         # Paged-attention path: route through AVQAttention's kv_cache
         # argument, which the attention module already supports via
         # ``kv_cache.lookup()`` and ``kv_cache.append()``.
-        from avqa.cache import PagedKVCache
-
         if not isinstance(kv_cache, PagedKVCache):
             msg = (
                 "AVQvLLMBackend.forward expects a PagedKVCache "

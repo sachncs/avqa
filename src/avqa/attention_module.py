@@ -29,8 +29,18 @@ from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
 from avqa.logging import get_logger
+from avqa.multipass import MultiPassRefiner
+from avqa.online_adaptation import online_codebook_adaptation
 from avqa.refinement import refine as refine_step
-from avqa.routing import TopPRouter, compute_importance
+from avqa.routing import Router, compute_importance
+from avqa.scheduler import AdaptiveScheduler, DefaultScheduler, Scheduler
+from avqa.utils.validation import (
+    validate_device_match,
+    validate_dtype,
+    validate_embed_dim,
+    validate_rank,
+    validate_shape,
+)
 
 if TYPE_CHECKING:
     from avqa.cache import KVCache
@@ -118,41 +128,23 @@ class AVQAttention(nn.Module):
         # Initialize children near parents so the mean constraint holds.
         self.codebook.initialize_children_around_parents()
 
-        # M6: Select router based on configured strategy.
-        router_name = config.routing.strategy.lower()
-        if router_name == "topp":
-            self.router = TopPRouter()
-        elif router_name == "threshold":
-            from avqa.routing import ThresholdRouter
-
-            self.router = ThresholdRouter()
-        elif router_name == "budget":
-            from avqa.routing import BudgetRouter
-
-            self.router = BudgetRouter()
-        else:
-            msg = f"unknown routing strategy: {router_name!r}"
-            raise ValueError(msg)
+        # Resolve the configured router via the classmethod factory.
+        self.router = Router.create(config.routing.strategy)
 
         if config.refinement.enabled:
-            from avqa.scheduler import AdaptiveScheduler, DefaultScheduler
-
-            # M6: Use AdaptiveScheduler when adaptive_budget is True.
-            if config.refinement.adaptive_budget:
-                self.scheduler: DefaultScheduler | AdaptiveScheduler | None = AdaptiveScheduler(
-                    budget=config.routing.refinement_budget,
-                )
-            else:
-                self.scheduler = DefaultScheduler(
-                    budget=config.routing.refinement_budget,
-                )
+            # adaptive_budget picks between the two scheduler families.
+            scheduler_strategy = "adaptive" if config.refinement.adaptive_budget else "default"
+            self.scheduler: DefaultScheduler | AdaptiveScheduler | None = Scheduler.create(
+                scheduler_strategy,
+                budget=config.routing.refinement_budget,
+            )
         else:
             self.scheduler = None
 
         self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
 
-        # OPT-0005 (HVAQ): learnable parameters for per-parent β_p
-        # and per-head α. When disabled these are absent from
+        # OPT-0005 (HVAQ): learnable parameters for per-parent beta_p
+        # and per-head alpha. When disabled these are absent from
         # parameters() and have zero overhead.
         hopfield_active = config.backend.hopfield and config.hopfield.adaptive != "none"
         if hopfield_active and config.hopfield.learnable_parent_beta:
@@ -302,12 +294,6 @@ class AVQAttention(nn.Module):
         """Validate input tensors (spec §6.12, §10.5)."""
         if self.config.backend.skip_validation:
             return
-        from avqa.utils.validation import (
-            validate_device_match,
-            validate_dtype,
-            validate_embed_dim,
-            validate_rank,
-        )
 
         supported_dtypes = (torch.float32, torch.float16, torch.bfloat16)
         for name, tensor in [("query", query), ("key", key), ("value", value)]:
@@ -318,10 +304,8 @@ class AVQAttention(nn.Module):
         validate_embed_dim(value, self.config.attention.embed_dim, name="value")
         validate_device_match([query, key, value], name="query/key/value")
         if query.shape[-1] != key.shape[-1]:
-            from avqa.utils.validation import validate_shape
             validate_shape(key, query.shape, name="key")
         if key.shape != value.shape:
-            from avqa.utils.validation import validate_shape
             validate_shape(value, key.shape, name="value")
 
     def _sync_codebook_device(self, q: torch.Tensor) -> None:
@@ -388,7 +372,6 @@ class AVQAttention(nn.Module):
         self.last_parent_assignments = result.parent_assignments.detach()
 
         if self.config.codebook.bcar_enabled:
-            from avqa.online_adaptation import online_codebook_adaptation
             online_codebook_adaptation(
                 keys=k_full.detach(),
                 parents=self.codebook.parents,
@@ -453,8 +436,6 @@ class AVQAttention(nn.Module):
     ) -> torch.Tensor:
         """Run refinement and extract the final attention output (spec §7.7)."""
         if self.config.refinement.passes > 1:
-            from avqa.multipass import MultiPassRefiner
-
             refiner = MultiPassRefiner(
                 passes=self.config.refinement.passes,
                 decay=self.config.refinement.pass_decay,

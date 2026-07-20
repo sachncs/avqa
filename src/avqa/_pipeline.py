@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from avqa.attention import OnlineSoftmaxState
+from avqa.hopfield import hopfield_logits, paper_beta, per_query_beta
 from avqa.routing import compute_importance
 
 if TYPE_CHECKING:
@@ -162,8 +163,6 @@ def apply_hopfield(
     """
     if not (state.config.backend.hopfield and state.config.hopfield.adaptive != "none"):
         return parent_logits
-
-    from avqa.hopfield import hopfield_logits, paper_beta, per_query_beta
 
     beta_init = state.config.hopfield.beta_init
     if beta_init <= 0.0:

@@ -11,21 +11,24 @@ so ``import avqa`` does not require them.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch
 from torch import nn
 
+from avqa.attention_module import AVQAttention
+from avqa.config import (
+    AVQConfig,
+    AttentionShapeConfig,
+    CodebookConfig,
+    RoutingConfig,
+)
 from avqa.logging import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from transformers import PreTrainedModel
-
-    from avqa.attention_module import AVQAttention
-    from avqa.config import AVQConfig
 
 _logger = get_logger("integrations.hf")
 
@@ -90,13 +93,6 @@ def make_hf_attention_replacement(
     ponytail: when no original_module is given, uses ``in_proj=False``
     and ``out_proj=False`` (no weight transfer needed).
     """
-    from avqa.attention_module import AVQAttention
-    from avqa.config import (
-        AttentionShapeConfig,
-        CodebookConfig,
-        RoutingConfig,
-    )
-
     if config.attention.embed_dim != embed_dim:
         cfg = config.__class__(
             attention=AttentionShapeConfig(

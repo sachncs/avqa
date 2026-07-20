@@ -131,21 +131,21 @@ class TestHandComputedReference:
         assert torch.allclose(agg_sum, val_sum, atol=1e-5)
 
     def test_one_hot_peaked_distribution_doubles_beta(self) -> None:
-        """`per_query_beta`: peaked distribution (entropy = 0) doubles β_q.
+        """`per_query_beta`: peaked distribution (entropy = 0) doubles beta_q.
 
         Hand-derived from ``hopfield.per_query_beta``: H_top = 0 →
-        schedule = ``1 + 1 / (1 + 0) = 2``; β_q = β_init · 2.
+        schedule = ``1 + 1 / (1 + 0) = 2``; beta_q = beta_init · 2.
         """
         p_one_hot = torch.tensor([[[[1.0, 0.0, 0.0, 0.0]]]])
         result = per_query_beta(p_one_hot, beta_init=1.0, adaptive="entropy")
-        # β_q = 1.0 · (1 + 1/(1+0)) = 2.0
+        # beta_q = 1.0 · (1 + 1/(1+0)) = 2.0
         assert result.item() == 2.0
 
     def test_linear_peaked_unchanged(self) -> None:
-        """`per_query_beta`: linear schedule at H_top = 0 gives β_q = β_init.
+        """`per_query_beta`: linear schedule at H_top = 0 gives beta_q = beta_init.
 
-        From ``hopfield.per_query_beta``: schedule = ``1 + α · H_top``.
-        At ``H_top = 0`` this is 1; at ``β_init = 1.5, α = 0.7`` it is 1.5.
+        From ``hopfield.per_query_beta``: schedule = ``1 + alpha * H_top``.
+        At ``H_top = 0`` this is 1; at ``beta_init = 1.5, alpha = 0.7`` it is 1.5.
         """
         p_one_hot = torch.tensor([[[[1.0, 0.0, 0.0, 0.0]]]])
         result = per_query_beta(p_one_hot, beta_init=1.5, adaptive="linear", alpha=0.7)
@@ -157,14 +157,14 @@ class TestHandComputedReference:
         assert paper_beta(128) == pytest.approx(128**-0.5)
 
     def test_hopfield_logits_constant_beta_passthrough(self) -> None:
-        """``hopfield_logits`` with β_q = 1 returns the raw logits."""
+        """``hopfield_logits`` with beta_q = 1 returns the raw logits."""
         base = torch.tensor([[[[1.0, 2.0, 3.0]]]])
         beta_q = torch.ones(1, 1, 1)
         out = hopfield_logits(base, beta_q)
         torch.testing.assert_close(out, base)
 
     def test_hopfield_logits_double_beta_doubles(self) -> None:
-        """Doubling β_q doubles the logits (scalar multiplication)."""
+        """Doubling beta_q doubles the logits (scalar multiplication)."""
         base = torch.tensor([[[[1.0, -2.0, 3.0]]]])
         beta_q = torch.full((1, 1, 1), 2.0)
         out = hopfield_logits(base, beta_q)

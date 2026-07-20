@@ -159,13 +159,13 @@ class TestHopfieldConfigValidation:
     def test_rejects_negative_beta_init(self) -> None:
         from avqa.exceptions import ConfigurationError
 
-        with pytest.raises(ConfigurationError, match="hopfield.beta_init"):
+        with pytest.raises(ConfigurationError, match=r"hopfield\.beta_init"):
             HopfieldConfig(beta_init=-0.1)
 
     def test_rejects_negative_alpha(self) -> None:
         from avqa.exceptions import ConfigurationError
 
-        with pytest.raises(ConfigurationError, match="hopfield.alpha"):
+        with pytest.raises(ConfigurationError, match=r"hopfield\.alpha"):
             HopfieldConfig(alpha=-0.5)
 
 
@@ -244,7 +244,7 @@ class TestPaperEquivalenceIntegration:
 
 
 class TestLearnableParameters:
-    """Tests for learnable β_p and α in HVAQ."""
+    """Tests for learnable beta_p and alpha in HVAQ."""
 
     def test_learnable_parent_beta_parameter_exists(self) -> None:
         """learnable_parent_beta=True creates an nn.Parameter."""
@@ -384,16 +384,16 @@ class TestDownstreamConsumerInvariant:
     A downstream consumer that reads ``softmax(...)[..., parent]``
     as a parent attention mass sees a *different magnitude* under
     HVAQ-ENT/HVAQ-LIN (per-P probabilities are not invariant under
-    positive β), but the *ranking* of parent indices is invariant
-    for any positive β. This pins down the consumer contract:
+    positive beta), but the *ranking* of parent indices is invariant
+    for any positive beta. This pins down the consumer contract:
 
     - Top-K by probability: same indices under any HVAQ schedule.
-    - Sum of top-P mass: changes monotonically with β.
+    - Sum of top-P mass: changes monotonically with beta.
     - Argmax parent: same index.
     """
 
     def test_topk_indices_invariant_under_beta_scaling(self) -> None:
-        """Rescaling logits by any positive β preserves the top-K indices.
+        """Rescaling logits by any positive beta preserves the top-K indices.
 
         ponytail: this is the canonical consumer-impact contract
         test. When a downstream caller sorts parents by probability
@@ -425,7 +425,7 @@ class TestDownstreamConsumerInvariant:
             assert torch.equal(argmax, paper_argmax)
 
     def test_attention_mass_max_increases_under_entropy(self) -> None:
-        """HVAQ-ENT assigns a higher β_q to peaked distributions.
+        """HVAQ-ENT assigns a higher beta_q to peaked distributions.
 
         This codifies the documented magnitude effect (Risks in
         ``OPTIMIZATIONS.md`` L207): the consumer warning that
@@ -436,6 +436,6 @@ class TestDownstreamConsumerInvariant:
         sharp[..., 0] = 1.0
         bq_sharp = per_query_beta(sharp, beta_init=1.0, adaptive="entropy")
         bq_uniform = per_query_beta(uniform, beta_init=1.0, adaptive="entropy")
-        # Rescaling logits by a larger β_q sharpens the post-softmax
-        # mass. β_q(sharp) > β_q(uniform) under HVAQ-ENT.
+        # Rescaling logits by a larger beta_q sharpens the post-softmax
+        # mass. beta_q(sharp) > beta_q(uniform) under HVAQ-ENT.
         assert bq_sharp.item() > bq_uniform.item()
