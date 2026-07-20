@@ -38,7 +38,7 @@ EPS: float = 1e-12
 
 def attention_scale(head_dim: int) -> float:
     """Return the attention scale ``1 / sqrt(d)``."""
-    return head_dim**-0.5
+    return float(head_dim**-0.5)
 
 
 def parent_logits(
@@ -203,7 +203,7 @@ def naive_fallback(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
-    return out
+    return out  # type: ignore[no-any-return]
 
 
 def run_pipeline(
@@ -267,6 +267,7 @@ def run_pipeline(
     # Stage 9: routing — compute importance, ask the scheduler for the
     # budget, ask the router for the selected parent indices.
     importance = compute_importance(parent_attention_probs, result.parent_counts)
+    assert state.scheduler is not None  # guarded by use_naive check above
     budget = state.scheduler.budget_for(importance)
     num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)
     min_valid = int(num_valid_per_bh.min().item())
@@ -304,7 +305,7 @@ def run_pipeline(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
-    return out
+    return out  # type: ignore[no-any-return]
 
 
 __all__ = [
