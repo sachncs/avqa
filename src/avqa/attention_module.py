@@ -16,8 +16,9 @@ ponytail: the nn.Module wrapper lives in the existing
 src/avqa/attention.py namespace; the pipeline class itself is small
 because every stage is delegated to the corresponding subsystem.
 """
-
 from __future__ import annotations
+
+
 
 from typing import TYPE_CHECKING
 

@@ -7,8 +7,9 @@ top-P parents, gathers their children, and hands them to the merge
 ponytail: collapsed the planned refinement package (5 sub-modules) into
 one src/avqa/refinement.py. The orchestrator is a single function.
 """
-
 from __future__ import annotations
+
+
 
 from dataclasses import dataclass
 

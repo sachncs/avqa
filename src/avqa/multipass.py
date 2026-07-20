@@ -13,8 +13,9 @@ Residual-norms: ``||cur_attn - prev_attn||`` is recorded per pass.
 With ``passes=1`` this is ``[0.0]`` by construction; with ``passes>1``
 the norms should decrease monotonically.
 """
-
 from __future__ import annotations
+
+
 
 from dataclasses import dataclass
 

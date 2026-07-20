@@ -23,8 +23,9 @@ the attention-mass entropy and feed it to one of two schedules:
 Paper-equivalence: with ``\u03b2_init = 1 / \u221ad`` and
 ``adaptive = \"none\"`` HVAQ matches the paper to FP32.
 """
-
 from __future__ import annotations
+
+
 
 import math
 from typing import Literal
@@ -32,9 +33,6 @@ from typing import Literal
 import torch
 
 from avqa.exceptions import ConfigurationError
-from avqa.logging import get_logger
-
-_logger = get_logger("hopfield")
 
 
 AdaptiveSchedule = Literal["none", "entropy", "linear"]

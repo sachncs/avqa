@@ -37,6 +37,9 @@ Example:
     >>> value = torch.randn(2, 16, 64)
     >>> output = attention(query, key, value)
 """
+from __future__ import annotations
+
+
 
 from avqa._version import __version__
 

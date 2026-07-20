@@ -7,8 +7,9 @@ ponytail: collapsed the planned merge package (8 sub-modules) into one
 src/avqa/merge.py. Four strategies on a single input contract; each is a
 small function.
 """
-
 from __future__ import annotations
+
+
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

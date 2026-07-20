@@ -9,8 +9,9 @@ ponytail: inlines the running-state and correction logic in one module.
 The :class:`OnlineSoftmaxState` is a tiny data class; the correction
 operator is a single function.
 """
-
 from __future__ import annotations
+
+
 
 from dataclasses import dataclass
 

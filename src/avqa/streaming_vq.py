@@ -19,16 +19,14 @@ Setting ``ExecutionConfig.causal_incremental=True`` AND providing a
 ``causal_extend`` is a no-op. See ``tests/unit/test_streaming_vq.py``
 for the convergence test.
 """
-
 from __future__ import annotations
+
+
 
 import torch
 
 from avqa.exceptions import ShapeError
-from avqa.logging import get_logger
 from avqa.quantizer import QuantizationResult
-
-_logger = get_logger("streaming_vq")
 
 
 class StreamingVQBuffer:

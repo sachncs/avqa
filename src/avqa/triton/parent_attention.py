@@ -6,8 +6,9 @@ maintaining FlashAttention-2 running accumulators (max, denom, num).
 
 Signature and contract: SPEC §11.5.
 """
-
 from __future__ import annotations
+
+
 
 import torch
 

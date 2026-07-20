@@ -1,6 +1,6 @@
 """Triton child attention kernel (SPEC §11.6)."""
-
 from __future__ import annotations
+
 
 import torch
 
@@ -33,6 +33,7 @@ def child_attention(
         Dictionary with ``child_logits`` (``[B, H, T_q, P, C]``) and
         ``child_running_state``.
     """
+
     import triton
     import triton.language as tl
 

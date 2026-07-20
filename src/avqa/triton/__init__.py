@@ -24,8 +24,9 @@ Numerical tolerances (SPEC §11.9) are checked in
 ``tests/integration/test_triton_kernels.py`` (CUDA-only, gated by the
 ``gpu`` marker).
 """
-
 from __future__ import annotations
+
+
 
 from dataclasses import dataclass
 

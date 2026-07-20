@@ -5,8 +5,9 @@ but each module imports :mod:`triton` at module load time. The
 runtime may be CPU-only; in that case :func:`is_triton_available`
 returns False and we never import the kernel modules.
 """
-
 from __future__ import annotations
+
+
 
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any

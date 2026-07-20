@@ -12,8 +12,9 @@ one module. They are interdependent frozen dataclasses composing a
 single :class:`AVQConfig` root; splitting them across files would just
 create import ceremony.
 """
-
 from __future__ import annotations
+
+
 
 import dataclasses
 from dataclasses import asdict, dataclass, field, fields

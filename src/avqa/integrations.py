@@ -11,8 +11,9 @@ into one src/avqa/integrations.py. Each integration exposes:
 Heavy deps are optional extras (see pyproject.toml); the integration
 modules are import-safe even when the dep is missing.
 """
-
 from __future__ import annotations
+
+
 
 from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass

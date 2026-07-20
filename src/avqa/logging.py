@@ -10,8 +10,9 @@ The module exposes:
 - :func:`get_logger`: retrieve the AVQA logger (lazy).
 - :class:`LogLevel`: type alias for the standard logging level names.
 """
-
 from __future__ import annotations
+
+
 
 import logging
 from typing import Final
