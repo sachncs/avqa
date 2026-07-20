@@ -435,36 +435,13 @@ class AVQAttention(nn.Module):
             QuantizationResult with parent/child aggregates, assignments,
             and counts.
         """
-        if (
-            self.config.execution.causal_incremental
-            and kv_cache is not None
-            and hasattr(kv_cache, "causal_extend")
-        ):
-            from avqa.streaming_vq import StreamingVQBuffer
-
-            new_tokens = k_full[..., -1:, :]
-            if not hasattr(self, "_streaming_buffer"):
-                self._streaming_buffer = StreamingVQBuffer(
-                    num_heads=H,
-                    num_parents=M0,
-                    children_per_parent=C,
-                    head_dim=D,
-                    device=k_full.device,
-                    dtype=self.codebook.parents.dtype,
-                )
-            else:
-                self._streaming_buffer.reset()
-            for h in range(H):
-                self._streaming_buffer.extend(
-                    new_tokens[:, h, 0, :].unsqueeze(0),
-                    self.codebook.parents,
-                    self.codebook.children,
-                )
-            result = self._streaming_buffer.realize()
-        else:
-            result = self.backend.quantize(
-                k_full, v_full, self.codebook.parents, self.codebook.children
-            )
+        # The streaming-VQ path (StreamingVQBuffer) is researcher-driven;
+        # the orchestrator always uses the batched backend.quantize here.
+        # Callers that need the streaming path should instantiate and
+        # drive StreamingVQBuffer directly (see streaming_vq docs).
+        result = self.backend.quantize(
+            k_full, v_full, self.codebook.parents, self.codebook.children
+        )
 
         self.last_keys = k_full.detach()
         self.last_parent_assignments = result.parent_assignments.detach()

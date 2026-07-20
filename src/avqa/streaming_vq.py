@@ -13,11 +13,15 @@ BCAR / Chapter 13.
 Wire-up
 -------
 
-By default AVQA uses the batched ``EuclideanHierarchicalQuantizer``.
-Setting ``ExecutionConfig.causal_incremental=True`` AND providing a
-``StreamingKVCache`` activates the streaming path; otherwise
-``causal_extend`` is a no-op. See ``tests/unit/test_streaming_vq.py``
-for the convergence test.
+By default :class:`avqa.attention_module.AVQAttention` uses the
+batched :class:`EuclideanHierarchicalQuantizer`. The streaming buffer
+is researcher-driven: instantiate :class:`StreamingVQBuffer`
+directly, call :meth:`StreamingVQBuffer.extend` once per token (or
+per chunk), then read :meth:`StreamingVQBuffer.realize`. The
+``ExecutionConfig.causal_incremental`` flag is reserved for a future
+integration; ``AVQAttention`` does not currently route through this
+module. See ``tests/unit/test_streaming_vq.py`` for the convergence
+test.
 """
 from __future__ import annotations
 
