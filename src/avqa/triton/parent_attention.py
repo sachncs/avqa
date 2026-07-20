@@ -12,7 +12,7 @@ import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("triton.parent_attention")
+logger = get_logger("triton.parent_attention")
 
 
 @torch.no_grad()
@@ -38,8 +38,8 @@ def parent_attention(
     Returns:
         Dictionary with ``parent_attention_probs``, ``running_state``.
     """
-    import triton
-    import triton.language as tl
+    import triton  # noqa: PLC0415
+    import triton.language as tl  # noqa: PLC0415
 
     B, H, T_q, D = query.shape
     M0 = parents.shape[1]
@@ -71,6 +71,7 @@ def parent_attention(
         BLOCK_M: tl.constexpr,
         scale: tl.constexpr,
     ) -> None:
+        """Parent-attention kernel: Q·C_p for the parent codebook (SPEC §11.5)."""
         bh = tl.program_id(0)
         t_start = tl.program_id(1)
         t_off = t_start + tl.arange(0, BLOCK_T)

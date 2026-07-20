@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import os
 import random
 
@@ -51,8 +52,6 @@ class TestSeedEverything:
 
     def test_works_without_numpy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Seeding works even when NumPy is not importable."""
-        import builtins
-
         original_import = builtins.__import__
 
         def fake_import(name: str, *args: object, **kwargs: object) -> object:

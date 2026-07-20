@@ -442,7 +442,7 @@ class AVQConfig:
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
-                    kwargs[f.name] = target(**value)  # type: ignore[call-arg]
+                    kwargs[f.name] = target(**value)
                     continue
             kwargs[f.name] = value
         return cls(**kwargs)  # type: ignore[arg-type]

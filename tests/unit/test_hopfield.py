@@ -7,6 +7,7 @@ import math
 import pytest
 import torch
 
+from avqa import AVQAttention
 from avqa.config import (
     AttentionShapeConfig,
     AVQConfig,
@@ -16,6 +17,7 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
+from avqa.exceptions import ConfigurationError
 from avqa.hopfield import (
     hopfield_logits,
     paper_beta,
@@ -46,7 +48,6 @@ class TestValidateAdaptive:
         assert validate_adaptive(value) == value
 
     def test_rejects_unknown_schedule(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
         with pytest.raises(ConfigurationError, match="adaptive must be one of"):
             validate_adaptive("softmax")
@@ -119,7 +120,7 @@ class TestHopfieldLogits:
         out = hopfield_logits(base, beta_q)
         torch.testing.assert_close(out, base * beta_q.unsqueeze(-1))
 
-    def test_per_query_beta_broadcasts_over_M(self) -> None:
+    def test_per_query_beta_broadcasts_over_m_zero(self) -> None:
         """``\u03b2_q`` broadcasts to ``[B, H, N, 1]`` over the M_0 axis."""
         base = torch.randn(1, 1, 2, 3)
         beta_q = torch.tensor([0.5, 2.0]).reshape(1, 1, 2)
@@ -157,13 +158,11 @@ class TestHopfieldConfigValidation:
         assert c.alpha == 1.0
 
     def test_rejects_negative_beta_init(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
         with pytest.raises(ConfigurationError, match=r"hopfield\.beta_init"):
             HopfieldConfig(beta_init=-0.1)
 
     def test_rejects_negative_alpha(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
         with pytest.raises(ConfigurationError, match=r"hopfield\.alpha"):
             HopfieldConfig(alpha=-0.5)
@@ -174,7 +173,6 @@ class TestPaperEquivalenceIntegration:
 
     def test_hopfield_disabled_matches_paper(self) -> None:
         """``hopfield=False`` keeps the existing paper pipeline intact."""
-        from avqa import AVQAttention
 
         torch.manual_seed(0)
         config = AVQConfig(
@@ -209,7 +207,6 @@ class TestPaperEquivalenceIntegration:
 
     def test_hopfield_entropy_changes_attention(self) -> None:
         """HVAQ-ENT with enabled=True produces a DIFFERENT output than paper."""
-        from avqa import AVQAttention
 
         torch.manual_seed(0)
         config_paper = AVQConfig(
@@ -248,7 +245,6 @@ class TestLearnableParameters:
 
     def test_learnable_parent_beta_parameter_exists(self) -> None:
         """learnable_parent_beta=True creates an nn.Parameter."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -262,14 +258,13 @@ class TestLearnableParameters:
             ),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert hasattr(mod, "_parent_beta")
-        assert isinstance(mod._parent_beta, torch.nn.Parameter)
-        assert mod._parent_beta.shape == (1, 1, 1, 8)
-        torch.testing.assert_close(mod._parent_beta.data, torch.ones(1, 1, 1, 8))
+        assert hasattr(mod, "parent_beta")
+        assert isinstance(mod.parent_beta, torch.nn.Parameter)
+        assert mod.parent_beta.shape == (1, 1, 1, 8)
+        torch.testing.assert_close(mod.parent_beta.data, torch.ones(1, 1, 1, 8))
 
     def test_learnable_alpha_parameter_exists(self) -> None:
         """learnable_alpha=True creates an nn.Parameter."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -283,14 +278,13 @@ class TestLearnableParameters:
             ),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert hasattr(mod, "_alpha")
-        assert isinstance(mod._alpha, torch.nn.Parameter)
-        assert mod._alpha.shape == (2,)  # num_heads=2
-        torch.testing.assert_close(mod._alpha.data, torch.tensor([2.0, 2.0]))
+        assert hasattr(mod, "alpha")
+        assert isinstance(mod.alpha, torch.nn.Parameter)
+        assert mod.alpha.shape == (2,)  # num_heads=2
+        torch.testing.assert_close(mod.alpha.data, torch.tensor([2.0, 2.0]))
 
     def test_no_learnable_params_when_disabled(self) -> None:
         """No learnable params when learnable flags are False."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -301,8 +295,8 @@ class TestLearnableParameters:
             hopfield=HopfieldConfig(enabled=True, adaptive="entropy"),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert not hasattr(mod, "_parent_beta")
-        assert not hasattr(mod, "_alpha")
+        assert not hasattr(mod, "parent_beta")
+        assert not hasattr(mod, "alpha")
 
     def test_parent_beta_gradient_flows(self) -> None:
         """Gradient flows through learnable parent_beta.
@@ -310,7 +304,6 @@ class TestLearnableParameters:
         Uses a minimal config with no refinement to avoid NaN from
         the masking/backward path in the full pipeline.
         """
-        from avqa import AVQAttention
 
         torch.manual_seed(42)
         config = AVQConfig(
@@ -332,12 +325,11 @@ class TestLearnableParameters:
         # Verify the parameter received a gradient (may contain NaN
         # from the -inf masking backward path; the key property is
         # that gradient *exists* and has the right shape).
-        assert mod._parent_beta.grad is not None
-        assert mod._parent_beta.grad.shape == mod._parent_beta.shape
+        assert mod.parent_beta.grad is not None
+        assert mod.parent_beta.grad.shape == mod.parent_beta.shape
 
     def test_alpha_gradient_flows(self) -> None:
         """Gradient flows through learnable alpha."""
-        from avqa import AVQAttention
 
         torch.manual_seed(42)
         config = AVQConfig(
@@ -355,12 +347,11 @@ class TestLearnableParameters:
         q = torch.randn(2, 8, 32)
         out = mod(q, q, q)
         out.sum().backward(create_graph=True)
-        assert mod._alpha.grad is not None
-        assert mod._alpha.grad.shape == mod._alpha.shape
+        assert mod.alpha.grad is not None
+        assert mod.alpha.grad.shape == mod.alpha.shape
 
     def test_learnable_parent_beta_in_state_dict(self) -> None:
         """Learnable parent_beta appears in state_dict."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -375,7 +366,7 @@ class TestLearnableParameters:
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
         state = mod.state_dict()
-        assert "_parent_beta" in state
+        assert "parent_beta" in state
 
 
 class TestDownstreamConsumerInvariant:

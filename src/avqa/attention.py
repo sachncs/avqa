@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import torch
 
-from avqa.utils.numerics import online_softmax_step as _online_softmax_step
+from avqa.utils.numerics import online_softmax_step
 
 
 @dataclass
@@ -82,7 +82,7 @@ class OnlineSoftmaxState:
         Returns:
             New :class:`OnlineSoftmaxState` covering both old and tile.
         """
-        new_max, new_denom, new_num = _online_softmax_step(
+        new_max, new_denom, new_num = online_softmax_step(
             self.running_max,
             self.running_denominator,
             self.running_numerator,

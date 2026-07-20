@@ -18,12 +18,13 @@ because every stage is delegated to the corresponding subsystem.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import torch
 from torch import nn
 
-from avqa._pipeline import run_pipeline as _run_pipeline
+from avqa._pipeline import run_pipeline
 from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
@@ -48,7 +49,7 @@ if TYPE_CHECKING:
     from avqa.routing import RoutingDecision
 
 
-_logger = get_logger("attention.module")
+logger = get_logger("attention.module")
 
 
 class AVQAttention(nn.Module):
@@ -83,20 +84,21 @@ class AVQAttention(nn.Module):
         self.config = config
         self.backend = Backend.create(config.backend.name)
         # OPT-0002: optional torch.compile wrapping. We attach the
-        # eager function as ``self._forward_eager`` so the original
-        # path remains the source of truth and so the compiled forward
-        # can be reverted at runtime.
-        self._forward_eager = self.forward_impl
+        # eager function as ``self.forward_eager`` so the original path
+        # remains the source of truth and so the compiled forward can
+        # be reverted at runtime.
+        self.forward_eager: Callable[..., torch.Tensor] = self.forward_impl
+        self.forward_compiled: Callable[..., torch.Tensor] | None
         if config.execution.compile_enabled:
             # OPT-0002: route the forward through a torch.compile graph.
             # `dynamic=None` lets Dynamo adapt to mask / kv-cache variants
             # while still collapsing the Python overhead per call.
-            self._forward_compiled = torch.compile(
+            self.forward_compiled = torch.compile(
                 self.forward_impl,
                 dynamic=None,
             )
         else:
-            self._forward_compiled = None
+            self.forward_compiled = None
         E = config.attention.embed_dim
         # Use Module so we can mix Linear and Identity branches uniformly.
         self.q_proj: nn.Module
@@ -131,10 +133,12 @@ class AVQAttention(nn.Module):
         # Resolve the configured router via the classmethod factory.
         self.router = Router.create(config.routing.strategy)
 
+        # Scheduler (None when refinement is disabled).
+        self.scheduler: Scheduler | None
         if config.refinement.enabled:
             # adaptive_budget picks between the two scheduler families.
             scheduler_strategy = "adaptive" if config.refinement.adaptive_budget else "default"
-            self.scheduler: DefaultScheduler | AdaptiveScheduler | None = Scheduler.create(
+            self.scheduler = Scheduler.create(
                 scheduler_strategy,
                 budget=config.routing.refinement_budget,
             )
@@ -149,10 +153,10 @@ class AVQAttention(nn.Module):
         hopfield_active = config.backend.hopfield and config.hopfield.adaptive != "none"
         if hopfield_active and config.hopfield.learnable_parent_beta:
             M0 = config.codebook.num_codewords
-            self._parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0))
+            self.parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0))
         if hopfield_active and config.hopfield.learnable_alpha:
             H = config.attention.num_heads
-            self._alpha = nn.Parameter(
+            self.alpha = nn.Parameter(
                 torch.full((H,), config.hopfield.alpha)
             )
 
@@ -248,7 +252,7 @@ class AVQAttention(nn.Module):
         # OPT-0002: when torch.compile is enabled we route through the
         # compiled forward; otherwise we keep the eager path identical
         # to the prior behaviour.
-        target = self._forward_compiled or self.forward_impl
+        target = self.forward_compiled or self.forward_impl
         with torch.autocast(
             device_type=query.device.type,
             enabled=autocast_enabled,
@@ -279,13 +283,13 @@ class AVQAttention(nn.Module):
         Returns:
             ``[B, T_q, E]`` attention output.
         """
-        return _run_pipeline(self, query, key, value, mask, kv_cache)
+        return run_pipeline(self, query, key, value, mask, kv_cache)
 
     # ------------------------------------------------------------------
     # Pipeline stage helpers (extracted from forward_impl)
     # ------------------------------------------------------------------
 
-    def _validate_inputs(
+    def validate_inputs(
         self,
         query: torch.Tensor,
         key: torch.Tensor,
@@ -308,13 +312,13 @@ class AVQAttention(nn.Module):
         if key.shape != value.shape:
             validate_shape(value, key.shape, name="value")
 
-    def _sync_codebook_device(self, q: torch.Tensor) -> None:
+    def sync_codebook_device(self, q: torch.Tensor) -> None:
         """Move codebook to match input device and dtype (M5)."""
         if self.codebook.parents.device != q.device or self.codebook.parents.dtype != q.dtype:
             self.codebook.parents = self.codebook.parents.to(device=q.device, dtype=q.dtype)
             self.codebook.children = self.codebook.children.to(device=q.device, dtype=q.dtype)
 
-    def _resolve_kv_cache(
+    def resolve_kv_cache(
         self,
         k: torch.Tensor,
         v: torch.Tensor,
@@ -333,7 +337,7 @@ class AVQAttention(nn.Module):
             k_full, v_full = k, v
         return k_full, v_full
 
-    def _resolve_mask(
+    def resolve_mask(
         self,
         mask: torch.Tensor | None,
         q: torch.Tensor,
@@ -343,7 +347,7 @@ class AVQAttention(nn.Module):
             return self.causal_mask(q.shape[-2], q.device)
         return mask
 
-    def _run_vq_precompute(
+    def run_vq_precompute(
         self,
         k_full: torch.Tensor,
         v_full: torch.Tensor,
@@ -393,7 +397,7 @@ class AVQAttention(nn.Module):
             )
         return result
 
-    def _compute_routing(
+    def compute_routing(
         self,
         parent_attention_probs: torch.Tensor,
         result: QuantizationResult,
@@ -412,6 +416,7 @@ class AVQAttention(nn.Module):
             ``budget <= 0`` means fall back to naive attention.
         """
         importance = compute_importance(parent_attention_probs, result.parent_counts)
+        assert self.scheduler is not None
         budget = self.scheduler.budget_for(importance)
         num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)
         min_valid = int(num_valid_per_bh.min().item())
@@ -421,7 +426,7 @@ class AVQAttention(nn.Module):
         decision = self.router.select(importance, budget)
         return importance, budget, decision, result
 
-    def _refine_and_output(
+    def refine_and_output(
         self,
         state: OnlineSoftmaxState,
         parent_attention_probs: torch.Tensor,
@@ -458,7 +463,7 @@ class AVQAttention(nn.Module):
                 query=q,
                 child_keys=self.codebook.children,
             )
-            _logger.debug(
+            logger.debug(
                 "multi-pass refinement: %d passes, residual norms=%s",
                 len(residual_norms),
                 [f"{r:.6f}" for r in residual_norms],
@@ -488,7 +493,7 @@ class AVQAttention(nn.Module):
         )
 
         if self.config.execution.mode == "research":
-            _logger.debug(
+            logger.debug(
                 "avq_pipeline: budget=%d selected=%s utilization=%.2f",
                 budget,
                 decision.selected_indices.shape[-1],

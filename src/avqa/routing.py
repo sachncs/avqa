@@ -18,7 +18,7 @@ import torch
 from avqa.exceptions import RoutingError
 from avqa.logging import get_logger
 
-_logger = get_logger("routing")
+logger = get_logger("routing")
 
 
 def compute_importance(

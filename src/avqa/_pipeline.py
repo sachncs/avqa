@@ -65,7 +65,7 @@ def parent_logits(
     Raises:
         ValueError: If ``mask`` is not rank-2 when provided.
     """
-    B, H, _T_q, D = q.shape
+    B, H, _, D = q.shape
     M_0 = codebook_parents.shape[-2]
     parent_keys = codebook_parents.unsqueeze(0).expand(B, H, M_0, D)
     logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / math.sqrt(head_dim)
@@ -134,7 +134,7 @@ def child_logits(
     Returns:
         ``[B, H, T, P, C]`` logits.
     """
-    B, H, _T_q, D = q.shape
+    B, H, _, D = q.shape
     P = selected_indices.shape[-1]
     C = children_per_parent
     M_0 = codebook_children.shape[1]
@@ -172,7 +172,7 @@ def apply_hopfield(
     probs = base.softmax(dim=-1) * valid.unsqueeze(2).to(base.dtype)
     probs = probs / probs.sum(dim=-1, keepdim=True).clamp_min(EPS)
 
-    alpha_param = getattr(state, "_alpha", state.config.hopfield.alpha)
+    alpha_param = getattr(state, "alpha", state.config.hopfield.alpha)
     alpha_source = (
         alpha_param.view(1, -1, 1)
         if isinstance(alpha_param, torch.Tensor)
@@ -186,7 +186,7 @@ def apply_hopfield(
     )
 
     raw_logits = parent_logits * math.sqrt(head_dim)
-    parent_beta = getattr(state, "_parent_beta", 1.0)
+    parent_beta = getattr(state, "parent_beta", 1.0)
     return hopfield_logits(raw_logits, beta_q, parent_beta=parent_beta)
 
 
@@ -227,7 +227,7 @@ def run_pipeline(
     Returns:
         ``[B, T_q, E]`` attention output.
     """
-    state._validate_inputs(query, key, value)
+    state.validate_inputs(query, key, value)
 
     q_proj, k_proj, v_proj = state.maybe_project(query, key, value)
     H = state.config.attention.num_heads
@@ -235,27 +235,27 @@ def run_pipeline(
     k = state.split_heads(k_proj, H)
     v = state.split_heads(v_proj, H)
 
-    state._sync_codebook_device(q)
-    k_full, v_full = state._resolve_kv_cache(k, v, kv_cache)
-    mask = state._resolve_mask(mask, q)
+    state.sync_codebook_device(q)
+    k_full, v_full = state.resolve_kv_cache(k, v, kv_cache)
+    mask = state.resolve_mask(mask, q)
 
     use_naive = state.scheduler is None or state.config.execution.mode == "reference"
     if use_naive:
         return naive_fallback(state, q, k_full, v_full, mask)
 
-    _B, _, _T_q, D = q.shape
+    _, _, _, D = q.shape
     D_v = v_full.shape[-1]
     M0 = state.config.codebook.num_codewords
     C = state.config.codebook.children_per_codeword
 
     # Stage 5: VQ precompute + BCAR (kept on the module because it mutates state).
-    result = state._run_vq_precompute(k_full, v_full, q, H, M0, C, D, kv_cache)
+    result = state.run_vq_precompute(k_full, v_full, q, H, M0, C, D, kv_cache)
 
     # Stage 6: parent logits with mask + codeword validity.
     valid = result.parent_counts > 0
     parent_logits_t = parent_logits(q, state.codebook.parents, valid, mask, D)
 
-    # Stage 7: HVAQ schedule — needs module state for `_parent_beta`/`_alpha`.
+    # Stage 7: HVAQ schedule — needs module state for `parent_beta`/`alpha`.
     parent_logits_t = apply_hopfield(state, parent_logits_t, valid, D)
 
     # Stage 8: online softmax + parent attention probabilities.
@@ -287,7 +287,7 @@ def run_pipeline(
     )
 
     # Stage 11: refinement + final reduction.
-    attn_out = state._refine_and_output(
+    attn_out = state.refine_and_output(
         softmax_state,
         parent_attention_probs,
         result.parent_aggregates,

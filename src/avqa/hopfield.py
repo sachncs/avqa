@@ -106,7 +106,7 @@ def hopfield_logits(
     base_logits: torch.Tensor,
     per_query_beta: torch.Tensor,
     *,
-    parent_beta: torch.Tensor = 1.0,
+    parent_beta: torch.Tensor | float = 1.0,
 ) -> torch.Tensor:
     """Apply the HVAQ temperature schedule to a base logit tensor.
 

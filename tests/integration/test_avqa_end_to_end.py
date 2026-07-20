@@ -10,18 +10,24 @@ after replacement with :class:`AVQAttention`. Confirms:
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
+import torch
+
+from avqa import AVQAttention, AVQConfig
+from avqa.config import (
+    AttentionShapeConfig,
+    CodebookConfig,
+    RoutingConfig,
+)
+from avqa.integrations import make_hf_attention_replacement
 
 pytestmark = pytest.mark.integration
 
 
 def _has_hf_transformers() -> bool:
-    try:
-        import transformers
-
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("transformers") is not None
 
 
 def _skip_without_hf() -> None:
@@ -32,16 +38,6 @@ def _skip_without_hf() -> None:
 def test_hf_replacement_full_forward() -> None:
     """Replace attention and run forward; output is finite and shaped."""
     _skip_without_hf()
-    import torch
-
-    from avqa import AVQConfig
-    from avqa.config import (
-        AttentionShapeConfig,
-        CodebookConfig,
-        RoutingConfig,
-    )
-    from avqa.integrations import make_hf_attention_replacement
-
     embed_dim = 32
     num_heads = 2
     config = AVQConfig(
@@ -82,17 +78,11 @@ def test_hf_replacement_full_forward() -> None:
 
 def test_avqa_native_round_trip_cpu() -> None:
     """A direct AVQAttention call works on CPU and is deterministic."""
-    import torch
-
-    from avqa import AVQAttention, AVQConfig
-    from avqa.config import (
-        AttentionShapeConfig,
-        CodebookConfig,
-        RoutingConfig,
-    )
-
+    embed_dim = 32
+    num_heads = 2
+    head_dim = embed_dim // num_heads
     config = AVQConfig(
-        attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
+        attention=AttentionShapeConfig(embed_dim=embed_dim, num_heads=num_heads, head_dim=head_dim),
         codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
         routing=RoutingConfig(refinement_budget=2),
     )
@@ -100,9 +90,9 @@ def test_avqa_native_round_trip_cpu() -> None:
     mod.eval()
 
     torch.manual_seed(0)
-    q = torch.randn(2, 6, 32)
-    k = torch.randn(2, 6, 32)
-    v = torch.randn(2, 6, 32)
+    q = torch.randn(2, 6, embed_dim)
+    k = torch.randn(2, 6, embed_dim)
+    v = torch.randn(2, 6, embed_dim)
     out1 = mod(q, k, v)
     out2 = mod(q, k, v)
     assert torch.allclose(out1, out2)

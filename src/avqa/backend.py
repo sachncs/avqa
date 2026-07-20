@@ -36,7 +36,7 @@ from avqa.logging import get_logger
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.quantizer import EuclideanHierarchicalQuantizer, QuantizationResult
 
-_logger = get_logger("backend")
+logger = get_logger("backend")
 
 
 # Numerical constants reused by both TorchBackend and free-function helpers.
@@ -44,9 +44,9 @@ EPS: float = 1e-12
 """Default epsilon for safe softmax denominators."""
 
 
-def _scale_for(head_dim: int) -> float:
+def scale_for(head_dim: int) -> float:
     """Attention scale ``1 / sqrt(d)`` for the given head dimension."""
-    return head_dim**-0.5
+    return float(head_dim**-0.5)
 
 
 class Backend(ABC):
@@ -127,7 +127,7 @@ def online_softmax_attention(
     """
     B, H, T, D_k = query.shape
     _, _, N, D_v = value.shape
-    scale = _scale_for(D_k)
+    scale = scale_for(D_k)
 
     m = torch.full((B, H, T), float("-inf"), device=query.device, dtype=query.dtype)
     denom = torch.zeros((B, H, T), device=query.device, dtype=query.dtype)
@@ -197,7 +197,7 @@ class TorchBackend(Backend):
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """O(N^2) reference attention (spec §10.15)."""
-        scale = _scale_for(query.shape[-1])
+        scale = scale_for(query.shape[-1])
         logits = torch.matmul(query, key.transpose(-2, -1)) * scale
         if mask is not None:
             logits = logits.masked_fill(mask == 0, float("-inf"))
@@ -298,7 +298,7 @@ class TritonBackend(Backend):
 
             out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
         except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
-            _logger.debug("Triton vq_precompute unavailable, falling back to TorchBackend: %s", exc)
+            logger.debug("Triton vq_precompute unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         return QuantizationResult(
             parent_assignments=out["parent_assignments"],
@@ -367,7 +367,7 @@ class TritonBackend(Backend):
                 tile_num,
             )
         except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
-            _logger.debug("Triton correction unavailable, falling back to TorchBackend: %s", exc)
+            logger.debug("Triton correction unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().correction(
                 state_max,
                 state_denom,

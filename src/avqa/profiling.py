@@ -18,7 +18,7 @@ import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("profiling")
+logger = get_logger("profiling")
 
 
 @dataclass
@@ -111,7 +111,7 @@ class Profiler:
             yield
         finally:
             self.report.total_duration_ms = (time.perf_counter() - self.session_start) * 1000.0
-            _logger.debug(
+            logger.debug(
                 "Profiler session: %.2f ms, %d stages",
                 self.report.total_duration_ms,
                 len(self.report.stage_timers),

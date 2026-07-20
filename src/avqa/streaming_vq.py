@@ -62,12 +62,12 @@ class StreamingVQBuffer:
         self.dtype = dtype
         # Empty-state accumulators. Sizes are fixed at the codebook
         # dimensions; length-N dims grow lazily through ``extend``.
-        self._parent_assignments: torch.Tensor | None = None
-        self._child_assignments: torch.Tensor | None = None
-        self._parent_counts: torch.Tensor = torch.zeros(
+        self.parent_assignments: torch.Tensor = torch.empty(0, device="cpu")
+        self.child_assignments: torch.Tensor = torch.empty(0, device="cpu")
+        self.parent_counts: torch.Tensor = torch.zeros(
             1, num_heads, num_parents, dtype=torch.long, device=device
         )
-        self._child_counts: torch.Tensor = torch.zeros(
+        self.child_counts: torch.Tensor = torch.zeros(
             1,
             num_heads,
             num_parents,
@@ -75,10 +75,10 @@ class StreamingVQBuffer:
             dtype=torch.long,
             device=device,
         )
-        self._parent_aggregates: torch.Tensor = torch.zeros(
+        self.parent_aggregates: torch.Tensor = torch.zeros(
             1, num_heads, num_parents, head_dim, dtype=dtype, device=device
         )
-        self._child_aggregates: torch.Tensor = torch.zeros(
+        self.child_aggregates: torch.Tensor = torch.zeros(
             1,
             num_heads,
             num_parents,
@@ -87,20 +87,20 @@ class StreamingVQBuffer:
             dtype=dtype,
             device=device,
         )
-        self._size = 0
+        self.size = 0
 
     def __len__(self) -> int:
-        return self._size
+        return self.size
 
     def reset(self) -> None:
         """Drop all cached state."""
-        self._parent_assignments = None
-        self._child_assignments = None
-        self._parent_counts.zero_()
-        self._child_counts.zero_()
-        self._parent_aggregates.zero_()
-        self._child_aggregates.zero_()
-        self._size = 0
+        self.parent_assignments = torch.empty(0, device=self.parent_counts.device)
+        self.child_assignments = torch.empty(0, device=self.child_counts.device)
+        self.parent_counts.zero_()
+        self.child_counts.zero_()
+        self.parent_aggregates.zero_()
+        self.child_aggregates.zero_()
+        self.size = 0
 
     def extend(
         self,
@@ -177,10 +177,10 @@ class StreamingVQBuffer:
         # ``[B, H]`` that selects (h, parent_assn[b, h]) for each
         # token. Result has shape ``[B, H, C, D]``.
         h_idx = torch.arange(H, device=device).unsqueeze(0).expand(B, H)
-        chosen_children = children[h_idx, parent_assn, :, :]  # type: ignore[index]  # fmt: skip
+        chosen_children = children[h_idx, parent_assn, :, :]
         # Broadcast ``keys [B, D]`` against ``chosen_children [B, H, C, D]``
         # by inserting singleton axes at positions (1, 2) only.
-        diff = keys[:, None, None, :] - chosen_children  # type: ignore[index]
+        diff = keys[:, None, None, :] - chosen_children
         child_assn = (diff * diff).sum(dim=-1).argmin(dim=-1)  # [B, H]
         child_assn = child_assn.to(torch.int64)
 
@@ -190,46 +190,46 @@ class StreamingVQBuffer:
         flat_parent = parent_assn.reshape(-1)  # [B*H]
         idx_p = torch.arange(H, device=device).repeat_interleave(B) * M0 + flat_parent
         keys_flat = keys.unsqueeze(1).expand(B, H, D).reshape(-1, D).to(dtype)
-        self._parent_counts.view(-1).index_add_(
+        self.parent_counts.view(-1).index_add_(
             0,
             idx_p,
             torch.ones_like(idx_p, dtype=torch.long),
         )
-        self._parent_aggregates.view(-1, D).index_add_(0, idx_p, keys_flat)
+        self.parent_aggregates.view(-1, D).index_add_(0, idx_p, keys_flat)
         flat_pc = parent_assn.reshape(-1) * self.children_per_parent + child_assn.reshape(-1)
         idx_pc = (
             torch.arange(H, device=device).repeat_interleave(B) * (M0 * self.children_per_parent)
             + flat_pc
         )
-        self._child_counts.view(-1).index_add_(
+        self.child_counts.view(-1).index_add_(
             0,
             idx_pc,
             torch.ones_like(idx_pc, dtype=torch.long),
         )
-        self._child_aggregates.view(-1, D).index_add_(0, idx_pc, keys_flat)
+        self.child_aggregates.view(-1, D).index_add_(0, idx_pc, keys_flat)
 
         # Append the new assignments to the running record.
-        if self._parent_assignments is None:
-            self._parent_assignments = parent_assn.to(torch.int64).reshape(1, H, B)
-            self._child_assignments = child_assn.to(torch.int64).reshape(1, H, B)
+        if self.parent_assignments.numel() == 0:
+            self.parent_assignments = parent_assn.to(torch.int64).reshape(1, H, B)
+            self.child_assignments = child_assn.to(torch.int64).reshape(1, H, B)
         else:
-            self._parent_assignments = torch.cat(
-                [self._parent_assignments, parent_assn.to(torch.int64).reshape(1, H, B)],
+            self.parent_assignments = torch.cat(
+                [self.parent_assignments, parent_assn.to(torch.int64).reshape(1, H, B)],
                 dim=-1,
             )
-            self._child_assignments = torch.cat(
-                [self._child_assignments, child_assn.to(torch.int64).reshape(1, H, B)],
+            self.child_assignments = torch.cat(
+                [self.child_assignments, child_assn.to(torch.int64).reshape(1, H, B)],
                 dim=-1,
             )
-        self._size += B
+        self.size += B
         return parent_assn, child_assn
 
     def realize(self) -> QuantizationResult:
         """Snapshot the buffers into a :class:`QuantizationResult`."""
-        if self._parent_assignments is None:
+        if self.parent_assignments.numel() == 0:
             # No keys seen yet; emit zero-tensors that downstream code
             # can still call ``validate_shapes`` against.
-            return _empty_realisation(
+            return empty_realisation(
                 self.num_heads,
                 self.num_parents,
                 self.children_per_parent,
@@ -242,16 +242,16 @@ class StreamingVQBuffer:
         # SPEC \u00a714.5). Transpose is a no-op since the spec shape is
         # ``[B, H, N]`` with ``B = 1``.
         return QuantizationResult(
-            parent_assignments=self._parent_assignments,
-            child_assignments=self._child_assignments,
-            parent_aggregates=self._parent_aggregates,
-            child_aggregates=self._child_aggregates,
-            parent_counts=self._parent_counts.to(dtype=self.dtype),
-            child_counts=self._child_counts.to(dtype=self.dtype),
+            parent_assignments=self.parent_assignments,
+            child_assignments=self.child_assignments,
+            parent_aggregates=self.parent_aggregates,
+            child_aggregates=self.child_aggregates,
+            parent_counts=self.parent_counts.to(dtype=self.dtype),
+            child_counts=self.child_counts.to(dtype=self.dtype),
         )
 
 
-def _empty_realisation(
+def empty_realisation(
     num_heads: int,
     num_parents: int,
     children_per_parent: int,

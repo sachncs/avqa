@@ -45,16 +45,16 @@ class TestCompileEnabled:
         """compile_enabled=True installs a torch.compile wrapper."""
         mod = AVQAttention(_compile_config(), in_proj=False, out_proj=False)
         mod.eval()
-        assert mod._forward_eager is not None
-        assert mod._forward_compiled is not None
-        assert mod._forward_compiled is not mod.forward_impl
+        assert mod.forward_eager is not None
+        assert mod.forward_compiled is not None
+        assert mod.forward_compiled is not mod.forward_impl
 
     def test_compiled_forward_absent_by_default(self) -> None:
         """compile_enabled=False leaves the compiled forward as None."""
         mod = AVQAttention(_eager_config(), in_proj=False, out_proj=False)
         mod.eval()
-        assert mod._forward_eager is not None
-        assert mod._forward_compiled is None
+        assert mod.forward_eager is not None
+        assert mod.forward_compiled is None
 
 
 class TestCompileNumericalEquivalence:
@@ -100,8 +100,8 @@ class TestCompileNumericalEquivalence:
         compiled, eager = modules
         q, k, v = inputs
         with torch.no_grad():
-            out_a = compiled._forward_eager(q, k, v, None, None)
-            out_b = eager._forward_eager(q, k, v, None, None)
+            out_a = compiled.forward_eager(q, k, v, None, None)
+            out_b = eager.forward_eager(q, k, v, None, None)
         assert torch.allclose(out_a, out_b, atol=1e-6)
 
     def test_compiled_vs_eager_numerical(
@@ -111,9 +111,9 @@ class TestCompileNumericalEquivalence:
         compiled, eager = modules
         q, k, v = inputs
         with torch.no_grad():
-            out_eager = eager._forward_eager(q, k, v, None, None)
+            out_eager = eager.forward_eager(q, k, v, None, None)
             try:
-                out_compiled = compiled._forward_compiled(q, k, v, None, None)
+                out_compiled = compiled.forward_compiled(q, k, v, None, None)
             except Exception:
                 pytest.skip(
                     "torch.compile Dynamo tracing failed on CPU; "

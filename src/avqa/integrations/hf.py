@@ -11,8 +11,8 @@ so ``import avqa`` does not require them.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+import importlib.util
 from typing import TYPE_CHECKING
 
 import torch
@@ -20,17 +20,19 @@ from torch import nn
 
 from avqa.attention_module import AVQAttention
 from avqa.config import (
-    AVQConfig,
     AttentionShapeConfig,
+    AVQConfig,
     CodebookConfig,
     RoutingConfig,
 )
 from avqa.logging import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from transformers import PreTrainedModel
 
-_logger = get_logger("integrations.hf")
+logger = get_logger("integrations.hf")
 
 
 @dataclass
@@ -50,11 +52,7 @@ class HFReplaceReport:
 
 def is_huggingface_available() -> bool:
     """Return True iff the ``transformers`` package is importable."""
-    try:
-        import transformers  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return importlib.util.find_spec("transformers") is not None
 
 
 def detect_compatible(model: PreTrainedModel) -> bool:
@@ -71,7 +69,7 @@ def detect_compatible(model: PreTrainedModel) -> bool:
     """
     if not is_huggingface_available():
         return False
-    for _name, module in model.named_modules():
+    for _, module in model.named_modules():
         cls = type(module).__name__
         if "Attention" in cls and "MLP" not in cls:
             return True
@@ -150,7 +148,12 @@ def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None
         "dense": "out_proj",
     }
 
-    def _copy(src_name: str, dst_attr: str, *, with_bias: bool) -> bool:
+    def copy(src_name: str, dst_attr: str, *, with_bias: bool) -> bool:
+        """Copy a single HF parameter (with optional bias) to an AVQA module.
+
+        Returns:
+            ``True`` if a weight was found and copied; ``False`` otherwise.
+        """
         w_key = f"{src_name}.weight"
         b_key = f"{src_name}.bias"
         if w_key not in src_params:
@@ -170,9 +173,9 @@ def copy_hf_weights(src: nn.Module, dst: "AVQAttention", embed_dim: int) -> None
         return True
 
     for src_name, dst_name in weight_map.items():
-        _copy(src_name, dst_name, with_bias=True)
+        copy(src_name, dst_name, with_bias=True)
     for src_name, dst_name in out_map.items():
-        _copy(src_name, dst_name, with_bias=True)
+        copy(src_name, dst_name, with_bias=True)
 
 
 class HFAttentionWrapper(nn.Module):
@@ -208,12 +211,12 @@ class HFAttentionWrapper(nn.Module):
         (AVQA does not expose raw attention probabilities).
         """
         if head_mask is not None:
-            _logger.debug(
+            logger.debug(
                 "HFAttentionWrapper: head_mask provided but not supported "
                 "by AVQA; ignoring"
             )
         if past_key_value is not None:
-            _logger.debug(
+            logger.debug(
                 "HFAttentionWrapper: past_key_value provided but not "
                 "supported by AVQA wrapper; ignoring"
             )

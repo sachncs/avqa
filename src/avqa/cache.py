@@ -93,8 +93,8 @@ class InMemoryKVCache(KVCache):
         self.max_size = max_size
         self.device = device
         self.dtype = dtype
-        self.cache_key: torch.Tensor | None = None
-        self.cache_value: torch.Tensor | None = None
+        self.cache_key: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_k, device=device, dtype=dtype)
+        self.cache_value: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_v, device=device, dtype=dtype)
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append new tokens to the cache.
@@ -107,7 +107,7 @@ class InMemoryKVCache(KVCache):
             raise ValueError(
                 f"key/value shape mismatch: key={tuple(key.shape)}, value={tuple(value.shape)}",
             )
-        if self.cache_key is None:
+        if self.cache_key.numel() == 0:
             self.cache_key = key.to(device=self.device, dtype=self.dtype)
             self.cache_value = value.to(device=self.device, dtype=self.dtype)
         else:
@@ -126,7 +126,7 @@ class InMemoryKVCache(KVCache):
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cached (key, value); empty cache returns empty tensors."""
-        if self.cache_key is None or self.cache_value is None:
+        if self.cache_key.numel() == 0 or self.cache_value.numel() == 0:
             empty_k = torch.zeros(
                 1,
                 self.num_heads,
@@ -148,8 +148,12 @@ class InMemoryKVCache(KVCache):
 
     def reset(self) -> None:
         """Drop all cached entries."""
-        self.cache_key = None
-        self.cache_value = None
+        self.cache_key = torch.empty(
+            0, self.num_heads, 0, self.head_dim_k, device=self.device, dtype=self.dtype
+        )
+        self.cache_value = torch.empty(
+            0, self.num_heads, 0, self.head_dim_v, device=self.device, dtype=self.dtype
+        )
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Serialize cache contents (metadata + tensors)."""
@@ -159,14 +163,8 @@ class InMemoryKVCache(KVCache):
             "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
             "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
-            "cache_key": (
-                self.cache_key.detach().clone() if self.cache_key is not None else torch.zeros(0)
-            ),
-            "cache_value": (
-                self.cache_value.detach().clone()
-                if self.cache_value is not None
-                else torch.zeros(0)
-            ),
+            "cache_key": self.cache_key.detach().clone(),
+            "cache_value": self.cache_value.detach().clone(),
         }
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
@@ -179,7 +177,7 @@ class InMemoryKVCache(KVCache):
             raise ValueError("head_dim_v mismatch")
         cache_key = state.get("cache_key")
         cache_value = state.get("cache_value")
-        if cache_key is not None and cache_key.numel() > 0:
+        if cache_key is not None and cache_value is not None and cache_key.numel() > 0:
             self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
             self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
         else:
@@ -188,7 +186,7 @@ class InMemoryKVCache(KVCache):
     @property
     def size(self) -> int:
         """Number of cached tokens."""
-        if self.cache_key is None:
+        if self.cache_key.numel() == 0:
             return 0
         return int(self.cache_key.shape[-2])
 

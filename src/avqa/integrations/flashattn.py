@@ -7,6 +7,8 @@ reports the runtime state.
 
 from __future__ import annotations
 
+import importlib.util
+
 import torch
 
 from avqa.backend import TorchBackend
@@ -14,11 +16,7 @@ from avqa.backend import TorchBackend
 
 def is_flash_attention_available() -> bool:
     """Return True iff ``flash_attn`` is importable."""
-    try:
-        import flash_attn  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return importlib.util.find_spec("flash_attn") is not None
 
 
 def flash_attention_interop(
@@ -40,9 +38,11 @@ def flash_attention_interop(
     if not is_flash_attention_available() or not torch.cuda.is_available():
         # Convert HF layout [B, T, H, D] -> [B, H, T, D] for the backend.
         def to_avqa(t: torch.Tensor) -> torch.Tensor:
+            """Permute HF-style ``[B, T, H, D]`` to AVQA ``[B, H, T, D]``."""
             return t.transpose(1, 2).contiguous()
 
         def from_avqa(t: torch.Tensor) -> torch.Tensor:
+            """Permute AVQA ``[B, H, T, D]`` back to HF-style ``[B, T, H, D]``."""
             return t.transpose(1, 2).contiguous()
 
         backend = TorchBackend()
@@ -50,7 +50,7 @@ def flash_attention_interop(
         return from_avqa(out)
 
     # flash_attn_func expects [B, T, H, D] directly.
-    import flash_attn
+    import flash_attn  # noqa: PLC0415
 
     out = flash_attn.flash_attn_func(query, key, value, causal=False)
     return out  # type: ignore[no-any-return]

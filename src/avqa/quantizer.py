@@ -26,7 +26,7 @@ from avqa.logging import get_logger
 if TYPE_CHECKING:
     from avqa.codebook import HierarchicalCodebook
 
-_logger = get_logger("quantizer")
+logger = get_logger("quantizer")
 
 
 @dataclass

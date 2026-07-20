@@ -5,7 +5,7 @@ import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("triton.child_attention")
+logger = get_logger("triton.child_attention")
 
 
 @torch.no_grad()
@@ -33,8 +33,8 @@ def child_attention(
         ``child_running_state``.
     """
 
-    import triton
-    import triton.language as tl
+    import triton  # noqa: PLC0415
+    import triton.language as tl  # noqa: PLC0415
 
     B, H, T_q, D = query.shape
     P = selected_indices.shape[-1]
@@ -65,6 +65,7 @@ def child_attention(
         BLOCK_T: tl.constexpr,
         scale: tl.constexpr,
     ) -> None:
+        """Child-attention kernel: Q·C_c for selected parent indices (SPEC §11.6)."""
         bh = tl.program_id(0)
         p = tl.program_id(1)
         t_off = tl.arange(0, BLOCK_T)

@@ -8,6 +8,8 @@ backend. Falls back to the inner :class:`AVQAttention` when no
 
 from __future__ import annotations
 
+import importlib.util
+
 import torch
 
 from avqa.attention_module import AVQAttention
@@ -15,16 +17,12 @@ from avqa.cache import PagedKVCache
 from avqa.config import AVQConfig
 from avqa.logging import get_logger
 
-_logger = get_logger("integrations.vllm")
+logger = get_logger("integrations.vllm")
 
 
 def is_vllm_available() -> bool:
     """Return True iff the ``vllm`` package is importable."""
-    try:
-        import vllm  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return importlib.util.find_spec("vllm") is not None
 
 
 class AVQvLLMBackend:
@@ -106,7 +104,7 @@ class AVQvLLMBackend:
             value = value.reshape(value.shape[0], value.shape[1], H * D)
 
         if kv_cache is None:
-            return self.module(query, key, value)
+            return self.module(query, key, value)  # type: ignore[no-any-return]
 
         # Paged-attention path: route through AVQAttention's kv_cache
         # argument, which the attention module already supports via
@@ -145,7 +143,7 @@ class AVQvLLMBackend:
         out = self.module(query, flat_k, flat_v)
         kv_cache.append(new_k, new_v)
         _ = attn_metadata
-        return out
+        return out  # type: ignore[no-any-return]
 
     def forward_native(
         self,
@@ -190,6 +188,8 @@ def vllm_attention_backend(backend: str = "torch") -> object:
         return AVQvLLMBackend()
 
     class VLLMSelector:
+        """Lightweight vLLM backend descriptor for non-AVQA selections."""
+
         name = backend
 
     return VLLMSelector()

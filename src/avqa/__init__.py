@@ -107,7 +107,7 @@ __all__ = [
 ]
 
 
-def _parse_version(v: str) -> tuple[int, ...]:
+def parse_version(v: str) -> tuple[int, ...]:
     """Parse a dotted version string into a tuple of ints.
 
     Falls back to (0,) for unparseable strings so downstream consumers
@@ -126,7 +126,7 @@ def _parse_version(v: str) -> tuple[int, ...]:
     return tuple(out) or (0,)
 
 
-__version_info__ = _parse_version(__version__)
+__version_info__ = parse_version(__version__)
 
 # Aliases for the two most common user-facing names.
 Codebook = HierarchicalCodebook
@@ -134,7 +134,7 @@ Codebook = HierarchicalCodebook
 # :class:`Visualizer` is the abstract base; the concrete JSONVisualizer
 # remains on avqa.visualization. We re-export via a lazy attribute to
 # avoid importing matplotlib/graphviz at module-load time.
-_BUILTIN_VISUALIZERS = {"json"}
+BUILTIN_VISUALIZERS = {"json"}
 
 
 def __getattr__(name: str) -> object:
@@ -146,17 +146,17 @@ def __getattr__(name: str) -> object:
     remain lazy.
     """
     if name == "Visualizer":
-        from avqa.visualization import Visualizer as _Visualizer  # noqa: PLC0415
+        from avqa.visualization import Visualizer as Visualizer  # noqa: PLC0415
 
-        return _Visualizer
+        return Visualizer
     if name == "TritonBackend":
         try:
-            from avqa.backend import TritonBackend as _TritonBackend  # noqa: PLC0415
+            from avqa.backend import TritonBackend as TritonBackend  # noqa: PLC0415
         except ImportError as exc:
             warnings.warn(
                 f"TritonBackend unavailable in this environment: {exc}",
                 stacklevel=2,
             )
             raise
-        return _TritonBackend
+        return TritonBackend
     raise AttributeError(name)

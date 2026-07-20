@@ -17,12 +17,12 @@ import random
 
 from avqa.logging import get_logger
 
-_logger = get_logger("utils.seed")
+logger = get_logger("utils.seed")
 
-_DEFAULT_SEED: int = 0
+DEFAULT_SEED: int = 0
 
 
-def seed_everything(seed: int = _DEFAULT_SEED, *, deterministic: bool = False) -> int:
+def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) -> int:
     """Seed every random-number generator used by AVQA.
 
     Seeds (in order):
@@ -53,33 +53,33 @@ def seed_everything(seed: int = _DEFAULT_SEED, *, deterministic: bool = False) -
         msg = f"seed must be non-negative, got {seed}"
         raise ValueError(msg)
 
-    _logger.debug("Seeding all RNGs with seed=%d deterministic=%s", seed, deterministic)
+    logger.debug("Seeding all RNGs with seed=%d deterministic=%s", seed, deterministic)
 
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
-    _logger.debug("Set PYTHONHASHSEED=%d", seed)
+    logger.debug("Set PYTHONHASHSEED=%d", seed)
 
     try:
-        import numpy as np
+        import numpy as np  # noqa: PLC0415
     except ImportError:
-        _logger.debug("NumPy not installed; skipping NumPy seeding")
+        logger.debug("NumPy not installed; skipping NumPy seeding")
     else:
         np.random.seed(seed)
-        _logger.debug("Seeded NumPy with seed=%d", seed)
+        logger.debug("Seeded NumPy with seed=%d", seed)
 
-    import torch
+    import torch  # noqa: PLC0415
 
     torch.manual_seed(seed)
-    _logger.debug("Seeded torch CPU RNG with seed=%d", seed)
+    logger.debug("Seeded torch CPU RNG with seed=%d", seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-        _logger.debug("Seeded torch CUDA RNGs with seed=%d", seed)
+        logger.debug("Seeded torch CUDA RNGs with seed=%d", seed)
     else:
-        _logger.debug("CUDA not available; skipping CUDA seeding")
+        logger.debug("CUDA not available; skipping CUDA seeding")
 
     if deterministic:
         torch.use_deterministic_algorithms(True, warn_only=True)
-        _logger.debug("Enabled strict deterministic algorithms")
+        logger.debug("Enabled strict deterministic algorithms")
 
     return seed
 

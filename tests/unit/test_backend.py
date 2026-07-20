@@ -7,6 +7,8 @@ import torch
 
 from avqa.backend import Backend, TorchBackend, TritonBackend
 from avqa.merge import MergeInputs, ProbabilityMerge
+from avqa.quantizer import QuantizationResult
+from avqa.utils.numerics import online_softmax_step
 
 
 class TestNaiveAttention:
@@ -98,8 +100,6 @@ class TestQuantize:
 
     def test_returns_quantization_result(self) -> None:
         """quantize() delegates to EuclideanHierarchicalQuantizer."""
-        from avqa.quantizer import QuantizationResult
-
         torch.manual_seed(0)
         keys = torch.randn(1, 1, 8, 4)
         values = torch.randn(1, 1, 8, 4)
@@ -136,8 +136,6 @@ class TestCorrection:
 
     def test_matches_numerics_helper(self) -> None:
         """backend.correction agrees with avqa.utils.numerics.online_softmax_step."""
-        from avqa.utils.numerics import online_softmax_step
-
         m_old = torch.zeros(2)
         l_old = torch.ones(2)
         acc_old = torch.randn(2, 4)

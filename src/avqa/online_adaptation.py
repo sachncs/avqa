@@ -38,7 +38,7 @@ import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("bcar")
+logger = get_logger("bcar")
 
 
 def online_codebook_adaptation(

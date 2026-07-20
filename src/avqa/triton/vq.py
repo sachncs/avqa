@@ -24,7 +24,7 @@ import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("triton.vq")
+logger = get_logger("triton.vq")
 
 
 @torch.no_grad()
@@ -52,8 +52,8 @@ def vq_precompute(
         ``parent_aggregates``, ``child_aggregates``, ``parent_counts``,
         ``child_counts``.
     """
-    import triton
-    import triton.language as tl
+    import triton  # noqa: PLC0415
+    import triton.language as tl  # noqa: PLC0415
 
     B, H, N, D = keys.shape
     M0, C = parents.shape[1], children.shape[2]
@@ -89,6 +89,7 @@ def vq_precompute(
         BLOCK_N: tl.constexpr,
         BLOCK_M: tl.constexpr,
     ) -> None:
+        """Streaming fused VQ precompute: assign + aggregate in one pass (SPEC §11.4)."""
         bh = tl.program_id(0)
         n_start = tl.program_id(1)
         off = n_start + tl.arange(0, BLOCK_N)
