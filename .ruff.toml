@@ -38,6 +38,8 @@ ignore = [
   "PLR0913", # too-many-arguments (common in config APIs)
   "PLR2004", # magic value used in comparison (common in tests)
   "RET504", # unnecessary-assign
+  "RUF002", # ambiguous Greek in docstrings — α/β/H_top are canonical math notation
+  "RUF003", # ambiguous Greek in comments — α/β/H_top are canonical math notation
 ]
 
 [lint.per-file-ignores]
@@ -49,8 +51,14 @@ ignore = [
   "S101",    # assert (pytest convention)
   "N806",    # canonical tensor notation (B/H/T/D/N/C) is uppercase
   "N803",    # canonical tensor notation argument names (B/H/T/D/N/C)
+  "N802",    # canonical tensor notation in test function names (M_0 etc.)
   "TC003",   # pytest tmp_path fixture is typed via pytest re-export
              # of pathlib._local.Path, not stdlib pathlib.Path.
+  "PLC0415", # Lazy imports inside test methods (cycle avoidance in helpers
+             # and explicit availability gates for optional deps).
+  "RUF043",  # match= regex strings that contain literal dots are intentional;
+             # pytest.raises treats them as regexes but the test intent is
+             # substring / literal-text.
 ]
 "examples/**/*.py" = [
   "E402",  # imports not at top

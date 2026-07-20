@@ -8,8 +8,6 @@ Signature and contract: SPEC §11.7.
 """
 from __future__ import annotations
 
-
-
 import torch
 
 from avqa.logging import get_logger

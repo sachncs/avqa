@@ -40,7 +40,6 @@ from avqa.integrations.xformers import (
     xformers_interop,
 )
 
-
 __all__ = [
     "AVQvLLMBackend",
     "HFAttentionWrapper",

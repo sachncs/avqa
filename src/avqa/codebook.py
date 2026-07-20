@@ -14,8 +14,6 @@ This is enforced after every training update via
 """
 from __future__ import annotations
 
-
-
 from dataclasses import dataclass
 
 import torch

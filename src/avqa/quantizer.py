@@ -14,8 +14,6 @@ counts, child counts, parent assignments, child assignments.
 """
 from __future__ import annotations
 
-
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -284,4 +282,4 @@ __all__ = [
     "EuclideanHierarchicalQuantizer",
     "QuantizationResult",
     "VectorQuantizer",
-] 
+]

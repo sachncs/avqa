@@ -6,8 +6,6 @@ default; the data is what consumers (notebooks, dashboards) consume.
 """
 from __future__ import annotations
 
-
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -168,4 +166,4 @@ __all__ = [
     "TreeNode",
     "Visualizer",
     "tree_to_dict",
-] 
+]

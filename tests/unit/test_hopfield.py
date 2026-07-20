@@ -8,8 +8,8 @@ import pytest
 import torch
 
 from avqa.config import (
-    AVQConfig,
     AttentionShapeConfig,
+    AVQConfig,
     BackendConfig,
     CodebookConfig,
     HopfieldConfig,
@@ -17,7 +17,6 @@ from avqa.config import (
     RoutingConfig,
 )
 from avqa.hopfield import (
-    AdaptiveSchedule,
     hopfield_logits,
     paper_beta,
     per_query_beta,

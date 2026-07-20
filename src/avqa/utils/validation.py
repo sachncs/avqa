@@ -9,8 +9,6 @@ Validation MAY be disabled in optimized execution modes (e.g., by setting
 """
 from __future__ import annotations
 
-
-
 from collections.abc import Sequence
 from typing import TypeAlias
 

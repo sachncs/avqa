@@ -8,8 +8,6 @@ combine partial tiles, which is implemented here.
 """
 from __future__ import annotations
 
-
-
 import torch
 
 # ponytail: stable_softmax omitted — torch.softmax already subtracts the

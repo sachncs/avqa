@@ -6,8 +6,6 @@ visual rendering lives in avqa.visualization.
 """
 from __future__ import annotations
 
-
-
 from collections.abc import Iterator  # noqa: TC003
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -192,4 +190,4 @@ def peak_memory_bytes() -> int:
     return 0
 
 
-__all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"] 
+__all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"]

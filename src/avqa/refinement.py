@@ -9,8 +9,6 @@ one src/avqa/refinement.py. The orchestrator is a single function.
 """
 from __future__ import annotations
 
-
-
 from dataclasses import dataclass
 
 import torch

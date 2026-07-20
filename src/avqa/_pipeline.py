@@ -31,7 +31,6 @@ from avqa.routing import compute_importance
 if TYPE_CHECKING:
     from avqa.attention_module import AVQAttention
     from avqa.cache import KVCache
-    from avqa.quantizer import QuantizationResult
 
 EPS: float = 1e-12
 """Default epsilon for safe softmax denominators."""
@@ -65,7 +64,7 @@ def parent_logits(
     Raises:
         ValueError: If ``mask`` is not rank-2 when provided.
     """
-    B, H, T_q, D = q.shape
+    B, H, _T_q, D = q.shape
     M_0 = codebook_parents.shape[-2]
     parent_keys = codebook_parents.unsqueeze(0).expand(B, H, M_0, D)
     logits = torch.matmul(q, parent_keys.transpose(-2, -1)) / math.sqrt(head_dim)
@@ -134,7 +133,7 @@ def child_logits(
     Returns:
         ``[B, H, T, P, C]`` logits.
     """
-    B, H, T_q, D = q.shape
+    B, H, _T_q, D = q.shape
     P = selected_indices.shape[-1]
     C = children_per_parent
     M_0 = codebook_children.shape[1]
@@ -245,7 +244,7 @@ def run_pipeline(
     if use_naive:
         return naive_fallback(state, q, k_full, v_full, mask)
 
-    B, _, T_q, D = q.shape
+    _B, _, _T_q, D = q.shape
     D_v = v_full.shape[-1]
     M0 = state.config.codebook.num_codewords
     C = state.config.codebook.children_per_codeword
@@ -317,4 +316,4 @@ __all__ = [
     "online_softmax",
     "parent_logits",
     "run_pipeline",
-] 
+]

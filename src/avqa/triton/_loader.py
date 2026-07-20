@@ -7,8 +7,6 @@ returns False and we never import the kernel modules.
 """
 from __future__ import annotations
 
-
-
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 

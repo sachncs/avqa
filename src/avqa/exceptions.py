@@ -8,8 +8,6 @@ provide informative messages without exposing internal implementation details
 from __future__ import annotations
 
 
-
-
 class AVQAError(Exception):
     """Base class for all exceptions raised by AVQA.
 

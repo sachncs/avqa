@@ -26,8 +26,6 @@ Numerical tolerances (SPEC §11.9) are checked in
 """
 from __future__ import annotations
 
-
-
 from dataclasses import dataclass
 
 from avqa.exceptions import BackendError

@@ -10,8 +10,6 @@ are small strategies on top of it.
 """
 from __future__ import annotations
 
-
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -219,4 +217,4 @@ __all__ = [
     "ThresholdRouter",
     "TopPRouter",
     "compute_importance",
-] 
+]

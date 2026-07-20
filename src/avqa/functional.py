@@ -10,8 +10,6 @@ ponytail: the functional API is a single function. Spec §3.5 requires
 """
 from __future__ import annotations
 
-
-
 import torch
 
 from avqa.attention_module import AVQAttention

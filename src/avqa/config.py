@@ -14,8 +14,6 @@ create import ceremony.
 """
 from __future__ import annotations
 
-
-
 import dataclasses
 from dataclasses import asdict, dataclass, field, fields
 import json

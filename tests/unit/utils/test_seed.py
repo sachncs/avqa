@@ -51,7 +51,7 @@ class TestSeedEverything:
 
     def test_works_without_numpy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Seeding works even when NumPy is not importable."""
-        import builtins  # noqa: PLC0415
+        import builtins
 
         original_import = builtins.__import__
 

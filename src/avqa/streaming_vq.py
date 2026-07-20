@@ -25,8 +25,6 @@ test.
 """
 from __future__ import annotations
 
-
-
 import torch
 
 from avqa.exceptions import ShapeError

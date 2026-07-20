@@ -18,8 +18,6 @@ because every stage is delegated to the corresponding subsystem.
 """
 from __future__ import annotations
 
-
-
 from typing import TYPE_CHECKING
 
 import torch

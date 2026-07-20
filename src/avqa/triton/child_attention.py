@@ -1,7 +1,6 @@
 """Triton child attention kernel (SPEC §11.6)."""
 from __future__ import annotations
 
-
 import torch
 
 from avqa.logging import get_logger

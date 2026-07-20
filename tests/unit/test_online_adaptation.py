@@ -30,7 +30,7 @@ def _gaussian_centroids(
 
 def _codebook_from(
     parents: torch.Tensor, children: torch.Tensor, *, perturb: float
-) -> "HierarchicalCodebook":
+) -> HierarchicalCodebook:
     cb = HierarchicalCodebook(
         num_heads=parents.shape[0],
         num_parents=parents.shape[1],

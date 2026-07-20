@@ -398,8 +398,8 @@ class TritonBackend(Backend):
 
 
 __all__ = [
-    "Backend",
     "EPS",
+    "Backend",
     "TorchBackend",
     "TritonBackend",
     "correction",

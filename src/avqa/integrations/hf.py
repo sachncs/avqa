@@ -11,7 +11,6 @@ so ``import avqa`` does not require them.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -21,6 +20,8 @@ from torch import nn
 from avqa.logging import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from transformers import PreTrainedModel
 
     from avqa.attention_module import AVQAttention

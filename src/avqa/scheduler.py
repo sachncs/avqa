@@ -9,11 +9,10 @@ one src/avqa/scheduler.py.
 """
 from __future__ import annotations
 
-
-
 from abc import ABC, abstractmethod
 
 import torch
+
 
 class Scheduler(ABC):
     """Abstract scheduler interface (spec §4.7)."""
@@ -123,4 +122,4 @@ class AdaptiveScheduler(Scheduler):
         return self.min_budget
 
 
-__all__ = ["AdaptiveScheduler", "DefaultScheduler", "Scheduler"] 
+__all__ = ["AdaptiveScheduler", "DefaultScheduler", "Scheduler"]

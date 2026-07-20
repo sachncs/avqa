@@ -25,15 +25,12 @@ Paper-equivalence: with ``\u03b2_init = 1 / \u221ad`` and
 """
 from __future__ import annotations
 
-
-
 import math
 from typing import Literal
 
 import torch
 
 from avqa.exceptions import ConfigurationError
-
 
 AdaptiveSchedule = Literal["none", "entropy", "linear"]
 
