@@ -24,7 +24,6 @@ import torch
 
 from avqa.exceptions import ShapeError
 from avqa.logging import get_logger
-from avqa.registry import QUANTIZER_REGISTRY
 
 if TYPE_CHECKING:
     from avqa.codebook import HierarchicalCodebook
@@ -101,6 +100,24 @@ class QuantizationResult:
 
 class VectorQuantizer(ABC):
     """Abstract base for AVQA vector quantizers (spec §4.7)."""
+
+    @classmethod
+    def create(cls, name: str = "euclidean_hierarchical") -> VectorQuantizer:
+        """Factory: resolve ``name`` to a concrete :class:`VectorQuantizer`.
+
+        Args:
+            name: ``"euclidean_hierarchical"`` (the only quantizer shipped).
+
+        Returns:
+            A fresh :class:`VectorQuantizer` instance.
+
+        Raises:
+            ValueError: If ``name`` is unknown.
+        """
+        if name == "euclidean_hierarchical":
+            return EuclideanHierarchicalQuantizer()
+        msg = f"unknown quantizer: {name!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def precompute(
@@ -263,12 +280,8 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
         )
 
 
-# Register the default quantizer in the spec-mandated registry.
-QUANTIZER_REGISTRY.register("euclidean_hierarchical")(EuclideanHierarchicalQuantizer)  # type: ignore[arg-type]
-
-
 __all__ = [
     "EuclideanHierarchicalQuantizer",
     "QuantizationResult",
     "VectorQuantizer",
-]
+] 

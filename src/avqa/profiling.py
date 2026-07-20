@@ -19,7 +19,6 @@ from typing import IO
 import torch
 
 from avqa.logging import get_logger
-from avqa.registry import PROFILER_REGISTRY
 
 _logger = get_logger("profiling")
 
@@ -90,6 +89,18 @@ class Profiler:
     The profiler does NOT alter algorithmic behavior (spec §4.6.5); it
     only observes.
     """
+
+    @classmethod
+    def create(cls, name: str = "default") -> Profiler:
+        """Factory: resolve ``name`` to a :class:`Profiler` instance.
+
+        Args:
+            name: ``"default"`` (the only profiler shipped).
+        """
+        if name == "default":
+            return cls()
+        msg = f"unknown profiler: {name!r}"
+        raise ValueError(msg)
 
     def __init__(self) -> None:
         self.report = ProfilerReport()
@@ -181,7 +192,4 @@ def peak_memory_bytes() -> int:
     return 0
 
 
-PROFILER_REGISTRY.register("default")(Profiler)  # type: ignore[arg-type]
-
-
-__all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"]
+__all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"] 

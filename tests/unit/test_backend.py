@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from avqa.backend import Backend, TorchBackend, TritonBackend, create_backend
+from avqa.backend import Backend, TorchBackend, TritonBackend
 from avqa.merge import MergeInputs, ProbabilityMerge
 
 
@@ -198,21 +198,21 @@ class TestTritonBackend:
 
 
 class TestBackendFactory:
-    """Tests for create_backend factory (spec §5.11)."""
+    """Tests for :meth:`Backend.create` factory."""
 
     def test_create_torch(self) -> None:
-        """create_backend('torch') returns a TorchBackend."""
-        backend = create_backend("torch")
+        """``Backend.create('torch')`` returns a TorchBackend."""
+        backend = Backend.create("torch")
         assert isinstance(backend, TorchBackend)
 
     def test_unknown_backend_raises(self) -> None:
         """Unknown backend name raises ValueError."""
-        with pytest.raises(ValueError, match="not registered"):
-            create_backend("nonexistent_backend")
+        with pytest.raises(ValueError, match="not a known backend"):
+            Backend.create("nonexistent_backend")
 
     def test_default_is_torch(self) -> None:
-        """create_backend() defaults to 'torch'."""
-        backend = create_backend()
+        """``Backend.create()`` defaults to 'torch'."""
+        backend = Backend.create()
         assert isinstance(backend, TorchBackend)
 
 

@@ -26,7 +26,7 @@ import torch
 from torch import nn
 
 from avqa.attention import OnlineSoftmaxState
-from avqa.backend import create_backend
+from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
 from avqa.logging import get_logger
@@ -66,7 +66,7 @@ class AVQAttention(nn.Module):
     def __init__(self, config: AVQConfig, *, in_proj: bool = True, out_proj: bool = True) -> None:
         super().__init__()
         self.config = config
-        self.backend = create_backend(config.backend.name)
+        self.backend = Backend.create(config.backend.name)
         # OPT-0002: optional torch.compile wrapping. We attach the
         # eager function as ``self._forward_eager`` so the original
         # path remains the source of truth and so the compiled forward

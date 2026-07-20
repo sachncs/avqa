@@ -17,7 +17,6 @@ from dataclasses import dataclass
 import torch
 
 from avqa.exceptions import ConfigurationError
-from avqa.registry import MERGE_REGISTRY
 
 
 @dataclass
@@ -58,6 +57,31 @@ class MergeInputs:
 
 class MergeStrategy(ABC):
     """Abstract merge strategy (spec §4.7.6, §5.10)."""
+
+    @classmethod
+    def create(cls, kind: str = "probability") -> MergeStrategy:
+        """Factory: resolve ``kind`` to a concrete :class:`MergeStrategy`.
+
+        Args:
+            kind: ``"probability"`` (default), ``"weighted"``, ``"logit"``,
+                or ``"normalized"``.
+
+        Returns:
+            A fresh :class:`MergeStrategy` instance.
+
+        Raises:
+            ValueError: If ``kind`` is unknown.
+        """
+        if kind == "probability":
+            return ProbabilityMerge()
+        if kind == "weighted":
+            return WeightedMerge()
+        if kind == "logit":
+            return LogitMerge()
+        if kind == "normalized":
+            return NormalizedMerge()
+        msg = f"unknown merge strategy: {kind!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
@@ -143,13 +167,6 @@ class NormalizedMerge(MergeStrategy):
         return base / total_mass.clamp_min(1e-12)
 
 
-# Register each merge strategy under its canonical name (spec §3.11.2).
-MERGE_REGISTRY.register("probability")(ProbabilityMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("weighted")(WeightedMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("logit")(LogitMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("normalized")(NormalizedMerge)  # type: ignore[arg-type]
-
-
 __all__ = [
     "LogitMerge",
     "MergeInputs",
@@ -157,4 +174,4 @@ __all__ = [
     "NormalizedMerge",
     "ProbabilityMerge",
     "WeightedMerge",
-]
+] 

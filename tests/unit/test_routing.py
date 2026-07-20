@@ -7,7 +7,6 @@ import torch
 
 from avqa.exceptions import RoutingError
 from avqa.routing import (
-    BudgetRouter,
     Router,
     ThresholdRouter,
     TopPRouter,
@@ -148,17 +147,6 @@ class TestThresholdRouter:
             ThresholdRouter(threshold=0.0).select(torch.zeros(1, 1, 4), budget=0)
 
 
-class TestBudgetRouter:
-    """Tests for BudgetRouter."""
-
-    def test_matches_topp(self) -> None:
-        """BudgetRouter behaves like TopPRouter."""
-        importance = torch.tensor([[[0.4, 0.9, 0.1, 0.7]]])
-        budget_result = BudgetRouter().select(importance, budget=2)
-        topp_result = TopPRouter().select(importance, budget=2)
-        assert torch.equal(budget_result.selected_indices, topp_result.selected_indices)
-
-
 class TestRoutingDecision:
     """Tests for the RoutingDecision dataclass."""
 
@@ -181,4 +169,10 @@ class TestAbstractInterface:
         """All concrete routers inherit from Router."""
         assert issubclass(TopPRouter, Router)
         assert issubclass(ThresholdRouter, Router)
-        assert issubclass(BudgetRouter, Router)
+
+    def test_create_factory(self) -> None:
+        """``Router.create`` maps strategy names to concrete classes."""
+        assert isinstance(Router.create("topp"), TopPRouter)
+        assert isinstance(Router.create("threshold"), ThresholdRouter)
+        with pytest.raises(ValueError, match="unknown"):
+            Router.create("nothing")
