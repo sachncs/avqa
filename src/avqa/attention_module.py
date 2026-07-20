@@ -18,7 +18,6 @@ because every stage is delegated to the corresponding subsystem.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import torch
@@ -34,7 +33,7 @@ from avqa.multipass import MultiPassRefiner
 from avqa.online_adaptation import online_codebook_adaptation
 from avqa.refinement import refine as refine_step
 from avqa.routing import Router, compute_importance
-from avqa.scheduler import AdaptiveScheduler, DefaultScheduler, Scheduler
+from avqa.scheduler import Scheduler
 from avqa.utils.validation import (
     validate_device_match,
     validate_dtype,
@@ -44,6 +43,8 @@ from avqa.utils.validation import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from avqa.cache import KVCache
     from avqa.quantizer import QuantizationResult
     from avqa.routing import RoutingDecision
