@@ -217,13 +217,45 @@ All items in the "Active Tasks" section above are now `[x]` except for
 `TASK-11.001`–`TASK-11.004` (Triton GPU kernels and benchmarking), which
 remain blocked on the CUDA-matrix CI runner. See
 `PUBLICATION.md` "Outstanding Gaps Before Publication" and `OPTIMIZATIONS.md`
-"Optimization Backlog" for the cross-referenced gates. The HVAQ
-downstream-consumer invariant (per-parent probability) test is the next
-incremental addition; tracked under HVAQ Risks in `PUBLICATION.md` L106.
+"Optimization Backlog" for the cross-referenced gates.
+
+### Cleanup pass (2026-07-21)
+
+The following catch-up items are owned by the sweep (verified by the
+461-test suite + ruff/mypy clean + 90.5% coverage). Each corresponds
+to the deep-review findings reported in CHANGELOG "Unreleased Fixed".
+
+- [x] TASK-A.001 Visualizer public-API restore
+- [x] TASK-A.002 integration test import fix
+- [x] TASK-B.001 WeightedMerge double-count
+- [x] TASK-B.002 ProfilerReport.to_dict total_flops
+- [x] TASK-B.003 NaN-safe masked-tile exp (backend + pipeline)
+- [x] TASK-B.004 codeword-level mask plumbing
+- [x] TASK-B.005 ThresholdRouter over-budget raise
+- [x] TASK-B.006 OnlineSoftmaxState.replace m_anchor
+- [x] TASK-B.007 Delete dead code (correct_parent_contribution, compute_routing)
+- [x] TASK-B.008 HVAQ-ENT top-P entropy per SPEC §16.2
+- [x] TASK-D.002 direct OnlineSoftmaxState.replace tests
+- [x] TASK-C.001 exception-hierarchy sweep (~30 sites)
+- [x] TASK-C.002 NotInitializedError raiseable
+- [x] TASK-D.001 weak-test tightening
+- [x] TASK-D.003 BCAR tolerance + e2e
+- [x] TASK-D.004 disjoint-set assertion
+- [x] TASK-F.001 BudgetRouter honest impl
+- [x] TASK-F.002 Profiler memory + selected_indices
+- [x] TASK-F.003 InMemoryKVCache eviction contiguous
+- [x] TASK-F.006 BCAR drop dead per-batch EMA
+- [x] TASK-F.007 BCAR docstring v_j -> k_j
+- [x] TASK-F.008 functional.attention kv_cache
+- [x] TASK-F.009 from_dict run __post_init__
+- [x] TASK-F.010 save_json catch TypeError
+- [x] TASK-E.001 docs coverage gate -> 90%
+- [x] TASK-E.002 docs test-count reconciliation
+- [x] TASK-E.003 SPEC_COMPLIANCE remove deleted files
 
 ---
 
-## Recent Work (2026-07-17)
+## Recent Work (2026-07-21)
 
 - [x] Forward refactor: broke `forward_impl` into 10+ pipeline stage helpers
 - [x] Learnable HVAQ parameters: `_parent_beta` and `_alpha` nn.Parameters

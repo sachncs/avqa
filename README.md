@@ -28,8 +28,6 @@ implementation tracker is [TODO.md](TODO.md).
 
 - **Pure PyTorch reference implementation** with the canonical online-softmax
   algorithm from FlashAttention-2.
-- **Triton backend** for CUDA GPUs (delegates to Torch until kernel spec
-  is finalized).
 - **Hierarchical codebook** with mean-constrained parent-child structure.
 - **Adaptive refinement** that expands only the most-attended codewords.
 - **Correcting attention** that replaces — not augments — parent
@@ -39,11 +37,8 @@ implementation tracker is [TODO.md](TODO.md).
 - **HVAQ (Hopfield-VQ-Attention)** with per-query temperature schedules
   (entropy, linear) and learnable parameters.
 - **torch.compile** opt-in for reduced Python overhead (CPU and GPU).
-- **Framework integrations** for Hugging Face Transformers, vLLM,
-  FlashAttention, and xFormers.
-- **Profiling, visualization, and benchmarking** tools.
-- **Strict typing, zero-warning lint, ≥85% test coverage** on the core
-  package.
+- **Strict typing, zero-warning lint, ≥90% test coverage** on the
+  core package.
 
 ---
 
@@ -56,26 +51,19 @@ implementation tracker is [TODO.md](TODO.md).
 ```bash
 git clone https://github.com/sachncs/avqa.git
 cd avqa
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-### With optional extras
+### With optional visualization extras
 
 ```bash
-pip install "avqa[huggingface]"     # Hugging Face Transformers
-pip install "avqa[vllm]"            # vLLM integration
-pip install "avqa[flash-attn]"      # FlashAttention interop
-pip install "avqa[xformers]"        # xFormers interop
-pip install "avqa[triton]"          # Triton kernels (requires CUDA)
-pip install "avqa[viz]"             # Visualization backends
-pip install "avqa[all]"             # All of the above
+pip install -e ".[viz]"     # matplotlib + graphviz for visualization
 ```
 
 ### With dev dependencies
 
 ```bash
-pip install -e ".[all]"
-pip install pytest pytest-cov pytest-benchmark hypothesis ruff mypy matplotlib
+pip install -e ".[dev]"
 ```
 
 ---
@@ -133,7 +121,8 @@ output = attention(query=query, key=key, value=value, config=config)
 | `MultiPassRefiner` | class | Multi-pass correction with disjoint-set re-routing |
 | `Scheduler` | class | Refinement budget scheduler (Default, Adaptive) |
 | `KVCache` | class | Autoregressive KV cache (InMemory, Paged) |
-| `Backend` | class | Execution backend (Torch, Triton) |
+| `Backend` | class | Execution backend (Torch) |
+| `TorchBackend` | class | Pure-PyTorch backend implementation |
 | `Profiler` | class | Runtime profiler with JSON export |
 | `attention` | function | Stateless functional entry point |
 
@@ -155,24 +144,22 @@ avqa/
 │   ├── multipass.py           # MultiPassRefiner (disjoint-set)
 │   ├── hopfield.py            # HVAQ temperature schedules
 │   ├── scheduler.py           # Default + Adaptive schedulers
-│   ├── backend.py             # TorchBackend / TritonBackend
+│   ├── backend.py             # TorchBackend (Backend interface)
 │   ├── cache.py               # KVCache (InMemory, Paged)
 │   ├── config.py              # AVQConfig + sub-configs
 │   ├── data.py                # Shapes, dtypes, devices, contracts
 │   ├── functional.py          # Stateless functional API
-│   ├── integrations.py        # HF, vLLM, FlashAttention, xFormers
 │   ├── profiling.py           # Profiler + metrics + report
 │   ├── visualization.py       # Visualizer (tree, heatmap, timeline)
 │   ├── exceptions.py          # Exception hierarchy
 │   ├── logging.py             # Logging configuration
-│   ├── registry.py            # Extension registry
 │   ├── online_adaptation.py   # BCAR codebook adaptation
-│   ├── triton/                # Triton kernel stubs
-│   └── utils/                 # seed, validation, numerics
+│   ├── integrations/          # Placeholder for optional adapters
+│   ├── utils/                 # seed, validation, numerics
+│   └── version.py             # Version metadata
 ├── tests/
 │   ├── unit/                  # Unit tests
 │   ├── reference/             # Hand-computed reference tests
-│   ├── integration/           # Integration tests (HF, vLLM, FA, xF)
 │   └── performance/           # pytest-benchmark suite
 ├── docs/                      # API docs
 ├── examples/                  # Usage examples
@@ -187,7 +174,6 @@ avqa/
 ```bash
 # Lint
 ruff check src/ tests/
-ruff format --check src/ tests/
 
 # Type-check
 mypy src/avqa
@@ -195,11 +181,10 @@ mypy src/avqa
 # Tests
 pytest tests/unit -q
 pytest tests/reference -q
-pytest tests/integration -q
 pytest tests/performance -q
 
 # With coverage
-pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=85
+pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
 ```
 
 ### Code Style
@@ -207,8 +192,9 @@ pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=
 - Line length: 100
 - Quotes: double
 - Formatter/linter: ruff
-- Type hints: required on all public signatures
+- Type hints: required on all public signatures (strict mypy)
 - Docstrings: Google-style
+- Naming: no leading-underscore prefixes (project convention)
 
 ### Commit Conventions
 
@@ -247,8 +233,8 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 ## Roadmap
 
-- **v0.1.0** — Current: reference implementation, 516 tests, ≥85% coverage
-- **v0.2.0** — Triton kernel implementation, FAISS quantizer, k-means init
+- **v0.1.0** — Current: reference implementation, 461 tests, ≥90% coverage
+- **v0.2.0** — BCAR + HVAQ + multi-pass refinements (algorithmic contributions)
 - **v1.0.0** — Stable API, PyPI release, full spec compliance
 
 ---
@@ -265,6 +251,8 @@ This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).
 ## License
 
 [Apache License 2.0](LICENSE)
+
+---
 
 ## Citation
 
