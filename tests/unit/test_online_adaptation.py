@@ -14,7 +14,7 @@ from avqa.codebook import HierarchicalCodebook
 from avqa.online_adaptation import online_codebook_adaptation
 
 
-def _gaussian_centroids(
+def gaussian_centroids(
     *, num_heads: int, num_codewords: int, head_dim: int, children_per: int
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Generate Gaussian-blob parents/children (offset from the global mean)."""
@@ -28,7 +28,7 @@ def _gaussian_centroids(
     return parents, children
 
 
-def _codebook_from(
+def codebook_from(
     parents: torch.Tensor, children: torch.Tensor, *, perturb: float
 ) -> HierarchicalCodebook:
     cb = HierarchicalCodebook(
@@ -50,24 +50,24 @@ def _codebook_from(
 class TestBCARConvergence:
     """OPT-0003: the online codebook converges to the per-cluster mean."""
 
-    def _stream_for_centroid(self, centroid: torch.Tensor, n: int, *, sigma: float) -> torch.Tensor:
+    def stream_for_centroid(self, centroid: torch.Tensor, n: int, *, sigma: float) -> torch.Tensor:
         g = torch.Generator().manual_seed(123)
         return centroid + sigma * torch.randn(n, centroid.shape[-1], generator=g)
 
     def test_converges_to_centroid(self) -> None:
         torch.manual_seed(0)
         H, M0, D, C = 1, 4, 8, 2
-        parents, children = _gaussian_centroids(
+        parents, children = gaussian_centroids(
             num_heads=H, num_codewords=M0, head_dim=D, children_per=C
         )
-        cb = _codebook_from(parents, children, perturb=2.0)
+        cb = codebook_from(parents, children, perturb=2.0)
 
         # Stochastic k-means convergence (Bottou & Bengio 1994):
         # round the per-step EMA over (parent, child) so that all
         # children participate. Decay 0.1 ⇒ per-step rate 0.9 reaches
         # the centroid with sub-0.5 L2 error in ~2 k rounds.
         for step in range(2048):
-            keys = self._stream_for_centroid(parents[0, 0], 1, sigma=0.05)
+            keys = self.stream_for_centroid(parents[0, 0], 1, sigma=0.05)
             child_idx = step % C
             online_codebook_adaptation(
                 keys[None, None, None],
@@ -88,10 +88,10 @@ class TestBCARMeanConstraint:
     def test_mean_constraint_holds_after_100_steps(self) -> None:
         torch.manual_seed(0)
         H, M0, D, C = 2, 8, 16, 4
-        parents, children = _gaussian_centroids(
+        parents, children = gaussian_centroids(
             num_heads=H, num_codewords=M0, head_dim=D, children_per=C
         )
-        cb = _codebook_from(parents, children, perturb=0.5)
+        cb = codebook_from(parents, children, perturb=0.5)
 
         for _ in range(100):
             keys = torch.randn(1, H, 64, D)
@@ -125,7 +125,7 @@ class TestBCARRobustness:
     def test_empty_parent_does_not_explode(self) -> None:
         """Parents with zero assignment keep their value (no division)."""
         torch.manual_seed(0)
-        cb = _codebook_from(
+        cb = codebook_from(
             torch.randn(1, 4, 8),
             torch.randn(1, 4, 2, 8),
             perturb=0.0,

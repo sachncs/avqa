@@ -5,6 +5,4 @@ The canonical version string. Read by hatch via pyproject.toml's
 """
 from __future__ import annotations
 
-
-
 __version__ = "0.1.0"

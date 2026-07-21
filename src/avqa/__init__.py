@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import warnings
 
-from avqa._version import __version__
 from avqa.attention_module import AVQAttention
 from avqa.backend import Backend, TorchBackend
 from avqa.cache import KVCache
@@ -59,6 +58,7 @@ from avqa.exceptions import (
     ShapeError,
 )
 from avqa.profiling import Profiler
+from avqa.quantizer import VectorQuantizer
 from avqa.refinement import AdaptiveRefinement
 from avqa.routing import Router
 from avqa.scheduler import Scheduler
@@ -72,6 +72,7 @@ from avqa.utils.validation import (
     validate_rank,
     validate_shape,
 )
+from avqa.version import __version__
 
 __all__ = [
     "AVQAError",

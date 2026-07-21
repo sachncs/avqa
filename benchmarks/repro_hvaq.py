@@ -57,7 +57,7 @@ WARMUP: int = 3
 REPS: int = 10
 
 
-def _build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
+def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     config = AVQConfig(
         attention=AttentionShapeConfig(
             embed_dim=DEFAULT_HEADS * DEFAULT_HEAD_DIM,
@@ -82,7 +82,7 @@ def _build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     return mod
 
 
-def _bench(fn: object) -> dict[str, float]:
+def bench(fn: object) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
     samples: list[float] = []
@@ -104,7 +104,7 @@ def _bench(fn: object) -> dict[str, float]:
 # moves. A real LM harness (model + dataset + training loop) is
 # out of scope for this benchmark; the concentration metric maps
 # directly to the algorithmic effect of the temperature schedule.
-def _top_p_concentration(attention_probs: torch.Tensor, p: int) -> float:
+def top_p_concentration(attention_probs: torch.Tensor, p: int) -> float:
     """Mean top-P mass fraction across (B, H, N).
 
     Higher values indicate a more peaked (concentrated) parent
@@ -183,11 +183,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             ).transpose(1, 2)
             return F.scaled_dot_product_attention(qh, kh, vh)
 
-        sdpa_stats = _bench(sdpa_call)
+        sdpa_stats = bench(sdpa_call)
 
-        paper = _build_attention(hopfield_enabled=False, adaptive="none")
-        hvaq_ent = _build_attention(hopfield_enabled=True, adaptive="entropy")
-        hvaq_lin = _build_attention(hopfield_enabled=True, adaptive="linear")
+        paper = build_attention(hopfield_enabled=False, adaptive="none")
+        hvaq_ent = build_attention(hopfield_enabled=True, adaptive="entropy")
+        hvaq_lin = build_attention(hopfield_enabled=True, adaptive="linear")
 
         def paper_call(paper=paper, q=q, k=k, v=v) -> object:  # noqa: B008
             return paper(q, k, v, mask=None)
@@ -198,9 +198,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         def hvaq_lin_call(hvaq_lin=hvaq_lin, q=q, k=k, v=v) -> object:  # noqa: B008
             return hvaq_lin(q, k, v, mask=None)
 
-        paper_stats = _bench(paper_call)
-        hvaq_ent_stats = _bench(hvaq_ent_call)
-        hvaq_lin_stats = _bench(hvaq_lin_call)
+        paper_stats = bench(paper_call)
+        hvaq_ent_stats = bench(hvaq_ent_call)
+        hvaq_lin_stats = bench(hvaq_lin_call)
 
         seed_medians["sdpa"].append(sdpa_stats["median_ms"])
         seed_medians["paper_single_pass"].append(paper_stats["median_ms"])
@@ -259,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
                 # scope, the per-P mass concentration is captured
                 # by a single forward call. The following is the
                 # minimum that maps to the claim.
-                _ = module(q, k, v, mask=None)
+                module(q, k, v, mask=None)
         # Capture concentration via the module's own `last_parent_assignments`
         # plus the paper path's softmax. We don't need the exact HVAQ
         # path here; we just want a comparable scalar across the three
@@ -337,9 +337,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
                 probs.permute(0, 2, 1, 3)
                 .reshape(DEFAULT_BATCH, DEFAULT_SEQ_LEN, -1)
             )
-            seed_concentrations[name].append(_top_p_concentration(probs, DEFAULT_BUDGET))
+            seed_concentrations[name].append(top_p_concentration(probs, DEFAULT_BUDGET))
 
-    def _aggregate(vals: list[float]) -> dict[str, float]:
+    def aggregate(vals: list[float]) -> dict[str, float]:
         return {
             "mean": statistics.fmean(vals) if vals else 0.0,
             "stdev": statistics.stdev(vals) if len(vals) > 1 else 0.0,
@@ -349,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "n": len(vals),
         }
 
-    def _stats_from_medians(medians: list[float]) -> dict[str, float]:
+    def stats_from_medians(medians: list[float]) -> dict[str, float]:
         return {
             "median_ms": statistics.fmean(medians) if medians else 0.0,
             "stdev_ms_across_seeds": (statistics.stdev(medians) if len(medians) > 1 else 0.0),
@@ -359,18 +359,18 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         }
 
     rows: dict[str, object] = {
-        "sdpa": _stats_from_medians(seed_medians["sdpa"]),
-        "paper_single_pass": _stats_from_medians(seed_medians["paper_single_pass"]),
-        "hvaq_entropy": _stats_from_medians(seed_medians["hvaq_entropy"]),
-        "hvaq_linear": _stats_from_medians(seed_medians["hvaq_linear"]),
+        "sdpa": stats_from_medians(seed_medians["sdpa"]),
+        "paper_single_pass": stats_from_medians(seed_medians["paper_single_pass"]),
+        "hvaq_entropy": stats_from_medians(seed_medians["hvaq_entropy"]),
+        "hvaq_linear": stats_from_medians(seed_medians["hvaq_linear"]),
         "top_p_concentration": {
-            "paper_single_pass": _aggregate(seed_concentrations["paper_single_pass"]),
-            "hvaq_entropy": _aggregate(seed_concentrations["hvaq_entropy"]),
-            "hvaq_linear": _aggregate(seed_concentrations["hvaq_linear"]),
+            "paper_single_pass": aggregate(seed_concentrations["paper_single_pass"]),
+            "hvaq_entropy": aggregate(seed_concentrations["hvaq_entropy"]),
+            "hvaq_linear": aggregate(seed_concentrations["hvaq_linear"]),
         },
         "output_diff_vs_paper": {
-            "hvaq_entropy_max_abs": _aggregate(seed_output_diffs["paper_vs_hvaq_entropy"]),
-            "hvaq_linear_max_abs": _aggregate(seed_output_diffs["paper_vs_hvaq_linear"]),
+            "hvaq_entropy_max_abs": aggregate(seed_output_diffs["paper_vs_hvaq_entropy"]),
+            "hvaq_linear_max_abs": aggregate(seed_output_diffs["paper_vs_hvaq_linear"]),
         },
     }
 

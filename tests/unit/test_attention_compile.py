@@ -21,7 +21,7 @@ from avqa.config import (
 )
 
 
-def _compile_config() -> AVQConfig:
+def compile_config() -> AVQConfig:
     return AVQConfig(
         attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
         codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
@@ -30,7 +30,7 @@ def _compile_config() -> AVQConfig:
     )
 
 
-def _eager_config() -> AVQConfig:
+def eager_config() -> AVQConfig:
     return AVQConfig(
         attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
         codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
@@ -43,7 +43,7 @@ class TestCompileEnabled:
 
     def test_compiled_forward_attached_when_enabled(self) -> None:
         """compile_enabled=True installs a torch.compile wrapper."""
-        mod = AVQAttention(_compile_config(), in_proj=False, out_proj=False)
+        mod = AVQAttention(compile_config(), in_proj=False, out_proj=False)
         mod.eval()
         assert mod.forward_eager is not None
         assert mod.forward_compiled is not None
@@ -51,7 +51,7 @@ class TestCompileEnabled:
 
     def test_compiled_forward_absent_by_default(self) -> None:
         """compile_enabled=False leaves the compiled forward as None."""
-        mod = AVQAttention(_eager_config(), in_proj=False, out_proj=False)
+        mod = AVQAttention(eager_config(), in_proj=False, out_proj=False)
         mod.eval()
         assert mod.forward_eager is not None
         assert mod.forward_compiled is None
@@ -71,9 +71,9 @@ class TestCompileNumericalEquivalence:
     def modules(self) -> tuple[AVQAttention, AVQAttention]:
         """Return (compiled, eager) module pair sharing the same weights."""
         torch.manual_seed(0)
-        compiled = AVQAttention(_compile_config(), in_proj=False, out_proj=False)
+        compiled = AVQAttention(compile_config(), in_proj=False, out_proj=False)
         compiled.eval()
-        eager = AVQAttention(_eager_config(), in_proj=False, out_proj=False)
+        eager = AVQAttention(eager_config(), in_proj=False, out_proj=False)
         eager.load_state_dict(compiled.state_dict())
         # Codebook parents/children are plain tensors (not nn.Parameter),
         # so load_state_dict doesn't copy them — do it manually.

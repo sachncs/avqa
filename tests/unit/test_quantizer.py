@@ -61,7 +61,6 @@ class TestAssignmentShapes:
         B, H, _, D = keys.shape
         assert result.parent_aggregates.shape == (B, H, 8, D)
         assert result.child_aggregates.shape == (B, H, 8, 4, D)
-        _ = B, H
 
     def test_counts_shapes(self) -> None:
         """Counts have shape [B, H, M_0] and [B, H, M_0, C]."""

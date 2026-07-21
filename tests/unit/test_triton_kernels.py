@@ -18,9 +18,9 @@ from avqa.triton import (
     has_triton_module,
     is_triton_available,
 )
-from avqa.triton._loader import available_kernels, load_kernel
 from avqa.triton.child_attention import child_attention
 from avqa.triton.correction import correction
+from avqa.triton.loader import available_kernels, load_kernel
 from avqa.triton.parent_attention import parent_attention
 from avqa.triton.vq import vq_precompute
 

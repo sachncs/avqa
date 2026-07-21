@@ -26,18 +26,18 @@ from avqa.integrations import make_hf_attention_replacement
 pytestmark = pytest.mark.integration
 
 
-def _has_hf_transformers() -> bool:
+def has_hf_transformers() -> bool:
     return importlib.util.find_spec("transformers") is not None
 
 
-def _skip_without_hf() -> None:
-    if not _has_hf_transformers():
+def skip_without_hf() -> None:
+    if not has_hf_transformers():
         pytest.skip("transformers not installed; install avqa[huggingface] to run")
 
 
 def test_hf_replacement_full_forward() -> None:
     """Replace attention and run forward; output is finite and shaped."""
-    _skip_without_hf()
+    skip_without_hf()
     embed_dim = 32
     num_heads = 2
     config = AVQConfig(
@@ -50,7 +50,7 @@ def test_hf_replacement_full_forward() -> None:
         routing=RoutingConfig(refinement_budget=2),
     )
 
-    class _Orig(torch.nn.Module):
+    class Orig(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
             self.q = torch.nn.Linear(embed_dim, embed_dim)
@@ -61,7 +61,7 @@ def test_hf_replacement_full_forward() -> None:
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.out(torch.nn.functional.relu(self.q(x)))
 
-    orig = _Orig()
+    orig = Orig()
     wrapped = make_hf_attention_replacement(
         embed_dim=embed_dim,
         num_heads=num_heads,

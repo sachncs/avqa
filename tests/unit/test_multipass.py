@@ -49,7 +49,7 @@ class TestMultiPassRefiner:
         """``passes=1`` is the paper-equivalent path; residual is [0.0]."""
         torch.manual_seed(0)
         m = MultiPassRefiner(passes=1, decay=1.0)
-        final_state, residuals = _run_refiner(
+        final_state, residuals = run_refiner(
             m, B=1, H=1, T=4, P=4, M0=8, C=2, D=8
         )
         assert len(residuals) == 1
@@ -60,7 +60,7 @@ class TestMultiPassRefiner:
         """passes>1 without query/child_keys falls back to single-pass."""
         torch.manual_seed(0)
         m = MultiPassRefiner(passes=4, decay=0.5)
-        _, residuals = _run_refiner(m, B=1, H=1, T=4, P=4, M0=8, C=2, D=8)
+        _, residuals = run_refiner(m, B=1, H=1, T=4, P=4, M0=8, C=2, D=8)
         # Falls back to single-pass: returns [0.0].
         assert residuals == [0.0]
 
@@ -68,7 +68,7 @@ class TestMultiPassRefiner:
         """passes=4 with query/child_keys runs disjoint-set re-routing."""
         torch.manual_seed(42)
         m = MultiPassRefiner(passes=4, decay=0.5)
-        _, residuals = _run_refiner_reroute(
+        _, residuals = run_refiner_reroute(
             m, B=1, H=1, T=4, M0=8, C=2, D=8
         )
         assert len(residuals) == 4
@@ -79,7 +79,7 @@ class TestMultiPassRefiner:
         """With disjoint-set re-routing, residuals decrease monotonically."""
         torch.manual_seed(7)
         m = MultiPassRefiner(passes=4, decay=0.5)
-        _, residuals = _run_refiner_reroute(
+        _, residuals = run_refiner_reroute(
             m, B=2, H=2, T=8, M0=16, C=4, D=16
         )
         assert len(residuals) == 4
@@ -95,7 +95,7 @@ class TestMultiPassRefiner:
         torch.manual_seed(99)
         m = MultiPassRefiner(passes=3, decay=1.0)  # constant budget
         B, H, T, M0, C, D = 1, 1, 8, 12, 2, 8
-        _, residuals = _run_refiner_reroute(
+        _, residuals = run_refiner_reroute(
             m, B=B, H=H, T=T, M0=M0, C=C, D=D
         )
         assert len(residuals) == 3
@@ -126,7 +126,7 @@ class TestMultiPassRefiner:
 # ---------------------------------------------------------------------------
 
 
-def _make_dummy_inputs(B: int, H: int, T: int, M0: int, C: int, D: int) -> tuple:
+def make_dummy_inputs(B: int, H: int, T: int, M0: int, C: int, D: int) -> tuple:
     """Build the argument bundle ``refine`` consumes with deterministic data."""
     state = OnlineSoftmaxState.empty(B, H, T, 1, D)
     parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
@@ -154,7 +154,7 @@ def _make_dummy_inputs(B: int, H: int, T: int, M0: int, C: int, D: int) -> tuple
     )
 
 
-def _run_refiner(
+def run_refiner(
     m: MultiPassRefiner, B: int, H: int, T: int, P: int, M0: int, C: int, D: int
 ) -> tuple[OnlineSoftmaxState, list[float]]:
     """Drive ``m`` without re-routing (no query/child_keys)."""
@@ -169,7 +169,7 @@ def _run_refiner(
         child_counts,
         decision,
         child_logits,
-    ) = _make_dummy_inputs(B, H, T, M0, C, D)
+    ) = make_dummy_inputs(B, H, T, M0, C, D)
     return m.refine(
         state=state,
         parent_probs=parent_probs,
@@ -185,7 +185,7 @@ def _run_refiner(
     )
 
 
-def _run_refiner_reroute(
+def run_refiner_reroute(
     m: MultiPassRefiner, B: int, H: int, T: int, M0: int, C: int, D: int
 ) -> tuple[OnlineSoftmaxState, list[float]]:
     """Drive ``m`` with disjoint-set re-routing (query + child_keys)."""
@@ -200,7 +200,7 @@ def _run_refiner_reroute(
         child_counts,
         decision,
         child_logits,
-    ) = _make_dummy_inputs(B, H, T, M0, C, D)
+    ) = make_dummy_inputs(B, H, T, M0, C, D)
     query = torch.randn(B, H, T, D)
     child_keys = torch.randn(H, M0, C, D)
     return m.refine(

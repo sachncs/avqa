@@ -168,7 +168,7 @@ def test_pytorch_attention_large(large_seq_len: int, benchmark: object) -> None:
 def test_complexity_scaling() -> None:
     """Wall-clock must scale sub-quadratically from N=64 to N=256 (ISSUE-0024)."""
 
-    def _time_at(n: int) -> float:
+    def time_at(n: int) -> float:
         cfg_n = small_attn_config(seq_len=n)
         mod = AVQAttention(cfg_n, in_proj=False, out_proj=False)
         q = torch.randn(1, n, 64)
@@ -177,8 +177,8 @@ def test_complexity_scaling() -> None:
             mod(q, q, q)
         return (time.perf_counter() - start) / 3
 
-    t64 = _time_at(64)
-    t256 = _time_at(256)
+    t64 = time_at(64)
+    t256 = time_at(256)
     # Sub-quadratic: t(256) < 20 * t(64). Quadratic would be 16x.
     assert t256 < 20 * t64, f"Scaling too steep: t(256)={t256:.3f}s vs t(64)={t64:.3f}s"
 

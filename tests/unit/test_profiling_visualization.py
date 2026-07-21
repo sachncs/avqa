@@ -29,7 +29,7 @@ class TestProfilerSession:
         """Stage timing records a non-negative duration."""
         profiler = Profiler()
         with profiler.session(), profiler.stage("test"):
-            _ = sum(range(100))
+            sum(range(100))  # body inside the stage context
         assert len(profiler.report.stage_timers) == 1
         assert profiler.report.stage_timers[0].name == "test"
         assert profiler.report.stage_timers[0].duration_ms >= 0

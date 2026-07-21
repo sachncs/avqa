@@ -46,7 +46,7 @@ WARMUP: int = 3
 REPS: int = 10
 
 
-def _build_attention(
+def build_attention(
     *,
     passes: int,
     pass_decay: float,
@@ -75,7 +75,7 @@ def _build_attention(
     return mod
 
 
-def _bench(fn: object) -> dict[str, float]:
+def bench(fn: object) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
     samples: list[float] = []
@@ -132,15 +132,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         return F.scaled_dot_product_attention(qh, kh, vh)
 
-    sdpa_stats = _bench(sdpa_call)
+    sdpa_stats = bench(sdpa_call)
 
     # Paper single-pass baseline (passes=1, causal_incremental=False).
-    paper = _build_attention(passes=1, pass_decay=1.0, causal_incremental=False)
+    paper = build_attention(passes=1, pass_decay=1.0, causal_incremental=False)
 
     def paper_call() -> object:
         return paper(q, k, v, mask=None)
 
-    paper_stats = _bench(paper_call)
+    paper_stats = bench(paper_call)
 
     # ACMPR multi-pass with geometric budget decay. NOTE: the
     # integration in attention_module currently gates ``passes>1``
@@ -150,12 +150,12 @@ def main(argv: list[str] | None = None) -> int:
     # diverges by 4.7e15 after 4 passes). This benchmark measures the
     # integrated behaviour: the runtime is identical to the
     # single-pass path because of the gate.
-    multipass_gated = _build_attention(passes=4, pass_decay=0.5, causal_incremental=False)
+    multipass_gated = build_attention(passes=4, pass_decay=0.5, causal_incremental=False)
 
     def multipass_call() -> object:
         return multipass_gated(q, k, v, mask=None)
 
-    multipass_stats = _bench(multipass_call)
+    multipass_stats = bench(multipass_call)
 
     # Output equality: paper vs gated multi-pass should match exactly
     # (the gate falls back to the single-pass path). Sync the

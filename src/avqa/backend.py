@@ -294,7 +294,7 @@ class TritonBackend(Backend):
         if not self.is_available():
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         try:
-            from avqa.triton._loader import load_kernel  # noqa: PLC0415
+            from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
             out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
         except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
@@ -356,7 +356,7 @@ class TritonBackend(Backend):
                 tile_num,
             )
         try:
-            from avqa.triton._loader import load_kernel  # noqa: PLC0415
+            from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
             out = load_kernel("correction")(
                 state_max,

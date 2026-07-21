@@ -11,7 +11,7 @@ from avqa.config import AttentionShapeConfig, CodebookConfig, RoutingConfig
 from avqa.integrations import AVQvLLMBackend
 
 
-def _make_module(embed_dim: int, num_heads: int) -> AVQAttention:
+def make_module(embed_dim: int, num_heads: int) -> AVQAttention:
     """Build an AVQAttention module sized to (embed_dim, num_heads)."""
     config = AVQConfig(
         attention=AttentionShapeConfig(
@@ -39,7 +39,7 @@ def test_vllm_adapter_routes_through_paged_cache(embed_dim: int, num_heads: int)
         head_dim_v=embed_dim // num_heads,
     )
     backend = AVQvLLMBackend(num_kv_heads=num_heads, head_size=embed_dim // num_heads)
-    backend.module = _make_module(embed_dim, num_heads)
+    backend.module = make_module(embed_dim, num_heads)
     # Match num_kv_heads and head_size used by the page cache.
     backend.num_kv_heads = num_heads
     backend.head_size = embed_dim // num_heads
@@ -63,7 +63,7 @@ def test_vllm_adapter_rejects_non_paged_cache() -> None:
     """Passing anything other than PagedKVCache raises a typed error."""
     cache = object()
     backend = AVQvLLMBackend(num_kv_heads=1, head_size=8)
-    backend.module = _make_module(embed_dim=8, num_heads=1)
+    backend.module = make_module(embed_dim=8, num_heads=1)
     backend.num_kv_heads = 1
     backend.head_size = 8
     q = torch.randn(1, 1, 8)
@@ -76,7 +76,7 @@ def test_vllm_adapter_rejects_non_paged_cache() -> None:
 def test_vllm_adapter_without_cache_runs_inline() -> None:
     """When kv_cache is None the adapter uses the inner module."""
     backend = AVQvLLMBackend(num_kv_heads=2, head_size=8)
-    backend.module = _make_module(embed_dim=16, num_heads=2)
+    backend.module = make_module(embed_dim=16, num_heads=2)
     backend.num_kv_heads = 2
     backend.head_size = 8
     q = torch.randn(1, 3, 16)

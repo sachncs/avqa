@@ -25,24 +25,24 @@ FP32_TOL = {"atol": 1e-5, "rtol": 1e-5}
 BF16_TOL = {"atol": 1e-2, "rtol": 1e-2}
 
 
-def _has_cuda_triton() -> bool:
+def has_cuda_triton() -> bool:
     try:
         return bool(torch.cuda.is_available())
     except (ImportError, AttributeError):  # pragma: no cover
         return False
 
 
-def _skip_if_unavailable() -> None:
-    if not _has_cuda_triton():
+def skip_if_unavailable() -> None:
+    if not has_cuda_triton():
         pytest.skip("CUDA / Triton not available on this host")
 
 
 def test_vq_precompute_matches_torchbackend_fp32() -> None:
     """vq_precompute matches TorchBackend.quantize in FP32 (SPEC §11.9)."""
-    _skip_if_unavailable()
+    skip_if_unavailable()
     from avqa.backend import TorchBackend  # noqa: PLC0415
     from avqa.codebook import HierarchicalCodebook  # noqa: PLC0415
-    from avqa.triton._loader import load_kernel  # noqa: PLC0415
+    from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
     torch.manual_seed(0)
     cb = HierarchicalCodebook(num_heads=2, num_parents=16, children_per_parent=4, head_dim=32)
@@ -63,8 +63,8 @@ def test_vq_precompute_matches_torchbackend_fp32() -> None:
 
 def test_correction_matches_torchbackend() -> None:
     """Three-way tile merge matches TorchBackend.correction."""
-    _skip_if_unavailable()
-    from avqa.triton._loader import load_kernel  # noqa: PLC0415
+    skip_if_unavailable()
+    from avqa.triton.loader import load_kernel  # noqa: PLC0415
     from avqa.utils.numerics import online_softmax_step  # noqa: PLC0415
 
     state_max = torch.full((1, 2, 16), 0.5, device="cuda")
@@ -108,8 +108,8 @@ def test_correction_matches_torchbackend() -> None:
 
 def test_parent_attention_fp32_match() -> None:
     """parent_attention kernel matches the PyTorch reference (SPEC §11.5)."""
-    _skip_if_unavailable()
-    from avqa.triton._loader import load_kernel  # noqa: PLC0415
+    skip_if_unavailable()
+    from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
     H, B, T, M, D, DV = 2, 1, 16, 8, 32, 16
     query = torch.randn(B, H, T, D, device="cuda")

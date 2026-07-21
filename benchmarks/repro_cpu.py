@@ -58,7 +58,7 @@ def make_inputs(
     return q, k, v
 
 
-def make_avqa(_heads: int, embed_dim: int) -> AVQAttention:
+def make_avqa(heads: int, embed_dim: int) -> AVQAttention:
     """Build a small AVQA module sized for ``embed_dim``."""
     config = AVQConfig(
         attention=AttentionShapeConfig(
@@ -77,7 +77,7 @@ def make_avqa(_heads: int, embed_dim: int) -> AVQAttention:
     return module
 
 
-def _bench(
+def bench(
     fn: object,
     q: torch.Tensor,
     k: torch.Tensor,
@@ -145,8 +145,8 @@ def main(argv: list[str] | None = None) -> int:
             embed_dim=env_info["embed_dim"],
             seed=0,
         )
-        sdpa_stats = _bench(sdpa_call, q, k, v)
-        avqa_stats = _bench(avqa_call, q, k, v)
+        sdpa_stats = bench(sdpa_call, q, k, v)
+        avqa_stats = bench(avqa_call, q, k, v)
         rows.append(
             {
                 "sequence_length": seq_len,

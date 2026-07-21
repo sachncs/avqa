@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING
 import torch
 from torch import nn
 
-from avqa._pipeline import run_pipeline
 from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
@@ -31,6 +30,7 @@ from avqa.config import AVQConfig
 from avqa.logging import get_logger
 from avqa.multipass import MultiPassRefiner
 from avqa.online_adaptation import online_codebook_adaptation
+from avqa.pipeline import run_pipeline
 from avqa.refinement import refine as refine_step
 from avqa.routing import Router, compute_importance
 from avqa.scheduler import Scheduler

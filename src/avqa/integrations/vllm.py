@@ -142,7 +142,8 @@ class AVQvLLMBackend:
         flat_v = full_v.transpose(1, 2).reshape(B, full_v.shape[-2], num_heads * head_dim_v)
         out = self.module(query, flat_k, flat_v)
         kv_cache.append(new_k, new_v)
-        _ = attn_metadata
+        # attn_metadata is accepted for vLLM API compatibility but
+        # unused here; the cache drives the schedule.
         return out  # type: ignore[no-any-return]
 
     def forward_native(

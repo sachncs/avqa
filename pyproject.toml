@@ -80,7 +80,7 @@ include = [
 ]
 
 [tool.hatch.version]
-path = "src/avqa/_version.py"
+path = "src/avqa/version.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
 [tool.coverage.run]

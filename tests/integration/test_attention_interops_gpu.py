@@ -16,7 +16,7 @@ from avqa.integrations import flash_attention_interop, xformers_interop
 pytestmark = pytest.mark.gpu
 
 
-def _has_flash_attn() -> bool:
+def has_flash_attn() -> bool:
     try:
         import flash_attn  # noqa: PLC0415
 
@@ -25,7 +25,7 @@ def _has_flash_attn() -> bool:
         return False
 
 
-def _has_xformers() -> bool:
+def has_xformers() -> bool:
     try:
         import xformers  # noqa: PLC0415
 
@@ -34,19 +34,19 @@ def _has_xformers() -> bool:
         return False
 
 
-def _skip_unless_flash_attn() -> None:
-    if not _has_flash_attn():
+def skip_unless_flash_attn() -> None:
+    if not has_flash_attn():
         pytest.skip("flash_attn not installed; install avqa[flash-attn] to run")
 
 
-def _skip_unless_xformers() -> None:
-    if not _has_xformers():
+def skip_unless_xformers() -> None:
+    if not has_xformers():
         pytest.skip("xformers not installed; install avqa[xformers] to run")
 
 
 def test_flash_attention_interop_matches_reference() -> None:
     """FlashAttention wrapper matches the AVQA reference."""
-    _skip_unless_flash_attn()
+    skip_unless_flash_attn()
     torch.manual_seed(0)
     q = torch.randn(2, 16, 4, 32, device="cuda")
     k = torch.randn(2, 16, 4, 32, device="cuda")
@@ -62,7 +62,7 @@ def test_flash_attention_interop_matches_reference() -> None:
 
 def test_xformers_interop_matches_reference() -> None:
     """xFormers wrapper matches the AVQA reference."""
-    _skip_unless_xformers()
+    skip_unless_xformers()
     torch.manual_seed(0)
     q = torch.randn(2, 16, 4, 32, device="cuda")
     k = torch.randn(2, 16, 4, 32, device="cuda")

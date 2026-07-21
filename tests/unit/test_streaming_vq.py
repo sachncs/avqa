@@ -11,7 +11,7 @@ from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.streaming_vq import StreamingVQBuffer
 
 
-def _codebook_with_random_parents(
+def codebook_with_random_parents(
     num_heads: int = 1, num_parents: int = 4, head_dim: int = 8
 ) -> HierarchicalCodebook:
     """Codebook with a non-degenerate parent codebook (all-zero init fails)."""
@@ -31,7 +31,7 @@ class TestStreamingVQBuffer:
     def test_extend_assigns_parents_for_each_new_key(self) -> None:
         """``extend`` writes one parent assignment per new key."""
         torch.manual_seed(0)
-        cb = _codebook_with_random_parents(num_heads=1, num_parents=4)
+        cb = codebook_with_random_parents(num_heads=1, num_parents=4)
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         keys = torch.randn(8, 8)
         p, c = buf.extend(keys, cb.parents, cb.children)
@@ -41,15 +41,15 @@ class TestStreamingVQBuffer:
 
     def test_reject_wrong_key_shape(self) -> None:
         """``extend`` raises ShapeError on rank-3 input."""
-        cb = _codebook_with_random_parents()
+        cb = codebook_with_random_parents()
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         with pytest.raises(ShapeError):
             buf.extend(torch.randn(2, 2, 8), cb.parents, cb.children)
 
     def test_reject_wrong_parents_shape(self) -> None:
         """``extend`` raises ShapeError on parents with mismatched head_dim."""
-        cb = _codebook_with_random_parents(head_dim=8)
-        _ = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
+        cb = codebook_with_random_parents(head_dim=8)
+        StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         with pytest.raises(ShapeError):
             StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8).extend(
                 torch.randn(2, 8),
@@ -60,7 +60,7 @@ class TestStreamingVQBuffer:
     def test_realize_emits_quantization_result_shape(self) -> None:
         """``realize`` returns a QuantizationResult with the spec contract."""
         torch.manual_seed(0)
-        cb = _codebook_with_random_parents()
+        cb = codebook_with_random_parents()
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         buf.extend(torch.randn(8, 8), cb.parents, cb.children)
         result = buf.realize()
@@ -82,7 +82,7 @@ class TestStreamingVQBuffer:
     def test_parent_counts_sum_to_extended_keys(self) -> None:
         """The total parent counts equal the number of extended keys."""
         torch.manual_seed(0)
-        cb = _codebook_with_random_parents()
+        cb = codebook_with_random_parents()
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         for _ in range(3):
             buf.extend(torch.randn(8, 8), cb.parents, cb.children)
@@ -128,7 +128,7 @@ class TestStreamingVQBuffer:
     def test_reset_clears_state(self) -> None:
         """``reset`` drops the running aggregators to zero."""
         torch.manual_seed(0)
-        cb = _codebook_with_random_parents()
+        cb = codebook_with_random_parents()
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         buf.extend(torch.randn(8, 8), cb.parents, cb.children)
         assert int(buf.parent_counts.sum().item()) > 0

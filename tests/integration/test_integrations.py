@@ -150,10 +150,10 @@ class TestXFormersInterop:
         assert out.shape == (1, 2, 4, 8)
 
 
-_HASTT = pytest.mark.skipif(not is_vllm_available(), reason="vllm not installed")
+HASTT = pytest.mark.skipif(not is_vllm_available(), reason="vllm not installed")
 
 
-@_HASTT
+@HASTT
 class TestVLLMWhenInstalled:
     """Integration tests that run only when vllm is available (ISSUE-0027)."""
 
@@ -166,13 +166,13 @@ class TestVLLMWhenInstalled:
         assert backend.name == "torch"
 
 
-_HASSA = pytest.mark.skipif(
+HASSA = pytest.mark.skipif(
     not (is_flash_attention_available() and torch.cuda.is_available()),
     reason="flash-attn or CUDA not available",
 )
 
 
-@_HASSA
+@HASSA
 class TestFlashAttentionWhenInstalled:
     """Integration tests that run only when flash_attn+CUDA available (ISSUE-0028)."""
 
@@ -184,13 +184,13 @@ class TestFlashAttentionWhenInstalled:
         assert out.shape == q.shape
 
 
-_HASXF = pytest.mark.skipif(
+HASXF = pytest.mark.skipif(
     not (is_xformers_available() and torch.cuda.is_available()),
     reason="xformers or CUDA not available",
 )
 
 
-@_HASXF
+@HASXF
 class TestXFormersWhenInstalled:
     """Integration tests that run only when xformers+CUDA available (ISSUE-0029)."""
 
