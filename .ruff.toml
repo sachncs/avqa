@@ -87,8 +87,10 @@ ignore = [
   "N803",  # canonical tensor arg names
   "PLR2004",  # numeric magic values
   "PLR0913",  # Triton-style arg lists
+  "PLR0915",  # CLI scripts with one big main() function
   "ERA001",  # commented-out code annotations kept for documentation
   "B008",  # default-arg closure capture is intentional in benchmarks
+  "B023",  # lambda captures are intentional in benchmarks
   "RUF100",  # noqa directive not needed when rule is suppressed
 ]
 "tests/integration/**/*.py" = [

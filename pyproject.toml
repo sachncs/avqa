@@ -37,27 +37,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-huggingface = [
-  "transformers>=4.40",
-]
-vllm = [
-  "vllm>=0.5",
-]
-flash-attn = [
-  "flash-attn>=2.5",
-]
-xformers = [
-  "xformers>=0.27",
-]
-triton = [
-  "triton>=2.2",
+dev = [
+  "pytest>=7",
+  "pytest-cov",
+  "ruff",
+  "mypy",
+  "hypothesis",
 ]
 viz = [
   "matplotlib>=3.7",
   "graphviz>=0.20",
-]
-all = [
-  "avqa[huggingface,vllm,flash-attn,xformers,triton,viz]",
 ]
 
 [project.urls]
@@ -84,17 +73,6 @@ path = "src/avqa/version.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
 [tool.coverage.run]
-# CUDA-only Triton kernel bodies cannot run on the CPU CI matrix.
-# The Python wrappers in src/avqa/triton/ are exercised by smoke tests
-# in tests/unit/test_triton_kernels.py; the @triton.jit bodies are
-# covered by tests/integration/test_triton_kernels_gpu.py on the GPU
-# runner.
-omit = [
-  "src/avqa/triton/vq.py",
-  "src/avqa/triton/parent_attention.py",
-  "src/avqa/triton/child_attention.py",
-  "src/avqa/triton/correction.py",
-]
 branch = true
 
 [tool.coverage.report]
@@ -107,7 +85,4 @@ exclude_lines = [
 ]
 show_missing = true
 skip_covered = false
-# Coverage gate holds at 85 % once Triton kernels are added in v0.2.0;
-# Triton @triton.jit bodies execute only on the CUDA-matrix runner and
-# are excluded from the CPU-side coverage measurement.
 fail_under = 85

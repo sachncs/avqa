@@ -21,12 +21,14 @@ LM harness setup.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
 import json
 from pathlib import Path
 import statistics
 import time
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import torch
 from torch.nn import functional

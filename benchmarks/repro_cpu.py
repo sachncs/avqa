@@ -53,7 +53,7 @@ def make_avqa(heads: int, embed_dim: int) -> AVQAttention:
     config = AVQConfig(
         attention=AttentionShapeConfig(
             embed_dim=embed_dim,
-            num_heads=DEFAULT_HEADS,
+            num_heads=heads,
             head_dim=DEFAULT_HEAD_DIM,
         ),
         codebook=CodebookConfig(

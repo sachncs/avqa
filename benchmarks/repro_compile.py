@@ -115,9 +115,9 @@ def main(argv: list[str] | None = None) -> int:
             embed_dim=embed_dim,
             seed=0,
         )
-        sdpa_stats = bench(lambda: sdpa_call(q, k, v))
-        eager_stats = bench(lambda: eager(q, k, v, mask=None))
-        compiled_stats = bench(lambda: compiled(q, k, v, mask=None))
+        sdpa_stats = bench(lambda q=q, k=k, v=v: sdpa_call(q, k, v))
+        eager_stats = bench(lambda q=q, k=k, v=v: eager(q, k, v, mask=None))
+        compiled_stats = bench(lambda q=q, k=k, v=v: compiled(q, k, v, mask=None))
         rows.append(
             {
                 "sequence_length": seq_len,
