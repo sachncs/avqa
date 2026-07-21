@@ -13,7 +13,6 @@ Residual-norms: ``||cur_attn - prev_attn||`` is recorded per pass.
 With ``passes=1`` this is ``[0.0]`` by construction; with ``passes>1``
 the norms should decrease monotonically.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,7 +24,7 @@ from avqa.logging import get_logger
 from avqa.refinement import refine
 from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
-_logger = get_logger("multipass")
+logger = get_logger("multipass")
 
 
 @dataclass(frozen=True)
@@ -90,7 +89,7 @@ class MultiPassRefiner:
             raise ValueError(msg)
         self.passes = passes
         self.decay = decay
-        _logger.debug(
+        logger.debug(
             "MultiPassRefiner initialised: passes=%d decay=%.3f",
             passes,
             decay,
@@ -165,7 +164,7 @@ class MultiPassRefiner:
         # different subset of parents.  Requires query + child_keys for
         # child-logit recomputation; falls back to single-pass otherwise.
         if query is None or child_keys is None:
-            _logger.warning(
+            logger.warning(
                 "passes=%d but query/child_keys not provided; "
                 "re-routing disabled, falling back to single-pass",
                 self.passes,
@@ -187,7 +186,7 @@ class MultiPassRefiner:
             return result.state, [0.0]
 
         budgets = self.pass_budgets(decision.num_selected)
-        B, H, _T, D = query.shape
+        B, H, _, D = query.shape
         M0 = parent_probs.shape[-1]
         C = children_per_parent
         device = state.running_max.device

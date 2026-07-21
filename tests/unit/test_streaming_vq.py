@@ -86,7 +86,7 @@ class TestStreamingVQBuffer:
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         for _ in range(3):
             buf.extend(torch.randn(8, 8), cb.parents, cb.children)
-        assert int(buf._parent_counts.sum().item()) == 24
+        assert int(buf.parent_counts.sum().item()) == 24
 
     def test_aggregate_equals_per_token_mean_under_stationary_stream(
         self,
@@ -131,7 +131,7 @@ class TestStreamingVQBuffer:
         cb = _codebook_with_random_parents()
         buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
         buf.extend(torch.randn(8, 8), cb.parents, cb.children)
-        assert int(buf._parent_counts.sum().item()) > 0
+        assert int(buf.parent_counts.sum().item()) > 0
         buf.reset()
-        assert int(buf._parent_counts.sum().item()) == 0
+        assert int(buf.parent_counts.sum().item()) == 0
         assert len(buf) == 0

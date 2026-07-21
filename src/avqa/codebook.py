@@ -12,7 +12,6 @@ The parent-child mean constraint (§7.9) requires:
 This is enforced after every training update via
 :meth:`HierarchicalCodebook.reproject_parents`.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,10 +19,6 @@ from dataclasses import dataclass
 import torch
 
 from avqa.exceptions import CodebookError
-from avqa.logging import get_logger
-from avqa.registry import QUANTIZER_REGISTRY
-
-_logger = get_logger("codebook")
 
 
 def require_positive(value: int, field_name: str) -> None:
@@ -332,10 +327,6 @@ class HierarchicalCodebook:
             f"C={self.children_per_parent}, D={self.head_dim}, "
             f"device={self.parents.device}, dtype={self.parents.dtype})"
         )
-
-
-# Register in the spec-mandated registry.
-QUANTIZER_REGISTRY.register("hierarchical_codebook")(HierarchicalCodebook)  # type: ignore[arg-type]
 
 
 __all__ = ["CodebookStats", "HierarchicalCodebook", "require_positive"]

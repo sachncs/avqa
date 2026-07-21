@@ -8,7 +8,6 @@ ponytail: collapsed the planned routing package (7 sub-modules) into
 one src/avqa/routing.py. ImportanceEstimator is one function; selectors
 are small strategies on top of it.
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -18,9 +17,8 @@ import torch
 
 from avqa.exceptions import RoutingError
 from avqa.logging import get_logger
-from avqa.registry import ROUTER_REGISTRY
 
-_logger = get_logger("routing")
+logger = get_logger("routing")
 
 
 def compute_importance(
@@ -86,6 +84,26 @@ class RoutingDecision:
 
 class Router(ABC):
     """Abstract router interface (spec §4.7, §5.10)."""
+
+    @classmethod
+    def create(cls, strategy: str = "topp") -> Router:
+        """Factory: resolve ``strategy`` to a concrete :class:`Router`.
+
+        Args:
+            strategy: ``"topp"`` (default) or ``"threshold"``.
+
+        Returns:
+            A fresh :class:`Router` instance.
+
+        Raises:
+            ValueError: If ``strategy`` is unknown.
+        """
+        if strategy == "topp":
+            return TopPRouter()
+        if strategy == "threshold":
+            return ThresholdRouter()
+        msg = f"unknown routing strategy: {strategy!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def select(
@@ -187,30 +205,13 @@ class ThresholdRouter(Router):
         return RoutingDecision(selected_indices=indices, importance=importance)
 
 
-class BudgetRouter(Router):
-    """Budget-constrained selector that picks the top ``budget`` by score.
-
-    Equivalent to :class:`TopPRouter` but explicitly named for users who
-    configure their pipeline via "budget" terminology.
-    """
-
-    def select(
-        self,
-        importance: torch.Tensor,
-        budget: int,
-    ) -> RoutingDecision:
-        """Return the top-``budget`` indices."""
-        return TopPRouter().select(importance, budget)
-
-
-# Routers registered in the spec-mandated registry.
-ROUTER_REGISTRY.register("topp")(TopPRouter)  # type: ignore[arg-type]
-ROUTER_REGISTRY.register("threshold")(ThresholdRouter)  # type: ignore[arg-type]
-ROUTER_REGISTRY.register("budget")(BudgetRouter)  # type: ignore[arg-type]
+# NOTE: a previous ``BudgetRouter`` alias for ``TopPRouter`` has been
+# removed; the ``strategy="budget"`` config value is mapped to
+# :class:`TopPRouter` by ``Router.create`` for users who configure their
+# pipeline via "budget" terminology.
 
 
 __all__ = [
-    "BudgetRouter",
     "Router",
     "RoutingDecision",
     "ThresholdRouter",

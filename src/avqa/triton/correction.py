@@ -6,14 +6,13 @@ the full attention matrix.
 
 Signature and contract: SPEC §11.7.
 """
-
 from __future__ import annotations
 
 import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("triton.correction")
+logger = get_logger("triton.correction")
 
 
 @torch.no_grad()
@@ -37,8 +36,8 @@ def correction(
         Dictionary with the updated ``state_max``, ``state_denom``,
         ``state_num``.
     """
-    import triton
-    import triton.language as tl
+    import triton  # noqa: PLC0415
+    import triton.language as tl  # noqa: PLC0415
 
     B, H, T, _ = state_max.shape
     D_v = state_num.shape[-1]
@@ -64,6 +63,7 @@ def correction(
         T,
         DV: tl.constexpr,
     ) -> None:
+        """Online-softmax tile-correction kernel (SPEC §11.7)."""
         bht = tl.program_id(0)
         new_max = tl.maximum(
             tl.maximum(

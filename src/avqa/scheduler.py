@@ -7,18 +7,38 @@ is provided as an extension.
 ponytail: collapsed the planned scheduler package (5 sub-modules) into
 one src/avqa/scheduler.py.
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
 import torch
 
-from avqa.registry import SCHEDULER_REGISTRY
-
 
 class Scheduler(ABC):
     """Abstract scheduler interface (spec §4.7)."""
+
+    @classmethod
+    def create(cls, strategy: str = "default", *, budget: int = 8) -> Scheduler:
+        """Factory: resolve ``strategy`` to a concrete :class:`Scheduler`.
+
+        Args:
+            strategy: ``"default"`` (constant budget) or ``"adaptive"``
+                (entropy-driven).
+            budget: Constant budget for the default scheduler; used as
+                ``max_budget`` for the adaptive variant.
+
+        Returns:
+            A fresh :class:`Scheduler` instance.
+
+        Raises:
+            ValueError: If ``strategy`` is unknown.
+        """
+        if strategy == "default":
+            return DefaultScheduler(budget=budget)
+        if strategy == "adaptive":
+            return AdaptiveScheduler(min_budget=max(1, budget // 2), max_budget=budget)
+        msg = f"unknown scheduler strategy: {strategy!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def budget_for(self, importance: torch.Tensor) -> int:
@@ -100,10 +120,6 @@ class AdaptiveScheduler(Scheduler):
         if norm_entropy < self.entropy_threshold:
             return self.max_budget
         return self.min_budget
-
-
-SCHEDULER_REGISTRY.register("default")(DefaultScheduler)  # type: ignore[arg-type]
-SCHEDULER_REGISTRY.register("adaptive")(AdaptiveScheduler)  # type: ignore[arg-type]
 
 
 __all__ = ["AdaptiveScheduler", "DefaultScheduler", "Scheduler"]

@@ -12,7 +12,6 @@ The fused preprocessing outputs are the direct inputs to the attention
 kernel (spec §8.6.2): parent aggregates, child aggregates, parent
 counts, child counts, parent assignments, child assignments.
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -23,12 +22,11 @@ import torch
 
 from avqa.exceptions import ShapeError
 from avqa.logging import get_logger
-from avqa.registry import QUANTIZER_REGISTRY
 
 if TYPE_CHECKING:
     from avqa.codebook import HierarchicalCodebook
 
-_logger = get_logger("quantizer")
+logger = get_logger("quantizer")
 
 
 @dataclass
@@ -100,6 +98,24 @@ class QuantizationResult:
 
 class VectorQuantizer(ABC):
     """Abstract base for AVQA vector quantizers (spec §4.7)."""
+
+    @classmethod
+    def create(cls, name: str = "euclidean_hierarchical") -> VectorQuantizer:
+        """Factory: resolve ``name`` to a concrete :class:`VectorQuantizer`.
+
+        Args:
+            name: ``"euclidean_hierarchical"`` (the only quantizer shipped).
+
+        Returns:
+            A fresh :class:`VectorQuantizer` instance.
+
+        Raises:
+            ValueError: If ``name`` is unknown.
+        """
+        if name == "euclidean_hierarchical":
+            return EuclideanHierarchicalQuantizer()
+        msg = f"unknown quantizer: {name!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def precompute(
@@ -260,10 +276,6 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
             parent_counts=parent_counts,
             child_counts=child_counts,
         )
-
-
-# Register the default quantizer in the spec-mandated registry.
-QUANTIZER_REGISTRY.register("euclidean_hierarchical")(EuclideanHierarchicalQuantizer)  # type: ignore[arg-type]
 
 
 __all__ = [

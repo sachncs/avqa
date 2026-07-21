@@ -32,14 +32,13 @@ References
 - AVQ-Attention paper (§8.9): offline EMA training of the codebook.
 - Bottou & Bengio (1994): stochastic K-means convergence rate.
 """
-
 from __future__ import annotations
 
 import torch
 
 from avqa.logging import get_logger
 
-_logger = get_logger("bcar")
+logger = get_logger("bcar")
 
 
 def online_codebook_adaptation(

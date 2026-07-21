@@ -5,7 +5,6 @@ but each module imports :mod:`triton` at module load time. The
 runtime may be CPU-only; in that case :func:`is_triton_available`
 returns False and we never import the kernel modules.
 """
-
 from __future__ import annotations
 
 from functools import lru_cache
@@ -15,33 +14,33 @@ from avqa.triton import has_triton_module, is_triton_available
 
 
 @lru_cache(maxsize=1)
-def _load_vq() -> Any:
+def load_vq() -> Any:
     """Lazy import of the fused VQ kernel module."""
-    from avqa.triton.vq import vq_precompute
+    from avqa.triton.vq import vq_precompute  # noqa: PLC0415
 
     return vq_precompute
 
 
 @lru_cache(maxsize=1)
-def _load_parent_attention() -> Any:
+def load_parent_attention() -> Any:
     """Lazy import of the parent-attention kernel module."""
-    from avqa.triton.parent_attention import parent_attention
+    from avqa.triton.parent_attention import parent_attention  # noqa: PLC0415
 
     return parent_attention
 
 
 @lru_cache(maxsize=1)
-def _load_child_attention() -> Any:
+def load_child_attention() -> Any:
     """Lazy import of the child-attention kernel module."""
-    from avqa.triton.child_attention import child_attention
+    from avqa.triton.child_attention import child_attention  # noqa: PLC0415
 
     return child_attention
 
 
 @lru_cache(maxsize=1)
-def _load_correction() -> Any:
+def load_correction() -> Any:
     """Lazy import of the correction kernel module."""
-    from avqa.triton.correction import correction
+    from avqa.triton.correction import correction  # noqa: PLC0415
 
     return correction
 
@@ -67,10 +66,10 @@ def load_kernel(name: str) -> Any:
         )
         raise RuntimeError(msg)
     loaders = {
-        "vq_precompute": _load_vq,
-        "parent_attention": _load_parent_attention,
-        "child_attention": _load_child_attention,
-        "correction": _load_correction,
+        "vq_precompute": load_vq,
+        "parent_attention": load_parent_attention,
+        "child_attention": load_child_attention,
+        "correction": load_correction,
     }
     if name not in loaders:
         msg = f"unknown triton kernel name: {name!r}"

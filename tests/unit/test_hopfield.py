@@ -7,17 +7,18 @@ import math
 import pytest
 import torch
 
+from avqa import AVQAttention
 from avqa.config import (
-    AVQConfig,
     AttentionShapeConfig,
+    AVQConfig,
     BackendConfig,
     CodebookConfig,
     HopfieldConfig,
     RefinementConfig,
     RoutingConfig,
 )
+from avqa.exceptions import ConfigurationError
 from avqa.hopfield import (
-    AdaptiveSchedule,
     hopfield_logits,
     paper_beta,
     per_query_beta,
@@ -47,7 +48,6 @@ class TestValidateAdaptive:
         assert validate_adaptive(value) == value
 
     def test_rejects_unknown_schedule(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
         with pytest.raises(ConfigurationError, match="adaptive must be one of"):
             validate_adaptive("softmax")
@@ -120,7 +120,7 @@ class TestHopfieldLogits:
         out = hopfield_logits(base, beta_q)
         torch.testing.assert_close(out, base * beta_q.unsqueeze(-1))
 
-    def test_per_query_beta_broadcasts_over_M(self) -> None:
+    def test_per_query_beta_broadcasts_over_m_zero(self) -> None:
         """``\u03b2_q`` broadcasts to ``[B, H, N, 1]`` over the M_0 axis."""
         base = torch.randn(1, 1, 2, 3)
         beta_q = torch.tensor([0.5, 2.0]).reshape(1, 1, 2)
@@ -158,15 +158,13 @@ class TestHopfieldConfigValidation:
         assert c.alpha == 1.0
 
     def test_rejects_negative_beta_init(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
-        with pytest.raises(ConfigurationError, match="hopfield.beta_init"):
+        with pytest.raises(ConfigurationError, match=r"hopfield\.beta_init"):
             HopfieldConfig(beta_init=-0.1)
 
     def test_rejects_negative_alpha(self) -> None:
-        from avqa.exceptions import ConfigurationError
 
-        with pytest.raises(ConfigurationError, match="hopfield.alpha"):
+        with pytest.raises(ConfigurationError, match=r"hopfield\.alpha"):
             HopfieldConfig(alpha=-0.5)
 
 
@@ -175,7 +173,6 @@ class TestPaperEquivalenceIntegration:
 
     def test_hopfield_disabled_matches_paper(self) -> None:
         """``hopfield=False`` keeps the existing paper pipeline intact."""
-        from avqa import AVQAttention
 
         torch.manual_seed(0)
         config = AVQConfig(
@@ -210,7 +207,6 @@ class TestPaperEquivalenceIntegration:
 
     def test_hopfield_entropy_changes_attention(self) -> None:
         """HVAQ-ENT with enabled=True produces a DIFFERENT output than paper."""
-        from avqa import AVQAttention
 
         torch.manual_seed(0)
         config_paper = AVQConfig(
@@ -245,11 +241,10 @@ class TestPaperEquivalenceIntegration:
 
 
 class TestLearnableParameters:
-    """Tests for learnable β_p and α in HVAQ."""
+    """Tests for learnable beta_p and alpha in HVAQ."""
 
     def test_learnable_parent_beta_parameter_exists(self) -> None:
         """learnable_parent_beta=True creates an nn.Parameter."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -263,14 +258,13 @@ class TestLearnableParameters:
             ),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert hasattr(mod, "_parent_beta")
-        assert isinstance(mod._parent_beta, torch.nn.Parameter)
-        assert mod._parent_beta.shape == (1, 1, 1, 8)
-        torch.testing.assert_close(mod._parent_beta.data, torch.ones(1, 1, 1, 8))
+        assert hasattr(mod, "parent_beta")
+        assert isinstance(mod.parent_beta, torch.nn.Parameter)
+        assert mod.parent_beta.shape == (1, 1, 1, 8)
+        torch.testing.assert_close(mod.parent_beta.data, torch.ones(1, 1, 1, 8))
 
     def test_learnable_alpha_parameter_exists(self) -> None:
         """learnable_alpha=True creates an nn.Parameter."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -284,14 +278,13 @@ class TestLearnableParameters:
             ),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert hasattr(mod, "_alpha")
-        assert isinstance(mod._alpha, torch.nn.Parameter)
-        assert mod._alpha.shape == (2,)  # num_heads=2
-        torch.testing.assert_close(mod._alpha.data, torch.tensor([2.0, 2.0]))
+        assert hasattr(mod, "alpha")
+        assert isinstance(mod.alpha, torch.nn.Parameter)
+        assert mod.alpha.shape == (2,)  # num_heads=2
+        torch.testing.assert_close(mod.alpha.data, torch.tensor([2.0, 2.0]))
 
     def test_no_learnable_params_when_disabled(self) -> None:
         """No learnable params when learnable flags are False."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -302,8 +295,8 @@ class TestLearnableParameters:
             hopfield=HopfieldConfig(enabled=True, adaptive="entropy"),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert not hasattr(mod, "_parent_beta")
-        assert not hasattr(mod, "_alpha")
+        assert not hasattr(mod, "parent_beta")
+        assert not hasattr(mod, "alpha")
 
     def test_parent_beta_gradient_flows(self) -> None:
         """Gradient flows through learnable parent_beta.
@@ -311,7 +304,6 @@ class TestLearnableParameters:
         Uses a minimal config with no refinement to avoid NaN from
         the masking/backward path in the full pipeline.
         """
-        from avqa import AVQAttention
 
         torch.manual_seed(42)
         config = AVQConfig(
@@ -333,12 +325,11 @@ class TestLearnableParameters:
         # Verify the parameter received a gradient (may contain NaN
         # from the -inf masking backward path; the key property is
         # that gradient *exists* and has the right shape).
-        assert mod._parent_beta.grad is not None
-        assert mod._parent_beta.grad.shape == mod._parent_beta.shape
+        assert mod.parent_beta.grad is not None
+        assert mod.parent_beta.grad.shape == mod.parent_beta.shape
 
     def test_alpha_gradient_flows(self) -> None:
         """Gradient flows through learnable alpha."""
-        from avqa import AVQAttention
 
         torch.manual_seed(42)
         config = AVQConfig(
@@ -356,12 +347,11 @@ class TestLearnableParameters:
         q = torch.randn(2, 8, 32)
         out = mod(q, q, q)
         out.sum().backward(create_graph=True)
-        assert mod._alpha.grad is not None
-        assert mod._alpha.grad.shape == mod._alpha.shape
+        assert mod.alpha.grad is not None
+        assert mod.alpha.grad.shape == mod.alpha.shape
 
     def test_learnable_parent_beta_in_state_dict(self) -> None:
         """Learnable parent_beta appears in state_dict."""
-        from avqa import AVQAttention
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -376,4 +366,67 @@ class TestLearnableParameters:
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
         state = mod.state_dict()
-        assert "_parent_beta" in state
+        assert "parent_beta" in state
+
+
+class TestDownstreamConsumerInvariant:
+    """Theorem 16.2: HVAQ preserves the top-P parent ranking.
+
+    A downstream consumer that reads ``softmax(...)[..., parent]``
+    as a parent attention mass sees a *different magnitude* under
+    HVAQ-ENT/HVAQ-LIN (per-P probabilities are not invariant under
+    positive beta), but the *ranking* of parent indices is invariant
+    for any positive beta. This pins down the consumer contract:
+
+    - Top-K by probability: same indices under any HVAQ schedule.
+    - Sum of top-P mass: changes monotonically with beta.
+    - Argmax parent: same index.
+    """
+
+    def test_topk_indices_invariant_under_beta_scaling(self) -> None:
+        """Rescaling logits by any positive beta preserves the top-K indices.
+
+        ponytail: this is the canonical consumer-impact contract
+        test. When a downstream caller sorts parents by probability
+        mass, the order is invariant under HVAQ schedules.
+        """
+        torch.manual_seed(0)
+        base = torch.randn(2, 4, 8, 16)
+        topk_paper = base.topk(k=4, dim=-1).indices
+        for scale in (0.25, 1.0, 2.0, 8.5):
+            rescaled = base * scale
+            topk_scaled = rescaled.topk(k=4, dim=-1).indices
+            assert torch.equal(topk_paper, topk_scaled), (
+                f"top-K mismatch at scale={scale}"
+            )
+
+    def test_argmax_invariant_under_entropy_schedule(self) -> None:
+        """HVAQ-ENT does not change which parent wins the argmax."""
+        torch.manual_seed(1)
+        p = torch.softmax(torch.randn(2, 4, 8, 16), dim=-1)
+        # HVAQ-ENT rescales per-query; within a single query the
+        # parent probabilities are proportional to a positive power,
+        # so the argmax is invariant.
+        for h_top in (0.0, 0.5, 1.0, 2.0, math.log(16)):
+            beta = 1.0 * (1.0 + 1.0 / (1.0 + h_top))
+            beta_q = torch.full((2, 4, 8), beta)
+            logits = hopfield_logits(torch.log(p + 1e-30), beta_q)
+            argmax = logits.argmax(dim=-1)
+            paper_argmax = p.argmax(dim=-1)
+            assert torch.equal(argmax, paper_argmax)
+
+    def test_attention_mass_max_increases_under_entropy(self) -> None:
+        """HVAQ-ENT assigns a higher beta_q to peaked distributions.
+
+        This codifies the documented magnitude effect (Risks in
+        ``OPTIMIZATIONS.md`` L207): the consumer warning that
+        per-P probabilities change under HVAQ.
+        """
+        uniform = torch.full((1, 1, 1, 8), 1.0 / 8)
+        sharp = torch.zeros(1, 1, 1, 8)
+        sharp[..., 0] = 1.0
+        bq_sharp = per_query_beta(sharp, beta_init=1.0, adaptive="entropy")
+        bq_uniform = per_query_beta(uniform, beta_init=1.0, adaptive="entropy")
+        # Rescaling logits by a larger beta_q sharpens the post-softmax
+        # mass. beta_q(sharp) > beta_q(uniform) under HVAQ-ENT.
+        assert bq_sharp.item() > bq_uniform.item()

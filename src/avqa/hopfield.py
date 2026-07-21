@@ -23,7 +23,6 @@ the attention-mass entropy and feed it to one of two schedules:
 Paper-equivalence: with ``\u03b2_init = 1 / \u221ad`` and
 ``adaptive = \"none\"`` HVAQ matches the paper to FP32.
 """
-
 from __future__ import annotations
 
 import math
@@ -32,10 +31,6 @@ from typing import Literal
 import torch
 
 from avqa.exceptions import ConfigurationError
-from avqa.logging import get_logger
-
-_logger = get_logger("hopfield")
-
 
 AdaptiveSchedule = Literal["none", "entropy", "linear"]
 
@@ -111,7 +106,7 @@ def hopfield_logits(
     base_logits: torch.Tensor,
     per_query_beta: torch.Tensor,
     *,
-    parent_beta: torch.Tensor = 1.0,
+    parent_beta: torch.Tensor | float = 1.0,
 ) -> torch.Tensor:
     """Apply the HVAQ temperature schedule to a base logit tensor.
 

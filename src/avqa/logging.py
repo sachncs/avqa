@@ -10,7 +10,6 @@ The module exposes:
 - :func:`get_logger`: retrieve the AVQA logger (lazy).
 - :class:`LogLevel`: type alias for the standard logging level names.
 """
-
 from __future__ import annotations
 
 import logging
@@ -20,24 +19,24 @@ AVQA_LOGGER_NAME: Final[str] = "avqa"
 """Canonical logger name used throughout AVQA."""
 
 
-_DEFAULT_FORMAT: Final[str] = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
-_DEFAULT_DATEFMT: Final[str] = "%Y-%m-%d %H:%M:%S"
-_DEFAULT_LEVEL: Final[int] = logging.WARNING
+DEFAULT_FORMAT: Final[str] = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+DEFAULT_DATEFMT: Final[str] = "%Y-%m-%d %H:%M:%S"
+DEFAULT_LEVEL: Final[int] = logging.WARNING
 
 LogLevel = int
 """Standard Python logging level (e.g., ``logging.DEBUG``, ``logging.INFO``)."""
 
-_CONFIGURED: list[bool] = [False]
+CONFIGURED: list[bool] = [False]
 
 
 def set_configured(value: bool) -> None:
     """Mark the logger as configured (internal use)."""
-    _CONFIGURED[0] = value
+    CONFIGURED[0] = value
 
 
 def is_internal_configured() -> bool:
     """Return whether the logger has been configured (internal use)."""
-    return _CONFIGURED[0]
+    return CONFIGURED[0]
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
@@ -63,9 +62,9 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def configure_logger(
-    level: LogLevel = _DEFAULT_LEVEL,
-    fmt: str = _DEFAULT_FORMAT,
-    datefmt: str = _DEFAULT_DATEFMT,
+    level: LogLevel = DEFAULT_LEVEL,
+    fmt: str = DEFAULT_FORMAT,
+    datefmt: str = DEFAULT_DATEFMT,
     *,
     force: bool = False,
 ) -> logging.Logger:

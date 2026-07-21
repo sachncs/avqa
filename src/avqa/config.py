@@ -12,7 +12,6 @@ one module. They are interdependent frozen dataclasses composing a
 single :class:`AVQConfig` root; splitting them across files would just
 create import ceremony.
 """
-
 from __future__ import annotations
 
 import dataclasses
@@ -261,21 +260,21 @@ class HopfieldConfig:
             temperature schedule to the parent attention logits.
             ``BackendConfig.hopfield`` is the user-facing master
             switch; this attribute exists for forward compatibility.
-        beta_init: Base temperature ``β_0``. The paper uses
+        beta_init: Base temperature ``beta_0``. The paper uses
             ``1 / √d``; the HVAQ schedules scale around this
             base. ``0.0`` (default) auto-derives from the attention
             head dimension so the schedule is paper-exact when
             ``adaptive="none"``.
-        adaptive: ``"none"`` (constant β_0), ``"entropy"``
-            (β_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
-            (β_0 · (1 + α · H_top)).
+        adaptive: ``"none"`` (constant beta_0), ``"entropy"``
+            (beta_0 · (1 + 1 / (1 + H_top))), or ``"linear"``
+            (beta_0 · (1 + alpha * H_top)).
         alpha: Slope of the linear schedule; HVAQ-LIN only.
         learnable_parent_beta: When ``True``, adds a per-parent
-            learnable inverse temperature ``β_p`` as an
+            learnable inverse temperature ``beta_p`` as an
             ``nn.Parameter`` (initialized to 1.0). Gradient flows
             through :func:`hopfield_logits`.
         learnable_alpha: When ``True``, adds a per-head learnable
-            ``α`` as an ``nn.Parameter`` (initialized from
+            ``alpha`` as an ``nn.Parameter`` (initialized from
             ``alpha``). Overrides the fixed ``alpha`` in entropy
             and linear schedules.
     """
@@ -304,19 +303,15 @@ class AttentionShapeConfig:
         embed_dim: Embedding dimension (E).
         num_heads: Number of attention heads (H). Must divide ``embed_dim``.
         head_dim: Per-head dimension (D). Defaults to ``embed_dim // num_heads``.
-        max_sequence_length: Optional upper bound for sequence lengths.
-            ``0`` means unbounded.
     """
 
     embed_dim: int = 512
     num_heads: int = 8
     head_dim: int = 0  # 0 -> auto-derive as embed_dim // num_heads
-    max_sequence_length: int = 0
 
     def __post_init__(self) -> None:
         require_positive(self.embed_dim, "embed_dim")
         require_positive(self.num_heads, "num_heads")
-        require_non_negative(self.max_sequence_length, "max_sequence_length")
         if self.embed_dim % self.num_heads != 0:
             msg = f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})"
             raise ConfigurationError(
@@ -389,7 +384,6 @@ class AVQConfig:
                     embed_dim=self.attention.embed_dim,
                     num_heads=self.attention.num_heads,
                     head_dim=self.attention.embed_dim // self.attention.num_heads,
-                    max_sequence_length=self.attention.max_sequence_length,
                 ),
             )
 
@@ -448,7 +442,7 @@ class AVQConfig:
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
-                    kwargs[f.name] = target(**value)  # type: ignore[call-arg]
+                    kwargs[f.name] = target(**value)
                     continue
             kwargs[f.name] = value
         return cls(**kwargs)  # type: ignore[arg-type]

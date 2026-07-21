@@ -7,7 +7,6 @@ top-P parents, gathers their children, and hands them to the merge
 ponytail: collapsed the planned refinement package (5 sub-modules) into
 one src/avqa/refinement.py. The orchestrator is a single function.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,7 +14,7 @@ from dataclasses import dataclass
 import torch
 
 from avqa.attention import OnlineSoftmaxState
-from avqa.merge import MergeInputs, ProbabilityMerge
+from avqa.merge import MergeInputs, MergeStrategy
 from avqa.routing import RoutingDecision
 
 
@@ -283,23 +282,7 @@ def refine(
     child_probs_for_merge = child_logits_gathered.softmax(dim=-1)  # [B, H, T, P, C]
     child_value_for_merge = children.unsqueeze(2).expand(B, H, T, P, C, D_v)
     # M6: Select merge strategy from configured value.
-    if merge_strategy == "probability":
-        merger = ProbabilityMerge()
-    elif merge_strategy == "weighted":
-        from avqa.merge import WeightedMerge
-
-        merger = WeightedMerge()
-    elif merge_strategy == "logit":
-        from avqa.merge import LogitMerge
-
-        merger = LogitMerge()
-    elif merge_strategy == "normalized":
-        from avqa.merge import NormalizedMerge
-
-        merger = NormalizedMerge()
-    else:
-        msg = f"unknown merge strategy: {merge_strategy!r}"
-        raise ValueError(msg)
+    merger = MergeStrategy.create(merge_strategy)
     merge_value = merger.merge(
         MergeInputs(
             parent_probs=parent_probs_for_merge,

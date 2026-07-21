@@ -4,7 +4,6 @@ ponytail: the profiler is one Profiler class that collects stage
 timings, memory, and per-step statistics. Report export is JSON-only;
 visual rendering lives in avqa.visualization.
 """
-
 from __future__ import annotations
 
 from collections.abc import Iterator  # noqa: TC003
@@ -18,9 +17,8 @@ from typing import IO
 import torch
 
 from avqa.logging import get_logger
-from avqa.registry import PROFILER_REGISTRY
 
-_logger = get_logger("profiling")
+logger = get_logger("profiling")
 
 
 @dataclass
@@ -90,6 +88,18 @@ class Profiler:
     only observes.
     """
 
+    @classmethod
+    def create(cls, name: str = "default") -> Profiler:
+        """Factory: resolve ``name`` to a :class:`Profiler` instance.
+
+        Args:
+            name: ``"default"`` (the only profiler shipped).
+        """
+        if name == "default":
+            return cls()
+        msg = f"unknown profiler: {name!r}"
+        raise ValueError(msg)
+
     def __init__(self) -> None:
         self.report = ProfilerReport()
 
@@ -101,7 +111,7 @@ class Profiler:
             yield
         finally:
             self.report.total_duration_ms = (time.perf_counter() - self.session_start) * 1000.0
-            _logger.debug(
+            logger.debug(
                 "Profiler session: %.2f ms, %d stages",
                 self.report.total_duration_ms,
                 len(self.report.stage_timers),
@@ -178,9 +188,6 @@ def peak_memory_bytes() -> int:
     if torch.cuda.is_available():
         return int(torch.cuda.max_memory_allocated())
     return 0
-
-
-PROFILER_REGISTRY.register("default")(Profiler)  # type: ignore[arg-type]
 
 
 __all__ = ["Profiler", "ProfilerReport", "StageTimer", "peak_memory_bytes"]

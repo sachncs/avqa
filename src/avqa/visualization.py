@@ -4,15 +4,12 @@ ponytail: visualization is rendered as JSON-able data structures.
 Real matplotlib/graphviz rendering is optional and not loaded by
 default; the data is what consumers (notebooks, dashboards) consume.
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 import torch
-
-from avqa.registry import VISUALIZER_REGISTRY
 
 
 @dataclass
@@ -46,6 +43,24 @@ class TimelineEvent:
 
 class Visualizer(ABC):
     """Abstract visualizer (spec §3.18, §5.16)."""
+
+    @classmethod
+    def create(cls, backend: str = "json") -> Visualizer:
+        """Factory: resolve ``backend`` to a concrete :class:`Visualizer`.
+
+        Args:
+            backend: ``"json"`` (default) for the JSON-only renderer.
+
+        Returns:
+            A fresh :class:`Visualizer` instance.
+
+        Raises:
+            ValueError: If ``backend`` is unknown.
+        """
+        if backend == "json":
+            return JSONVisualizer()
+        msg = f"unknown visualizer backend: {backend!r}"
+        raise ValueError(msg)
 
     @abstractmethod
     def render_refinement_tree(self, root: TreeNode) -> dict[str, object]:
@@ -142,9 +157,6 @@ def tree_to_dict(node: TreeNode) -> dict[str, object]:
         "metadata": dict(node.metadata),
         "children": [tree_to_dict(c) for c in node.children],
     }
-
-
-VISUALIZER_REGISTRY.register("json")(JSONVisualizer)  # type: ignore[arg-type]
 
 
 __all__ = [

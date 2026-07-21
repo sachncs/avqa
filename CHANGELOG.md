@@ -179,9 +179,12 @@ All notable changes to AVQA are documented here. Versions follow
   ``BackendConfig.hopfield`` master switch.
 - ``src/avqa/attention_module.py``: HVAQ block in ``forward_impl``,
   gated on ``backend.hopfield and hopfield.adaptive != "none"``.
-- ``tests/unit/test_hopfield.py``: 30 SPEC §16 unit tests covering
-  the temperature schedules, HopfieldConfig validation, Theorem 16.1
-  paper equivalence, and learnable parameter gradient flow.
+- ``tests/unit/test_hopfield.py``: 31 SPEC §16 unit functions
+  (33 collected with parametrized variants) covering the
+  temperature schedules, HopfieldConfig validation, Theorem 16.1
+  paper equivalence, learnable parameter gradient flow, and
+  Theorem 16.2 downstream-consumer invariants
+  (top-K index invariance under positive β).
 - EXP-0006 captures the latency curve and output difference on a
   small synthetic task. The integration is gated off by default so
   every prior test continues to pass.

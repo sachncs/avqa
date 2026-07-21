@@ -9,13 +9,16 @@ the optional dependency is unavailable.
 from __future__ import annotations
 
 import pytest
+import torch
+
+from avqa.integrations import flash_attention_interop, xformers_interop
 
 pytestmark = pytest.mark.gpu
 
 
 def _has_flash_attn() -> bool:
     try:
-        import flash_attn
+        import flash_attn  # noqa: PLC0415
 
         return True
     except ImportError:
@@ -24,7 +27,7 @@ def _has_flash_attn() -> bool:
 
 def _has_xformers() -> bool:
     try:
-        import xformers
+        import xformers  # noqa: PLC0415
 
         return True
     except ImportError:
@@ -44,10 +47,6 @@ def _skip_unless_xformers() -> None:
 def test_flash_attention_interop_matches_reference() -> None:
     """FlashAttention wrapper matches the AVQA reference."""
     _skip_unless_flash_attn()
-    import torch
-
-    from avqa.integrations import flash_attention_interop
-
     torch.manual_seed(0)
     q = torch.randn(2, 16, 4, 32, device="cuda")
     k = torch.randn(2, 16, 4, 32, device="cuda")
@@ -64,10 +63,6 @@ def test_flash_attention_interop_matches_reference() -> None:
 def test_xformers_interop_matches_reference() -> None:
     """xFormers wrapper matches the AVQA reference."""
     _skip_unless_xformers()
-    import torch
-
-    from avqa.integrations import xformers_interop
-
     torch.manual_seed(0)
     q = torch.randn(2, 16, 4, 32, device="cuda")
     k = torch.randn(2, 16, 4, 32, device="cuda")

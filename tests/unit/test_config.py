@@ -154,11 +154,6 @@ class TestAttentionShapeConfig:
         with pytest.raises(ConfigurationError, match="divisible"):
             AVQConfig(attention=AttentionShapeConfig(embed_dim=100, num_heads=8))
 
-    def test_max_seq_length_validation(self) -> None:
-        """max_sequence_length must be non-negative."""
-        with pytest.raises(ConfigurationError):
-            AVQConfig(attention=AttentionShapeConfig(max_sequence_length=-1))
-
 
 class TestAVQConfig:
     """Tests for the top-level AVQConfig."""

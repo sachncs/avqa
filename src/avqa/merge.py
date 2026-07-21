@@ -7,7 +7,6 @@ ponytail: collapsed the planned merge package (8 sub-modules) into one
 src/avqa/merge.py. Four strategies on a single input contract; each is a
 small function.
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -16,7 +15,6 @@ from dataclasses import dataclass
 import torch
 
 from avqa.exceptions import ConfigurationError
-from avqa.registry import MERGE_REGISTRY
 
 
 @dataclass
@@ -58,6 +56,31 @@ class MergeInputs:
 class MergeStrategy(ABC):
     """Abstract merge strategy (spec §4.7.6, §5.10)."""
 
+    @classmethod
+    def create(cls, kind: str = "probability") -> MergeStrategy:
+        """Factory: resolve ``kind`` to a concrete :class:`MergeStrategy`.
+
+        Args:
+            kind: ``"probability"`` (default), ``"weighted"``, ``"logit"``,
+                or ``"normalized"``.
+
+        Returns:
+            A fresh :class:`MergeStrategy` instance.
+
+        Raises:
+            ValueError: If ``kind`` is unknown.
+        """
+        if kind == "probability":
+            return ProbabilityMerge()
+        if kind == "weighted":
+            return WeightedMerge()
+        if kind == "logit":
+            return LogitMerge()
+        if kind == "normalized":
+            return NormalizedMerge()
+        msg = f"unknown merge strategy: {kind!r}"
+        raise ValueError(msg)
+
     @abstractmethod
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
         """Combine parent + child contributions into a single per-(N, D) tensor.
@@ -96,6 +119,14 @@ class WeightedMerge(MergeStrategy):
         self.child_weight = child_weight
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
+        """Weighted sum of parent and child contributions (spec §3.11.2).
+
+        Args:
+            inputs: Standard merge inputs.
+
+        Returns:
+            ``self.parent_weight * parent + self.child_weight * child``.
+        """
         return (
             self.parent_weight * inputs.parent_probs * inputs.parent_value
             + self.child_weight
@@ -114,6 +145,20 @@ class LogitMerge(MergeStrategy):
     """
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
+        """Combine parent and child log-probabilities then re-softmax.
+
+        The parent logit and the child logits are concatenated and a
+        single softmax normalizes them jointly. This differs from
+        :class:`ProbabilityMerge` (which performs a subtract-parent /
+        add-children delta) in that the normalization is over all
+        parent + child positions at once.
+
+        Args:
+            inputs: Standard merge inputs.
+
+        Returns:
+            Per-merge-position value ``[B, H, N, D]``.
+        """
         # Log-probabilities: parent [B,H,T,P,1] and children [B,H,T,P,C].
         parent_log = inputs.parent_probs.clamp_min(1e-12).log()
         child_log = inputs.child_probs.clamp_min(1e-12).log()
@@ -135,18 +180,19 @@ class NormalizedMerge(MergeStrategy):
     """
 
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
+        """Renormalize the :class:`ProbabilityMerge` output by total child mass.
+
+        Args:
+            inputs: Standard merge inputs.
+
+        Returns:
+            ``ProbabilityMerge(inputs) / total_child_mass``.
+        """
         base = ProbabilityMerge().merge(inputs)
         # Reconstruction of probs: parent_probs (mass 1) - parent_probs + sum(child_probs)
         total_mass = inputs.child_probs.sum(dim=-1, keepdim=True)
         # Normalize by mass so that, in the linear regime, attention sums to 1.
         return base / total_mass.clamp_min(1e-12)
-
-
-# Register each merge strategy under its canonical name (spec §3.11.2).
-MERGE_REGISTRY.register("probability")(ProbabilityMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("weighted")(WeightedMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("logit")(LogitMerge)  # type: ignore[arg-type]
-MERGE_REGISTRY.register("normalized")(NormalizedMerge)  # type: ignore[arg-type]
 
 
 __all__ = [

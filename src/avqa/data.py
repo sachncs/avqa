@@ -9,7 +9,6 @@ contracts) into one file. Each concept is small (a frozenset, a few
 constants, a dataclass). Splitting would have added import overhead
 without clarity benefit.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -6,7 +6,6 @@ we do not re-implement ``stable_softmax``. The one thing stdlib does NOT
 provide is the online-softmax merge step that FlashAttention uses to
 combine partial tiles, which is implemented here.
 """
-
 from __future__ import annotations
 
 import torch

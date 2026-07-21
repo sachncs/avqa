@@ -63,11 +63,7 @@ ignore = [
              # — canonical tensor notation (spec §6.3) uses uppercase.
   "ARG002",  # Unused method argument for documenting contract parameters
              # that are part of the public interface.
-  "PLR0911", # Too many return statements (lazy __getattr__ has many branches)
   "PLR0912", # Too many branches
-  "PLC0415", # Lazy imports inside functions are intentional in __init__.py
-             # (lazy __getattr__) and in subsystem modules (deferred heavy
-             # deps like torch).
   "TC001",   # Type-checking block import — acceptable for forward refs.
   "TC002",   # torch is a runtime dep, not just a type-hint dep.
   "UP037",   # Quoted type annotations kept on purpose for forward refs to
@@ -92,12 +88,10 @@ ignore = [
   "PLR2004",  # numeric magic values
   "PLR0913",  # Triton-style arg lists
   "ERA001",  # commented-out code annotations kept for documentation
-  "PLC0415",  # inline imports for short benchmark scripts
   "B008",  # default-arg closure capture is intentional in benchmarks
   "RUF100",  # noqa directive not needed when rule is suppressed
 ]
 "tests/integration/**/*.py" = [
-  "PLC0415",  # Lazy imports of optional CUDA-only deps in GPU-gated tests
   "F401",     # imports under _skip_if_unavailable guards
   "T201",     # print() diagnostic is acceptable in test diagnostics
   "ARG001",   # unused fixture args

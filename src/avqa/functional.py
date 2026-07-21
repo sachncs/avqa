@@ -8,7 +8,6 @@ directly to amortize parameter initialization.
 ponytail: the functional API is a single function. Spec §3.5 requires
 "no internal state"; we construct a fresh module on each call.
 """
-
 from __future__ import annotations
 
 import torch

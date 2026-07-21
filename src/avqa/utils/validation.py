@@ -7,7 +7,6 @@ provides the canonical validation helpers used across the codebase.
 Validation MAY be disabled in optimized execution modes (e.g., by setting
 ``AVQAConfig.skip_validation=True``).
 """
-
 from __future__ import annotations
 
 from collections.abc import Sequence

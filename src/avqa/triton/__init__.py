@@ -24,15 +24,15 @@ Numerical tolerances (SPEC §11.9) are checked in
 ``tests/integration/test_triton_kernels.py`` (CUDA-only, gated by the
 ``gpu`` marker).
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib.util
 
 from avqa.exceptions import BackendError
 from avqa.logging import get_logger
 
-_logger = get_logger("triton")
+logger = get_logger("triton")
 
 DEFAULT_BLOCK_T = 64
 DEFAULT_BLOCK_M = 64
@@ -61,12 +61,10 @@ class TritonTileConfig:
 
 def is_triton_available() -> bool:
     """Return True iff Triton and CUDA are both available."""
-    try:
-        import triton  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("triton") is None:
         return False
     try:
-        import torch
+        import torch  # noqa: PLC0415
 
         return bool(torch.cuda.is_available())
     except ImportError:  # pragma: no cover - torch always present
@@ -75,12 +73,7 @@ def is_triton_available() -> bool:
 
 def has_triton_module() -> bool:
     """Return True iff the local Triton runtime is importable (no CUDA check)."""
-    try:
-        import triton  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("triton") is not None
 
 
 __all__ = [

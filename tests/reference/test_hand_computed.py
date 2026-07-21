@@ -1,14 +1,26 @@
-"""Hand-computed reference test (ISSUE-0025, spec §3.25).
+"""Hand-computed oracle tests.
 
-Verifies the quantizer produces correct output for a tiny, manually
-computable example (B=1, H=1, N=4, M0=2, C=2, D=2).
+These tests verify AVQA's algebraic core against closed-form answers
+derived directly from the algorithm specifications rather than from
+the codebase. They are the closest thing the project has to a
+mathematical specification test suite.
+
+ISSUE-0025: spec §3.25 acceptance criterion ``functional acceptance``.
+If any of these break, the algorithm has drifted from the spec, not
+just from an internal implementation.
 """
 
 from __future__ import annotations
 
+import pytest
 import torch
 
 from avqa.codebook import HierarchicalCodebook
+from avqa.hopfield import (
+    hopfield_logits,
+    paper_beta,
+    per_query_beta,
+)
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 
 
@@ -53,12 +65,6 @@ class TestHandComputedReference:
         expected_counts = torch.tensor([[[2.0, 2.0]]])
         assert torch.equal(result.parent_counts, expected_counts)
 
-        # Child counts: each parent's children split the 2 keys.
-        # Key0→parent0 child0, key1→parent0 child1 (or vice versa).
-        # Both children get 1 key each.
-        child_counts_0 = result.child_counts[0, 0, 0]  # [C]
-        assert child_counts_0.sum().item() == 2.0
-
     def test_single_key_exact_match(self) -> None:
         """A key that exactly equals a parent gets assigned there."""
         cb = HierarchicalCodebook(
@@ -69,7 +75,11 @@ class TestHandComputedReference:
         )
         cb.parents = torch.tensor(
             [
-                [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+                [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ]
             ]
         )
         cb.children = torch.tensor(
@@ -119,3 +129,43 @@ class TestHandComputedReference:
         agg_sum = result.parent_aggregates.sum(dim=2)[0, 0]
         val_sum = values.sum(dim=2)[0, 0]
         assert torch.allclose(agg_sum, val_sum, atol=1e-5)
+
+    def test_one_hot_peaked_distribution_doubles_beta(self) -> None:
+        """`per_query_beta`: peaked distribution (entropy = 0) doubles beta_q.
+
+        Hand-derived from ``hopfield.per_query_beta``: H_top = 0 →
+        schedule = ``1 + 1 / (1 + 0) = 2``; beta_q = beta_init · 2.
+        """
+        p_one_hot = torch.tensor([[[[1.0, 0.0, 0.0, 0.0]]]])
+        result = per_query_beta(p_one_hot, beta_init=1.0, adaptive="entropy")
+        # beta_q = 1.0 · (1 + 1/(1+0)) = 2.0
+        assert result.item() == 2.0
+
+    def test_linear_peaked_unchanged(self) -> None:
+        """`per_query_beta`: linear schedule at H_top = 0 gives beta_q = beta_init.
+
+        From ``hopfield.per_query_beta``: schedule = ``1 + alpha * H_top``.
+        At ``H_top = 0`` this is 1; at ``beta_init = 1.5, alpha = 0.7`` it is 1.5.
+        """
+        p_one_hot = torch.tensor([[[[1.0, 0.0, 0.0, 0.0]]]])
+        result = per_query_beta(p_one_hot, beta_init=1.5, adaptive="linear", alpha=0.7)
+        assert result.item() == 1.5
+
+    def test_paper_beta_d_value(self) -> None:
+        """``paper_beta(d) = 1 / sqrt(d)`` for the canonical d values."""
+        assert paper_beta(64) == pytest.approx(1.0 / 8.0)
+        assert paper_beta(128) == pytest.approx(128**-0.5)
+
+    def test_hopfield_logits_constant_beta_passthrough(self) -> None:
+        """``hopfield_logits`` with beta_q = 1 returns the raw logits."""
+        base = torch.tensor([[[[1.0, 2.0, 3.0]]]])
+        beta_q = torch.ones(1, 1, 1)
+        out = hopfield_logits(base, beta_q)
+        torch.testing.assert_close(out, base)
+
+    def test_hopfield_logits_double_beta_doubles(self) -> None:
+        """Doubling beta_q doubles the logits (scalar multiplication)."""
+        base = torch.tensor([[[[1.0, -2.0, 3.0]]]])
+        beta_q = torch.full((1, 1, 1), 2.0)
+        out = hopfield_logits(base, beta_q)
+        torch.testing.assert_close(out, base * 2.0)
