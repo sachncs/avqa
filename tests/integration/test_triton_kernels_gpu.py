@@ -19,6 +19,11 @@ from __future__ import annotations
 import pytest
 import torch
 
+from avqa.backend import TorchBackend
+from avqa.codebook import HierarchicalCodebook
+from avqa.triton.loader import load_kernel
+from avqa.utils.numerics import online_softmax_step
+
 pytestmark = pytest.mark.gpu
 
 FP32_TOL = {"atol": 1e-5, "rtol": 1e-5}
@@ -40,9 +45,6 @@ def skip_if_unavailable() -> None:
 def test_vq_precompute_matches_torchbackend_fp32() -> None:
     """vq_precompute matches TorchBackend.quantize in FP32 (SPEC §11.9)."""
     skip_if_unavailable()
-    from avqa.backend import TorchBackend  # noqa: PLC0415
-    from avqa.codebook import HierarchicalCodebook  # noqa: PLC0415
-    from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
     torch.manual_seed(0)
     cb = HierarchicalCodebook(num_heads=2, num_parents=16, children_per_parent=4, head_dim=32)
@@ -68,8 +70,6 @@ def test_vq_precompute_matches_torchbackend_fp32() -> None:
 def test_correction_matches_torchbackend() -> None:
     """Three-way tile merge matches TorchBackend.correction."""
     skip_if_unavailable()
-    from avqa.triton.loader import load_kernel  # noqa: PLC0415
-    from avqa.utils.numerics import online_softmax_step  # noqa: PLC0415
 
     state_max = torch.full((1, 2, 16), 0.5, device="cuda")
     state_denom = torch.full((1, 2, 16), 4.0, device="cuda")
@@ -119,7 +119,6 @@ def test_correction_matches_torchbackend() -> None:
 def test_parent_attention_fp32_match() -> None:
     """parent_attention kernel matches the PyTorch reference (SPEC §11.5)."""
     skip_if_unavailable()
-    from avqa.triton.loader import load_kernel  # noqa: PLC0415
 
     H, B, T, M, D, DV = 2, 1, 16, 8, 32, 16
     query = torch.randn(B, H, T, D, device="cuda")

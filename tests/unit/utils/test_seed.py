@@ -52,7 +52,7 @@ class TestSeedEverything:
 
     def test_works_without_numpy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Seeding works even when NumPy is not importable."""
-        from typing import Callable
+        from collections.abc import Callable
 
         original_import: Callable[..., object] = builtins.__import__
 

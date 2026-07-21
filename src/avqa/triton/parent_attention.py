@@ -41,8 +41,9 @@ def parent_attention(
     try:
         import triton as _triton_module
         import triton.language as _tl
-    except ImportError:
-        return None  # type: ignore[return-value]
+    except ImportError as exc:
+        msg = 'triton is not installed'
+        raise RuntimeError(msg) from exc
 
     B, H, T_q, D = query.shape
     M0 = parents.shape[1]

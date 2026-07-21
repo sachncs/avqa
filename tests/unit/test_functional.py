@@ -8,8 +8,8 @@ import torch
 from typing_extensions import TypedDict, Unpack
 
 from avqa.config import (
-    AVQConfig,
     AttentionShapeConfig,
+    AVQConfig,
     CodebookConfig,
     RefinementConfig,
     RoutingConfig,

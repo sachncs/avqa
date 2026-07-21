@@ -53,7 +53,7 @@ class TestCodebookConfig:
         """Frozen — assignment raises."""
         cb = CodebookConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cb, "num_codewords", 128)
+            setattr(cb, 'num_codewords', 128)
 
 
 class TestRoutingConfig:
@@ -170,7 +170,7 @@ class TestAVQConfig:
         """Top-level config is frozen."""
         cfg = AVQConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cfg, "dropout", 0.5)
+            setattr(cfg, 'dropout', 0.5)
 
     def test_dropout_range(self) -> None:
         """dropout must be in [0, 1]."""
@@ -181,7 +181,7 @@ class TestAVQConfig:
         """Sub-configs cannot be replaced via assignment."""
         cfg = AVQConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cfg, "codebook", CodebookConfig(num_codewords=128))
+            setattr(cfg, 'codebook', CodebookConfig(num_codewords=128))
 
     def test_equality(self) -> None:
         """Two configs with the same fields are equal."""

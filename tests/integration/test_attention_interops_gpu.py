@@ -8,6 +8,8 @@ the optional dependency is unavailable.
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 import torch
 
@@ -17,21 +19,11 @@ pytestmark = pytest.mark.gpu
 
 
 def has_flash_attn() -> bool:
-    try:
-        import flash_attn  # noqa: PLC0415
-
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("flash_attn") is not None
 
 
 def has_xformers() -> bool:
-    try:
-        import xformers  # noqa: PLC0415
-
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("xformers") is not None
 
 
 def skip_unless_flash_attn() -> None:

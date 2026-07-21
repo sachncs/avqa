@@ -97,7 +97,7 @@ class TestVisualizerInterface:
             # abstract classes) to verify the runtime error path.
             # mypy refuses ``object.__new__(Visualizer)`` so we
             # look the call up dynamically.
-            getattr(Visualizer, "__new__")(Visualizer)
+            getattr(Visualizer, '__new__')(Visualizer)
 
     def test_json_visualizer_is_subclass(self) -> None:
         """JSONVisualizer inherits from Visualizer."""

@@ -1,41 +1,35 @@
 """EXP-0006 - HVAQ (Hopfield-VQ-Attention) benchmark.
-
 Per ``BENCHMARKS.md`` this captures:
-
 - the paper-exact baseline (fixed-temperature softmax);
 - HVAQ-ENT (per-query beta_q from the router's top-P entropy);
 - HVAQ-LIN (per-query beta_q linear in the entropy).
-
 Multi-seed (--seeds N) is supported: the harness reruns the body
 with ``torch.manual_seed(seed)`` and aggregates median + per-P
 mass concentration over seeds. We also report a per-P mass
 concentration metric for the **downstream-quality proxy** (the
 variable HVAQ actually moves; the per-P mass concentration is what
 sharpens).
-
 Run:
-
     PYTHONPATH=src python benchmarks/repro_hvaq.py --markdown
     PYTHONPATH=src python benchmarks/repro_hvaq.py --seeds 4 --markdown
-
 ``# ponytail:`` marks intentional simplifications. The real
 downstream-quality ablation (a small language model on a real
 dataset) is intentionally deferred — the per-P mass concentration
 is the minimum that maps to the HVAQ claim without a multi-day
 LM harness setup.
 """
-
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import json
 from pathlib import Path
 import statistics
 import time
-from typing import Callable, TypedDict
+from typing import TypedDict
 
 import torch
-import torch.nn.functional as F  # noqa: N812
+from torch.nn import functional
 
 from avqa import AVQAttention, AVQConfig
 from avqa.config import (
@@ -46,7 +40,6 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
-from avqa.attention_module import TensorModule
 
 DEFAULT_BATCH: int = 2
 DEFAULT_HEADS: int = 4
@@ -57,8 +50,6 @@ DEFAULT_BUDGET: int = 4
 DEFAULT_SEQ_LEN: int = 64
 WARMUP: int = 3
 REPS: int = 10
-
-
 def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     config = AVQConfig(
         attention=AttentionShapeConfig(
@@ -82,8 +73,6 @@ def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     mod = AVQAttention(config, in_proj=False, out_proj=False)
     mod.eval()
     return mod
-
-
 def bench(fn: Callable[[], object]) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
@@ -99,8 +88,6 @@ def bench(fn: Callable[[], object]) -> dict[str, float]:
         "min_ms": min(samples),
         "max_ms": max(samples),
     }
-
-
 # ponytail: HVAQ-ENT's "downstream quality" claim is captured here as
 # a per-P mass concentration: the variable the schedule actually
 # moves. A real LM harness (model + dataset + training loop) is
@@ -108,7 +95,6 @@ def bench(fn: Callable[[], object]) -> dict[str, float]:
 # directly to the algorithmic effect of the temperature schedule.
 def top_p_concentration(attention_probs: torch.Tensor, p: int) -> float:
     """Mean top-P mass fraction across (B, H, N).
-
     Higher values indicate a more peaked (concentrated) parent
     attention distribution. HVAQ-ENT is expected to increase this
     metric relative to the paper baseline (peaked router mass,
@@ -116,9 +102,7 @@ def top_p_concentration(attention_probs: torch.Tensor, p: int) -> float:
     """
     top_p, _ = attention_probs.topk(min(p, attention_probs.shape[-1]), dim=-1)
     return float(top_p.sum(dim=-1).mean().item())
-
-
-def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EXP-0006 HVAQ benchmark")
     parser.add_argument("--out", type=str, default="benchmarks/raw/EXP-0006")
     parser.add_argument("--markdown", action="store_true")
@@ -129,13 +113,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         help="Number of independent seeds to average over (default: 1).",
     )
     args = parser.parse_args(argv)
-
     if args.seeds < 1:
         raise ValueError(f"--seeds must be >= 1, got {args.seeds}")
-
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-
     env = {
         "batch": DEFAULT_BATCH,
         "heads": DEFAULT_HEADS,
@@ -148,7 +129,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         "reps": REPS,
         "seeds": args.seeds,
     }
-
     # Aggregate over seeds.
     seed_medians: dict[str, list[float]] = {
         "sdpa": [],
@@ -165,32 +145,27 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         "paper_vs_hvaq_entropy": [],
         "paper_vs_hvaq_linear": [],
     }
-
     for seed in range(args.seeds):
         torch.manual_seed(seed)
         embed_dim = DEFAULT_HEADS * DEFAULT_HEAD_DIM
         q = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
         k = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
         v = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
-
         def sdpa_call() -> object:
-            qh = q.reshape(  # noqa: B023
+            qh = q.reshape(
                 DEFAULT_BATCH, DEFAULT_SEQ_LEN, DEFAULT_HEADS, DEFAULT_HEAD_DIM
             ).transpose(1, 2)
-            kh = k.reshape(  # noqa: B023
+            kh = k.reshape(
                 DEFAULT_BATCH, DEFAULT_SEQ_LEN, DEFAULT_HEADS, DEFAULT_HEAD_DIM
             ).transpose(1, 2)
-            vh = v.reshape(  # noqa: B023
+            vh = v.reshape(
                 DEFAULT_BATCH, DEFAULT_SEQ_LEN, DEFAULT_HEADS, DEFAULT_HEAD_DIM
             ).transpose(1, 2)
-            return F.scaled_dot_product_attention(qh, kh, vh)
-
+            return functional.scaled_dot_product_attention(qh, kh, vh)
         sdpa_stats = bench(sdpa_call)
-
         paper = build_attention(hopfield_enabled=False, adaptive="none")
         hvaq_ent: AVQAttention = build_attention(hopfield_enabled=True, adaptive="entropy")
         hvaq_lin: AVQAttention = build_attention(hopfield_enabled=True, adaptive="linear")
-
         def paper_call(
             paper: AVQAttention = paper,
             q: torch.Tensor = q,
@@ -199,7 +174,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         ) -> torch.Tensor:
                 result: torch.Tensor = paper(q, k, v, mask=None)
                 return result
-
         def hvaq_ent_call(
             hvaq_ent: AVQAttention = hvaq_ent,
             q: torch.Tensor = q,
@@ -208,25 +182,21 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         ) -> torch.Tensor:
                 result: torch.Tensor = hvaq_ent(q, k, v, mask=None)
                 return result
-
         def hvaq_lin_call(
             hvaq_lin: AVQAttention = hvaq_lin,
             q: torch.Tensor = q,
             k: torch.Tensor = k,
             v: torch.Tensor = v,
-        ) -> torch.Tensor:  # noqa: B008
+        ) -> torch.Tensor:
                 result: torch.Tensor = hvaq_lin(q, k, v, mask=None)
                 return result
-
         paper_stats = bench(paper_call)
         hvaq_ent_stats = bench(hvaq_ent_call)
         hvaq_lin_stats = bench(hvaq_lin_call)
-
         seed_medians["sdpa"].append(sdpa_stats["median_ms"])
         seed_medians["paper_single_pass"].append(paper_stats["median_ms"])
         seed_medians["hvaq_entropy"].append(hvaq_ent_stats["median_ms"])
         seed_medians["hvaq_linear"].append(hvaq_lin_stats["median_ms"])
-
         with torch.no_grad():
             for m in (hvaq_ent, hvaq_lin):
                 m.codebook.parents.copy_(paper.codebook.parents)
@@ -241,7 +211,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         seed_output_diffs["paper_vs_hvaq_linear"].append(
             float((out_paper - out_lin).abs().max().item())
         )
-
         # Top-P mass concentration via the per-P mass fraction
         # captured directly from each module's parent attention
         # distribution. We re-run each module once (no extra
@@ -358,7 +327,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
                 .reshape(DEFAULT_BATCH, DEFAULT_SEQ_LEN, -1)
             )
             seed_concentrations[name].append(top_p_concentration(probs, DEFAULT_BUDGET))
-
     def aggregate(vals: list[float]) -> dict[str, float]:
         return {
             "mean": statistics.fmean(vals) if vals else 0.0,
@@ -368,14 +336,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "max": max(vals) if vals else 0.0,
             "n": float(len(vals)),
         }
-
     class StatsDict(TypedDict):
         median_ms: float
         stdev_ms_across_seeds: float
         n_seeds: int
         min_ms: float
         max_ms: float
-
     def stats_from_medians(medians: list[float]) -> StatsDict:
         return {
             "median_ms": statistics.fmean(medians) if medians else 0.0,
@@ -384,11 +350,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "min_ms": min(medians) if medians else 0.0,
             "max_ms": max(medians) if medians else 0.0,
         }
-
     class RatioDict(TypedDict):
         mean: float
         stdev: float
-
     class _RowsDict(TypedDict, total=False):
         sdpa: StatsDict
         paper_single_pass: StatsDict
@@ -397,7 +361,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         top_p_concentration: dict[str, dict[str, float]]
         top_p_concentration_ratio_hvaq_entropy_over_paper: RatioDict
         output_diff_vs_paper: dict[str, dict[str, float]]
-
     rows: _RowsDict = {
         "sdpa": stats_from_medians(seed_medians["sdpa"]),
         "paper_single_pass": stats_from_medians(seed_medians["paper_single_pass"]),
@@ -413,7 +376,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "hvaq_linear_max_abs": aggregate(seed_output_diffs["paper_vs_hvaq_linear"]),
         },
     }
-
     # Forward-paper-style / sharpener-ratio:
     if seed_concentrations["paper_single_pass"] and seed_concentrations["hvaq_entropy"]:
         ent_means = [
@@ -428,12 +390,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "mean": float(statistics.fmean(ent_means)),
             "stdev": float(statistics.stdev(ent_means) if len(ent_means) > 1 else 0.0),
         }
-
     raw_path = out_dir / "raw.json"
     raw_path.write_text(json.dumps({"config": env, "rows": rows}, indent=2, sort_keys=True))
     config_path = out_dir / "config.json"
     config_path.write_text(json.dumps(env, indent=2, sort_keys=True))
-
     if args.markdown:
         lines: list[str] = [
             "# EXP-0006 summary",
@@ -508,11 +468,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             ]
         )
         (out_dir / "summary.md").write_text("\n".join(lines) + "\n")
-
     print(f"wrote {raw_path}")
     print(f"wrote {config_path}")
     return 0
-
-
 if __name__ == "__main__":
     raise SystemExit(main())

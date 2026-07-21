@@ -22,6 +22,7 @@ import argparse
 import json
 from pathlib import Path
 import statistics
+import time
 
 import torch
 
@@ -97,7 +98,7 @@ def make_codebook(parents_init: torch.Tensor, children_init: torch.Tensor) -> Hi
     return cb
 
 
-def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EXP-0004 BCAR convergence benchmark")
     parser.add_argument("--out", type=str, default="benchmarks/raw/EXP-0004")
     parser.add_argument("--markdown", action="store_true")
@@ -173,7 +174,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
 
     # Per-step latency (informational).
     timings: dict[str, float] = {}
-    import time
 
     for name, cb in (("static", cb_static), ("bcar", cb_bcar)):
         samples: list[float] = []
