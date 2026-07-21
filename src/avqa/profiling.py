@@ -6,7 +6,7 @@ visual rendering lives in avqa.visualization.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator  # noqa: TC003
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import json

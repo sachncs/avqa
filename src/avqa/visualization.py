@@ -8,8 +8,44 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import TypedDict
 
 import torch
+
+
+class RefinementTreeDict(TypedDict):
+    """Schema for the dict returned by ``render_refinement_tree``."""
+
+    label: str
+    metadata: dict[str, object]
+    children: list[RefinementTreeDict]
+
+
+class RoutingPathDict(TypedDict):
+    """Schema for the dict returned by ``render_routing_path``."""
+
+    type: str
+    num_selected: int
+    selected: list[list[list[int]]]
+    importance: list[list[list[float]]]
+
+
+class CodebookUtilizationDict(TypedDict):
+    """Schema for the dict returned by ``render_codebook_utilization``."""
+
+    type: str
+    parent_utilization: list[list[float]]
+    child_utilization: list[list[float]]
+    dead_parents: list[list[int]]
+    dead_children: list[list[list[int]]]
+
+
+class TimelineDict(TypedDict):
+    """Schema for the dict returned by ``render_timeline``."""
+
+    type: str
+    events: list[dict[str, object]]
+    total_duration_ms: float
 
 
 @dataclass
@@ -63,11 +99,11 @@ class Visualizer(ABC):
         raise ValueError(msg)
 
     @abstractmethod
-    def render_refinement_tree(self, root: TreeNode) -> dict[str, object]:
+    def render_refinement_tree(self, root: TreeNode) -> RefinementTreeDict:
         """Render a refinement tree to a JSON-able dict."""
 
     @abstractmethod
-    def render_routing_path(self, decision: object) -> dict[str, object]:
+    def render_routing_path(self, decision: object) -> RoutingPathDict:
         """Render a routing decision to a JSON-able dict."""
 
     @abstractmethod
@@ -83,22 +119,22 @@ class Visualizer(ABC):
         self,
         parent_counts: torch.Tensor,
         child_counts: torch.Tensor,
-    ) -> dict[str, object]:
+    ) -> CodebookUtilizationDict:
         """Render codebook utilization (spec §3.18)."""
 
     @abstractmethod
-    def render_timeline(self, events: list[TimelineEvent]) -> dict[str, object]:
+    def render_timeline(self, events: list[TimelineEvent]) -> TimelineDict:
         """Render an execution timeline (spec §3.18)."""
 
 
 class JSONVisualizer(Visualizer):
     """Default JSON-only visualizer (no external deps)."""
 
-    def render_refinement_tree(self, root: TreeNode) -> dict[str, object]:
+    def render_refinement_tree(self, root: TreeNode) -> RefinementTreeDict:
         """Render a refinement tree as nested dicts."""
         return tree_to_dict(root)
 
-    def render_routing_path(self, decision: object) -> dict[str, object]:
+    def render_routing_path(self, decision: object) -> RoutingPathDict:
         """Render a routing decision as a JSON dict."""
         selected = getattr(decision, "selected_indices", None)
         importance = getattr(decision, "importance", None)
@@ -126,7 +162,7 @@ class JSONVisualizer(Visualizer):
         self,
         parent_counts: torch.Tensor,
         child_counts: torch.Tensor,
-    ) -> dict[str, object]:
+    ) -> CodebookUtilizationDict:
         """Render codebook utilization fractions per head."""
         parent_util = (parent_counts > 0).float().mean(dim=-1).tolist()
         child_util = (child_counts > 0).float().mean(dim=(-2, -1)).tolist()
@@ -138,7 +174,7 @@ class JSONVisualizer(Visualizer):
             "dead_children": (child_counts == 0).sum(dim=-1).tolist(),
         }
 
-    def render_timeline(self, events: list[TimelineEvent]) -> dict[str, object]:
+    def render_timeline(self, events: list[TimelineEvent]) -> TimelineDict:
         """Render a timeline as ordered events."""
         return {
             "type": "timeline",
@@ -150,7 +186,7 @@ class JSONVisualizer(Visualizer):
         }
 
 
-def tree_to_dict(node: TreeNode) -> dict[str, object]:
+def tree_to_dict(node: TreeNode) -> RefinementTreeDict:
     """Recursively convert a TreeNode to a JSON-able dict."""
     return {
         "label": node.label,

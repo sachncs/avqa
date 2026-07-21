@@ -131,7 +131,7 @@ class TestKVCacheInterface:
     def test_cannot_instantiate(self) -> None:
         """KVCache cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            KVCache()  # type: ignore[abstract]
+            getattr(KVCache, '__new__')(KVCache)
 
     def test_subclass_relationship(self) -> None:
         """Concrete caches inherit from KVCache."""

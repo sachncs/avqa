@@ -202,7 +202,7 @@ def naive_fallback(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
-    return out  # type: ignore[no-any-return]
+    return out
 
 
 def run_pipeline(
@@ -304,7 +304,7 @@ def run_pipeline(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
-    return out  # type: ignore[no-any-return]
+    return out
 
 
 __all__ = [

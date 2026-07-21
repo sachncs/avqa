@@ -64,10 +64,10 @@ def is_triton_available() -> bool:
     if importlib.util.find_spec("triton") is None:
         return False
     try:
-        import torch  # noqa: PLC0415
+        import torch as torch_module
 
-        return bool(torch.cuda.is_available())
-    except ImportError:  # pragma: no cover - torch always present
+        return bool(torch_module.cuda.is_available())
+    except ImportError:
         return False
 
 

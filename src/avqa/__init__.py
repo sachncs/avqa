@@ -147,12 +147,16 @@ def __getattr__(name: str) -> object:
     remain lazy.
     """
     if name == "Visualizer":
-        from avqa.visualization import Visualizer as Visualizer  # noqa: PLC0415
+        try:
+            from avqa.visualization import Visualizer as _Visualizer
+        except ImportError:
+            msg = 'visualization extra is not installed'
+            raise ImportError(msg)
 
-        return Visualizer
+        return _Visualizer
     if name == "TritonBackend":
         try:
-            from avqa.backend import TritonBackend as TritonBackend  # noqa: PLC0415
+            from avqa.backend import TritonBackend as TritonBackend
         except ImportError as exc:
             warnings.warn(
                 f"TritonBackend unavailable in this environment: {exc}",

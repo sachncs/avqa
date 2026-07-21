@@ -59,7 +59,9 @@ def test_hf_replacement_full_forward() -> None:
             self.out = torch.nn.Linear(embed_dim, embed_dim)
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            return self.out(torch.nn.functional.relu(self.q(x)))
+            intermediate: torch.Tensor = torch.nn.functional.relu(self.q(x))
+            result: torch.Tensor = self.out(intermediate)
+            return result
 
     orig = Orig()
     wrapped = make_hf_attention_replacement(

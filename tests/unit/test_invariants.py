@@ -11,7 +11,7 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.codebook import HierarchicalCodebook
-from avqa.quantizer import EuclideanHierarchicalQuantizer
+from avqa.quantizer import EuclideanHierarchicalQuantizer, QuantizationResult
 from avqa.refinement import refine
 from avqa.routing import TopPRouter, compute_importance
 
@@ -25,7 +25,7 @@ def make_pipeline(
     C: int = 4,
     budget: int = 2,
     seed: int = 0,
-) -> tuple[torch.Tensor, torch.Tensor, HierarchicalCodebook, torch.Tensor, torch.Tensor]:
+) -> tuple[QuantizationResult, torch.Tensor, HierarchicalCodebook, torch.Tensor, torch.Tensor]:
     """Set up codebook, keys, values, and parent attention probs for tests."""
     torch.manual_seed(seed)
     cb = HierarchicalCodebook(

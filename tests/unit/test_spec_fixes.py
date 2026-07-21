@@ -8,13 +8,21 @@ from __future__ import annotations
 
 import pytest
 import torch
+from typing_extensions import TypedDict, Unpack
 
 from avqa import AdaptiveRefinement, AVQAttention, AVQConfig
 from avqa.attention import OnlineSoftmaxState
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import (
     AttentionShapeConfig,
+    BackendConfig,
+    CacheConfig,
     CodebookConfig,
+    ExecutionConfig,
+    HopfieldConfig,
+    MergeConfig,
+    PrecisionConfig,
+    RefinementConfig,
     RoutingConfig,
 )
 from avqa.exceptions import AVQAError, ConfigurationError, ShapeError
@@ -23,15 +31,35 @@ from avqa.refinement import refine
 from avqa.routing import TopPRouter, compute_importance
 
 
-def small_config(**overrides: object) -> AVQConfig:
-    defaults: dict[str, object] = {
-        "attention": AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
-        "codebook": CodebookConfig(num_codewords=8, children_per_codeword=2),
-        "routing": RoutingConfig(refinement_budget=3),
-        "dropout": 0.0,
-    }
-    defaults.update(overrides)
-    return AVQConfig(**defaults)  # type: ignore[arg-type]
+class ConfigOverrides(TypedDict, total=False):
+    """Subset of AVQConfig fields that tests commonly override."""
+
+    attention: AttentionShapeConfig
+    codebook: CodebookConfig
+    routing: RoutingConfig
+    refinement: RefinementConfig
+    merge: MergeConfig
+    backend: BackendConfig
+    cache: CacheConfig
+    precision: PrecisionConfig
+    execution: ExecutionConfig
+    dropout: float
+    causal: bool
+    tolerance_atol: float
+    tolerance_rtol: float
+    hopfield: HopfieldConfig
+
+
+def small_config(**overrides: Unpack[ConfigOverrides]) -> AVQConfig:
+    import dataclasses
+
+    base = AVQConfig(
+        attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+        codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
+        routing=RoutingConfig(refinement_budget=3),
+        dropout=0.0,
+    )
+    return dataclasses.replace(base, **overrides)
 
 
 # ---------------------------------------------------------------------------

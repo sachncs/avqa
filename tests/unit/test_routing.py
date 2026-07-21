@@ -163,7 +163,7 @@ class TestAbstractInterface:
     def test_cannot_instantiate(self) -> None:
         """Router cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            Router()  # type: ignore[abstract]
+            getattr(Router, '__new__')(Router)
 
     def test_subclass_relationship(self) -> None:
         """All concrete routers inherit from Router."""

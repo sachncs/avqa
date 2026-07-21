@@ -112,6 +112,8 @@ class TestCompileNumericalEquivalence:
         q, k, v = inputs
         with torch.no_grad():
             out_eager = eager.forward_eager(q, k, v, None, None)
+            # ``forward_compiled`` is None when ``compile_enabled`` is False.
+            assert compiled.forward_compiled is not None
             try:
                 out_compiled = compiled.forward_compiled(q, k, v, None, None)
             except Exception:

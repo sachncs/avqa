@@ -54,7 +54,7 @@ class TestAVQAErrorBase:
 
     def test_context_is_copied(self) -> None:
         """Context dict is defensively copied."""
-        ctx = {"x": 1}
+        ctx: dict[str, object] = {"x": 1}
         error = AVQAError("msg", ctx)
         ctx["x"] = 999
         assert error.context["x"] == 1
@@ -176,10 +176,12 @@ class TestExceptionMessages:
 
     def test_subclass_distinct_from_each_other(self) -> None:
         """Each subclass is its own type (no overlap)."""
-        assert ConfigurationError is not BackendError
-        assert RoutingError is not CodebookError
-        assert ShapeError is not DtypeError
-        assert ShapeError is not DeviceError
+        # Use ``id()`` so the type checker doesn't reject the comparison
+        # on the basis of statically-known-disjoint types.
+        assert id(ConfigurationError) != id(BackendError)
+        assert id(RoutingError) != id(CodebookError)
+        assert id(ShapeError) != id(DtypeError)
+        assert id(ShapeError) != id(DeviceError)
 
 
 class TestContextIsMutable:

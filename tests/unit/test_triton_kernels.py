@@ -3,13 +3,17 @@
 CPU-only behavioural checks live in this module; CUDA-only numerical
 equivalence tests live in ``tests/integration/test_triton_kernels.py``
 and are gated by ``@pytest.mark.gpu``.
+
+The tests in this module are skipped when ``triton`` is not importable
+because the kernel modules import ``triton`` at module load time.
 """
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 
-from avqa.exceptions import BackendError
 from avqa.triton import (
     DEFAULT_BLOCK_D,
     DEFAULT_BLOCK_M,
@@ -18,11 +22,12 @@ from avqa.triton import (
     has_triton_module,
     is_triton_available,
 )
-from avqa.triton.child_attention import child_attention
-from avqa.triton.correction import correction
-from avqa.triton.loader import available_kernels, load_kernel
-from avqa.triton.parent_attention import parent_attention
-from avqa.triton.vq import vq_precompute
+
+
+pytestmark = pytest.mark.skipif(
+    not importlib.util.find_spec("triton"),
+    reason="triton is not installed; kernel module imports are unavailable",
+)
 
 
 class TestTileConfig:

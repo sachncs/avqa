@@ -203,7 +203,7 @@ class HFAttentionWrapper(nn.Module):
         past_key_value: tuple[torch.Tensor, ...] | None = None,
         output_attentions: bool = False,
         **kwargs: object,
-    ) -> tuple[torch.Tensor, ...]:
+    ) -> tuple[torch.Tensor] | tuple[torch.Tensor, torch.Tensor | None]:
         """HF-compatible forward.
 
         Returns ``(output, attention_probs_or_none)`` to match HF's
@@ -231,9 +231,9 @@ class HFAttentionWrapper(nn.Module):
             mask = self.translate_mask(attention_mask, kv_source.shape[1])
         else:
             mask = None
-        out = self.inner(hidden_states, kv_source, kv_source, mask=mask)
+        out: torch.Tensor = self.inner(hidden_states, kv_source, kv_source, mask=mask)
         if output_attentions:
-            return out, None  # type: ignore[return-value]
+            return out, None
         return (out,)
 
     @staticmethod

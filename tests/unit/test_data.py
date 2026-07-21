@@ -100,7 +100,7 @@ class TestTensorContract:
         """Contract is frozen — assignment raises."""
         c = make_default_contract("q", ("B", "H", "T", "D"), "attention")
         with pytest.raises((AttributeError, Exception)):
-            c.name = "other"  # type: ignore[misc]
+            setattr(c, "name", "other")
 
     def test_supports_matching_tensor(self) -> None:
         """Tensor with matching shape/dtype/device is supported."""

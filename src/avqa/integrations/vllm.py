@@ -9,6 +9,7 @@ backend. Falls back to the inner :class:`AVQAttention` when no
 from __future__ import annotations
 
 import importlib.util
+from typing import Protocol
 
 import torch
 
@@ -18,6 +19,41 @@ from avqa.config import AVQConfig
 from avqa.logging import get_logger
 
 logger = get_logger("integrations.vllm")
+
+
+class VLLMBackend(Protocol):
+    """Protocol for the return type of :func:`vllm_attention_backend`.
+
+    Both :class:`AVQvLLMBackend` and the lightweight ``VLLMSelector``
+    returned for non-AVQA backends expose a read-only ``name``
+    attribute.
+    """
+
+    @property
+    def name(self) -> str: ...
+
+
+class TensorModule(Protocol):
+    """Protocol for any module whose forward accepts tensors and returns one.
+
+    PyTorch's ``nn.Module.__call__`` is untyped; this protocol captures
+    the small surface AVQA's VLLM wrapper uses.
+    """
+
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor | None = ...,
+    ) -> torch.Tensor: ...
+    def __call__(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor | None = ...,
+    ) -> torch.Tensor: ...
 
 
 def is_vllm_available() -> bool:
@@ -61,7 +97,9 @@ class AVQvLLMBackend:
         self.head_size = head_size or (
             self.config.attention.embed_dim // self.config.attention.num_heads
         )
-        self.module = AVQAttention(self.config, in_proj=False, out_proj=False)
+        # Type as ``TensorModule`` so the untyped ``nn.Module.__call__``
+        # resolves to ``torch.Tensor`` without a suppression.
+        self.module: TensorModule = AVQAttention(self.config, in_proj=False, out_proj=False)
 
     @property
     def name(self) -> str:
@@ -104,7 +142,7 @@ class AVQvLLMBackend:
             value = value.reshape(value.shape[0], value.shape[1], H * D)
 
         if kv_cache is None:
-            return self.module(query, key, value)  # type: ignore[no-any-return]
+            return self.module(query, key, value)
 
         # Paged-attention path: route through AVQAttention's kv_cache
         # argument, which the attention module already supports via
@@ -140,11 +178,11 @@ class AVQvLLMBackend:
         # Run attention over the full k/v timeline.
         flat_k = full_k.transpose(1, 2).reshape(B, full_k.shape[-2], num_heads * head_dim_k)
         flat_v = full_v.transpose(1, 2).reshape(B, full_v.shape[-2], num_heads * head_dim_v)
-        out = self.module(query, flat_k, flat_v)
+        out: torch.Tensor = self.module(query, flat_k, flat_v)
         kv_cache.append(new_k, new_v)
         # attn_metadata is accepted for vLLM API compatibility but
         # unused here; the cache drives the schedule.
-        return out  # type: ignore[no-any-return]
+        return out
 
     def forward_native(
         self,
@@ -157,7 +195,7 @@ class AVQvLLMBackend:
         return self.forward(query, key, value, **kwargs)
 
 
-def vllm_attention_backend(backend: str = "torch") -> object:
+def vllm_attention_backend(backend: str = "torch") -> "VLLMBackend":
     """Return a vLLM-compatible attention backend (spec §3.15).
 
     When ``backend="avqa"``, returns an :class:`AVQvLLMBackend` instance

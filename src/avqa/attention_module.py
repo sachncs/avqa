@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from torch import nn
+from typing_extensions import Protocol
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
@@ -51,6 +52,18 @@ if TYPE_CHECKING:
 
 
 logger = get_logger("attention.module")
+
+
+class TensorModule(Protocol):
+    """Protocol for any :class:`nn.Module` whose forward returns a tensor.
+
+    PyTorch's :class:`nn.Module.__call__` is untyped; this protocol
+    captures the subset we actually use so the type checker can resolve
+    ``module(x) -> Tensor`` without suppressions.
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor: ...
+    def __call__(self, x: torch.Tensor) -> torch.Tensor: ...
 
 
 class AVQAttention(nn.Module):
@@ -102,10 +115,10 @@ class AVQAttention(nn.Module):
             self.forward_compiled = None
         E = config.attention.embed_dim
         # Use Module so we can mix Linear and Identity branches uniformly.
-        self.q_proj: nn.Module
-        self.k_proj: nn.Module
-        self.v_proj: nn.Module
-        self.out_proj: nn.Module
+        self.q_proj: TensorModule
+        self.k_proj: TensorModule
+        self.v_proj: TensorModule
+        self.out_proj: TensorModule
         if in_proj:
             self.q_proj = nn.Linear(E, E, bias=False)
             self.k_proj = nn.Linear(E, E, bias=False)
@@ -146,7 +159,9 @@ class AVQAttention(nn.Module):
         else:
             self.scheduler = None
 
-        self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
+        self.dropout: TensorModule = (
+            nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
+        )
 
         # OPT-0005 (HVAQ): learnable parameters for per-parent beta_p
         # and per-head alpha. When disabled these are absent from
@@ -253,13 +268,14 @@ class AVQAttention(nn.Module):
         # OPT-0002: when torch.compile is enabled we route through the
         # compiled forward; otherwise we keep the eager path identical
         # to the prior behaviour.
-        target = self.forward_compiled or self.forward_impl
         with torch.autocast(
             device_type=query.device.type,
             enabled=autocast_enabled,
             dtype=autocast_dtype,
         ):
-            return target(query, key, value, mask, kv_cache)
+            if self.forward_compiled is not None:
+                return self.forward_compiled(query, key, value, mask, kv_cache)
+            return self.forward_impl(query, key, value, mask, kv_cache)
 
     def forward_impl(
         self,

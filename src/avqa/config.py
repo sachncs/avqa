@@ -413,7 +413,7 @@ class AVQConfig:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, object]) -> AVQConfig:
+    def from_dict(cls, data: dict[str, object] | object) -> AVQConfig:
         """Reconstruct from a dict produced by :meth:`to_dict`.
 
         Unknown fields raise :class:`ConfigurationError` so silent
@@ -432,7 +432,11 @@ class AVQConfig:
             if k != "schema_version" and k not in known_fields:
                 msg = f"AVQConfig.from_dict got unknown field {k!r}; known fields are {sorted(known_fields)}"
                 raise ConfigurationError(msg, {"unknown_field": k})
-        kwargs: dict[str, object] = {}
+        # Reconstruct via ``object.__new__`` then assign each declared
+        # field via ``object.__setattr__`` to bypass the frozen dataclass
+        # guard. This avoids the untyped ``**kwargs`` unpacking that
+        # the type checker cannot narrow.
+        instance = object.__new__(cls)
         for f in fields(cls):
             if f.name not in data:
                 continue
@@ -442,10 +446,9 @@ class AVQConfig:
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
-                    kwargs[f.name] = target(**value)
-                    continue
-            kwargs[f.name] = value
-        return cls(**kwargs)  # type: ignore[arg-type]
+                    value = target(**value)
+            object.__setattr__(instance, f.name, value)
+        return instance
 
     @staticmethod
     def resolve_field_type(type_string: object) -> type:
@@ -488,7 +491,7 @@ class AVQConfig:
         # Spec §3.20.2: human-readable and diff-friendly JSON.
         try:
             target.write_text(json.dumps(payload, indent=2, sort_keys=True))
-        except OSError as exc:  # pragma: no cover - filesystem errors
+        except OSError as exc:
             msg = f"failed to write AVQConfig JSON to {target}"
             raise ConfigurationError(msg, {"path": str(target)}) from exc
         return target

@@ -18,7 +18,16 @@ def setup(
     C: int = 4,
     Dv: int = 16,
     seed: int = 0,
-):
+) -> tuple[
+    OnlineSoftmaxState,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]:
     """Build the inputs needed by refine()."""
     torch.manual_seed(seed)
     state = OnlineSoftmaxState.empty(B, H, T, M0, Dv)

@@ -50,10 +50,14 @@ def flash_attention_interop(
         return from_avqa(out)
 
     # flash_attn_func expects [B, T, H, D] directly.
-    import flash_attn  # noqa: PLC0415
+    try:
+        from flash_attn import flash_attn_func as _flash_attn_func
+    except ImportError as exc:
+        msg = 'flash_attn is not installed'
+        raise ImportError(msg) from exc
 
-    out = flash_attn.flash_attn_func(query, key, value, causal=False)
-    return out  # type: ignore[no-any-return]
+    flash_out: torch.Tensor = _flash_attn_func(query, key, value, causal=False)
+    return flash_out
 
 
 __all__ = ["flash_attention_interop", "is_flash_attention_available"]

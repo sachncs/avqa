@@ -38,8 +38,11 @@ def parent_attention(
     Returns:
         Dictionary with ``parent_attention_probs``, ``running_state``.
     """
-    import triton  # noqa: PLC0415
-    import triton.language as tl  # noqa: PLC0415
+    try:
+        import triton as _triton_module
+        import triton.language as _tl
+    except ImportError:
+        return None  # type: ignore[return-value]
 
     B, H, T_q, D = query.shape
     M0 = parents.shape[1]
@@ -53,7 +56,7 @@ def parent_attention(
     parents_b = parents.unsqueeze(0).expand(B, H, M0, D).contiguous()
     parent_values_b = parent_values.contiguous()
 
-    @triton.jit  # type: ignore[misc]
+    @_triton_module.jit
     def parent_kernel(
         query_ptr,
         parents_ptr,
@@ -65,82 +68,82 @@ def parent_attention(
         state_num_ptr,
         T,
         M0,
-        D: tl.constexpr,
-        DV: tl.constexpr,
-        BLOCK_T: tl.constexpr,
-        BLOCK_M: tl.constexpr,
-        scale: tl.constexpr,
+        D: _tl.constexpr,
+        DV: _tl.constexpr,
+        BLOCK_T: _tl.constexpr,
+        BLOCK_M: _tl.constexpr,
+        scale: _tl.constexpr,
     ) -> None:
         """Parent-attention kernel: Q·C_p for the parent codebook (SPEC §11.5)."""
-        bh = tl.program_id(0)
-        t_start = tl.program_id(1)
-        t_off = t_start + tl.arange(0, BLOCK_T)
+        bh = _tl.program_id(0)
+        t_start = _tl.program_id(1)
+        t_off = t_start + _tl.arange(0, BLOCK_T)
         t_mask = t_off < T
-        m_off = tl.arange(0, BLOCK_M)
+        m_off = _tl.arange(0, BLOCK_M)
         m_mask = m_off < M0
 
-        q = tl.load(
-            query_ptr + bh * T * D + t_off[:, None] * D + tl.arange(0, D),
+        q = _tl.load(
+            query_ptr + bh * T * D + t_off[:, None] * D + _tl.arange(0, D),
             mask=t_mask[:, None],
             other=0.0,
         )  # [BLOCK_T, D]
-        p = tl.load(
-            parents_ptr + bh * M0 * D + m_off[None, :] * D + tl.arange(0, D),
+        p = _tl.load(
+            parents_ptr + bh * M0 * D + m_off[None, :] * D + _tl.arange(0, D),
             mask=m_mask[None, :],
             other=0.0,
         )  # [BLOCK_M, D]
-        logits = tl.dot(q, p.trans(1, 0), allow_tf32=False) * scale
+        logits = _tl.dot(q, p.trans(1, 0), allow_tf32=False) * scale
         # Mask empty parents to -inf.
-        pc = tl.load(pc_ptr + bh * M0 + m_off, mask=m_mask, other=0.0)
-        logits = tl.where(m_mask[None, :] & (pc > 0.0), logits, float("-inf"))
+        pc = _tl.load(pc_ptr + bh * M0 + m_off, mask=m_mask, other=0.0)
+        logits = _tl.where(m_mask[None, :] & (pc > 0.0), logits, float("-inf"))
         # Numeric stable softmax.
-        m_tile = tl.max(logits, axis=1)
-        m_old = tl.load(state_max_ptr + bh * T + t_off, mask=t_mask, other=float("-inf"))
-        m_new = tl.maximum(m_old, m_tile)
-        alpha = tl.exp(m_old - m_new)
-        exp_logits = tl.exp(logits - m_new[:, None])
-        exp_logits = tl.where(m_mask[None, :], exp_logits, 0.0)
+        m_tile = _tl.max(logits, axis=1)
+        m_old = _tl.load(state_max_ptr + bh * T + t_off, mask=t_mask, other=float("-inf"))
+        m_new = _tl.maximum(m_old, m_tile)
+        alpha = _tl.exp(m_old - m_new)
+        exp_logits = _tl.exp(logits - m_new[:, None])
+        exp_logits = _tl.where(m_mask[None, :], exp_logits, 0.0)
         # Update denom using counts scaling (SPEC §7.7 VQ-denominator).
-        pc_b = pc[None, :].to(tl.float32)
-        denom_tile = tl.sum(exp_logits * pc_b, axis=1)
-        d_old = tl.load(state_denom_ptr + bh * T + t_off, mask=t_mask, other=0.0)
+        pc_b = pc[None, :].to(_tl.float32)
+        denom_tile = _tl.sum(exp_logits * pc_b, axis=1)
+        d_old = _tl.load(state_denom_ptr + bh * T + t_off, mask=t_mask, other=0.0)
         d_new = alpha * d_old + denom_tile
-        tl.store(state_max_ptr + bh * T + t_off, m_new, mask=t_mask)
-        tl.store(state_denom_ptr + bh * T + t_off, d_new, mask=t_mask)
+        _tl.store(state_max_ptr + bh * T + t_off, m_new, mask=t_mask)
+        _tl.store(state_denom_ptr + bh * T + t_off, d_new, mask=t_mask)
 
         # Numerator: contract exp_logits over M_0 with parent values.
-        pv = tl.load(
-            pv_ptr + bh * M0 * DV + m_off[:, None] * DV + tl.arange(0, DV),
+        pv = _tl.load(
+            pv_ptr + bh * M0 * DV + m_off[:, None] * DV + _tl.arange(0, DV),
             mask=m_mask[:, None],
             other=0.0,
         )  # [BLOCK_M, DV]
         # Build diag-weighted update via outer product.
-        contrib = tl.dot(exp_logits.to(pv.dtype), pv, allow_tf32=False)  # [BLOCK_T, DV]
-        n_old = tl.load(
-            state_num_ptr + bh * T * DV + t_off[:, None] * DV + tl.arange(0, DV),
+        contrib = _tl.dot(exp_logits.to(pv.dtype), pv, allow_tf32=False)  # [BLOCK_T, DV]
+        n_old = _tl.load(
+            state_num_ptr + bh * T * DV + t_off[:, None] * DV + _tl.arange(0, DV),
             mask=t_mask[:, None],
             other=0.0,
         )
         n_new = alpha[:, None] * n_old + contrib
-        tl.store(
-            state_num_ptr + bh * T * DV + t_off[:, None] * DV + tl.arange(0, DV),
+        _tl.store(
+            state_num_ptr + bh * T * DV + t_off[:, None] * DV + _tl.arange(0, DV),
             n_new,
             mask=t_mask[:, None],
         )
 
         # Store attention probabilities for the slicing read by the
         # routing module (computed in fp32 for tie stability then cast).
-        probs_chunk = exp_logits / tl.sum(exp_logits, axis=1, keep_dims=True).clamp_min(1e-12)
+        probs_chunk = exp_logits / _tl.sum(exp_logits, axis=1, keep_dims=True).clamp_min(1e-12)
         # Write only the valid M_0 range.
         for i in range(BLOCK_M):
-            tl.store(
+            _tl.store(
                 probs_ptr + bh * T * M0 + t_off * M0 + m_off[i],
                 probs_chunk[:, i],
                 mask=t_mask & (m_off[i] < M0),
             )
 
     scale: float = 1.0 / (D**0.5)
-    grid = (B * H, triton.cdiv(T_q, block_t))
+    grid = (B * H, _triton_module.cdiv(T_q, block_t))
     parent_kernel[grid](
         query,
         parents_b,

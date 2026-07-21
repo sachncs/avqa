@@ -7,6 +7,7 @@ Falls back to AVQA's :class:`TorchBackend` otherwise.
 from __future__ import annotations
 
 import importlib.util
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -36,9 +37,21 @@ def xformers_interop(
     if not is_xformers_available() or not torch.cuda.is_available():
         return TorchBackend().naive_attention(query, key, value)
 
-    import xformers.ops as xops  # type: ignore[import-not-found]  # noqa: PLC0415
+    if TYPE_CHECKING:
+        try:
+            from xformers import ops as xops
+        except ImportError as exc:
+            msg = 'xformers is not installed'
+            raise ImportError(msg) from exc
+    else:
+        try:
+            import xformers.ops as xops
+        except ImportError as exc:
+            msg = 'xformers is not installed'
+            raise ImportError(msg) from exc
 
-    return xops.memory_efficient_attention(query, key, value)  # type: ignore[no-any-return]
+    result: torch.Tensor = xops.memory_efficient_attention(query, key, value)
+    return result
 
 
 __all__ = ["is_xformers_available", "xformers_interop"]

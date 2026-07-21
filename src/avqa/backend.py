@@ -166,9 +166,9 @@ def correction(
 
     Module-level helper; thin re-export of :func:`avqa.utils.numerics.online_softmax_step`.
     """
-    from avqa.utils.numerics import online_softmax_step  # noqa: PLC0415
+    from avqa.utils.numerics import online_softmax_step as _online_softmax_step
 
-    return online_softmax_step(
+    return _online_softmax_step(
         state_max,
         state_denom,
         state_num,
@@ -279,9 +279,9 @@ class TritonBackend(Backend):
     @classmethod
     def is_available(cls) -> bool:
         """Return True iff Triton and CUDA are both available."""
-        from avqa.triton import is_triton_available  # noqa: PLC0415
+        from avqa.triton import is_triton_available as _is_triton_available
 
-        return is_triton_available()
+        return _is_triton_available()
 
     def quantize(
         self,
@@ -294,10 +294,10 @@ class TritonBackend(Backend):
         if not self.is_available():
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         try:
-            from avqa.triton.loader import load_kernel  # noqa: PLC0415
+            from avqa.triton.loader import load_kernel as _load_kernel
 
-            out = load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
-        except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
+            out = _load_kernel("vq_precompute")(keys, values, codebook_parents, codebook_children)
+        except (ImportError, RuntimeError, OSError) as exc:
             logger.debug("Triton vq_precompute unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().quantize(keys, values, codebook_parents, codebook_children)
         return QuantizationResult(
@@ -356,9 +356,9 @@ class TritonBackend(Backend):
                 tile_num,
             )
         try:
-            from avqa.triton.loader import load_kernel  # noqa: PLC0415
+            from avqa.triton.loader import load_kernel as _load_kernel
 
-            out = load_kernel("correction")(
+            out = _load_kernel("correction")(
                 state_max,
                 state_denom,
                 state_num,
@@ -366,7 +366,7 @@ class TritonBackend(Backend):
                 tile_denom,
                 tile_num,
             )
-        except (ImportError, RuntimeError, OSError) as exc:  # pragma: no cover - defensive
+        except (ImportError, RuntimeError, OSError) as exc:
             logger.debug("Triton correction unavailable, falling back to TorchBackend: %s", exc)
             return TorchBackend().correction(
                 state_max,

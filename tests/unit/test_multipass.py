@@ -7,7 +7,7 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.multipass import MultiPassRefiner, compute_pass_budgets
-from avqa.routing import TopPRouter, compute_importance
+from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
 
 class TestComputePassBudgets:
@@ -126,7 +126,20 @@ class TestMultiPassRefiner:
 # ---------------------------------------------------------------------------
 
 
-def make_dummy_inputs(B: int, H: int, T: int, M0: int, C: int, D: int) -> tuple:
+def make_dummy_inputs(
+    B: int, H: int, T: int, M0: int, C: int, D: int,
+) -> tuple[
+    OnlineSoftmaxState,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    RoutingDecision,
+    torch.Tensor,
+]:
     """Build the argument bundle ``refine`` consumes with deterministic data."""
     state = OnlineSoftmaxState.empty(B, H, T, 1, D)
     parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)

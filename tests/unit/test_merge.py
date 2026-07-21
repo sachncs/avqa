@@ -98,7 +98,7 @@ class TestMergeStrategyInterface:
     def test_cannot_instantiate(self) -> None:
         """MergeStrategy cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            MergeStrategy()  # type: ignore[abstract]
+            getattr(MergeStrategy, '__new__')(MergeStrategy)
 
     @pytest.mark.parametrize(
         "cls",

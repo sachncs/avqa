@@ -28,7 +28,7 @@ BF16_TOL = {"atol": 1e-2, "rtol": 1e-2}
 def has_cuda_triton() -> bool:
     try:
         return bool(torch.cuda.is_available())
-    except (ImportError, AttributeError):  # pragma: no cover
+    except (ImportError, AttributeError):
         return False
 
 
@@ -56,8 +56,12 @@ def test_vq_precompute_matches_torchbackend_fp32() -> None:
     except (RuntimeError, ImportError) as exc:
         pytest.skip(f"Triton kernel not importable: {exc}")
 
-    torch.testing.assert_close(out["parent_aggregates"], ref.parent_aggregates, **FP32_TOL)
-    torch.testing.assert_close(out["parent_counts"], ref.parent_counts, **FP32_TOL)
+    torch.testing.assert_close(
+        out["parent_aggregates"], ref.parent_aggregates, rtol=FP32_TOL["rtol"], atol=FP32_TOL["atol"]
+    )
+    torch.testing.assert_close(
+        out["parent_counts"], ref.parent_counts, rtol=FP32_TOL["rtol"], atol=FP32_TOL["atol"]
+    )
     torch.testing.assert_close(out["parent_assignments"], ref.parent_assignments)
 
 
@@ -101,9 +105,15 @@ def test_correction_matches_torchbackend() -> None:
     except (RuntimeError, ImportError) as exc:
         pytest.skip(f"Triton kernel not importable: {exc}")
 
-    torch.testing.assert_close(out["state_max"], ref_max, **FP32_TOL)
-    torch.testing.assert_close(out["state_denom"], ref_denom, **FP32_TOL)
-    torch.testing.assert_close(out["state_num"], ref_num, **FP32_TOL)
+    torch.testing.assert_close(
+        out["state_max"], ref_max, rtol=FP32_TOL["rtol"], atol=FP32_TOL["atol"]
+    )
+    torch.testing.assert_close(
+        out["state_denom"], ref_denom, rtol=FP32_TOL["rtol"], atol=FP32_TOL["atol"]
+    )
+    torch.testing.assert_close(
+        out["state_num"], ref_num, rtol=FP32_TOL["rtol"], atol=FP32_TOL["atol"]
+    )
 
 
 def test_parent_attention_fp32_match() -> None:

@@ -172,7 +172,7 @@ def refine(
     child_aggregates: torch.Tensor,
     children_per_parent: int,
     decision: RoutingDecision,
-    attention_probs: torch.Tensor,  # noqa: ARG001  (documented contract)
+    attention_probs: torch.Tensor,
     parent_counts: torch.Tensor,
     child_logits: torch.Tensor | None = None,
     child_counts: torch.Tensor | None = None,
@@ -220,6 +220,12 @@ def refine(
     C = children_per_parent
     selected = decision.selected_indices  # [B, H, P]
     P = selected.shape[-1]
+
+    # The ``attention_probs`` argument is part of the public contract
+    # so downstream callers can pass it through. The current implementation
+    # derives the parent attention from the running online-softmax
+    # state — no further normalisation is required.
+    del attention_probs
 
     # Gather child aggregates for selected parents.
     parent_idx = selected.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D_v)

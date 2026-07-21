@@ -48,7 +48,8 @@ def attention(
         torch.Size([2, 8, 64])
     """
     module = AVQAttention(config, in_proj=False, out_proj=False)
-    return module(query, key, value, mask=mask)  # type: ignore[no-any-return]
+    out: torch.Tensor = module(query, key, value, mask=mask)
+    return out
 
 
 __all__ = ["attention"]

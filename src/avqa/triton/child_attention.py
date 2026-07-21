@@ -33,8 +33,11 @@ def child_attention(
         ``child_running_state``.
     """
 
-    import triton  # noqa: PLC0415
-    import triton.language as tl  # noqa: PLC0415
+    try:
+        import triton as _triton_module
+        import triton.language as _tl
+    except ImportError:
+        return None  # type: ignore[return-value]
 
     B, H, T_q, D = query.shape
     P = selected_indices.shape[-1]
@@ -48,7 +51,7 @@ def child_attention(
     children_b = children.unsqueeze(0).expand(B, H, *children.shape[1:]).contiguous()
     child_aggregates_b = child_aggregates.contiguous()
 
-    @triton.jit  # type: ignore[misc]
+    @_triton_module.jit
     def child_kernel(
         query_ptr,
         children_ptr,
@@ -59,42 +62,42 @@ def child_attention(
         out_state_ptr,
         P,
         T,
-        D: tl.constexpr,
-        C: tl.constexpr,
-        DV: tl.constexpr,
-        BLOCK_T: tl.constexpr,
-        scale: tl.constexpr,
+        D: _tl.constexpr,
+        C: _tl.constexpr,
+        DV: _tl.constexpr,
+        BLOCK_T: _tl.constexpr,
+        scale: _tl.constexpr,
     ) -> None:
         """Child-attention kernel: Q·C_c for selected parent indices (SPEC §11.6)."""
-        bh = tl.program_id(0)
-        p = tl.program_id(1)
-        t_off = tl.arange(0, BLOCK_T)
+        bh = _tl.program_id(0)
+        p = _tl.program_id(1)
+        t_off = _tl.arange(0, BLOCK_T)
         t_mask = t_off < T
-        sel = tl.load(selected_ptr + bh * P + p).to(tl.int32)
+        sel = _tl.load(selected_ptr + bh * P + p).to(_tl.int32)
 
         # Load query tile [BLOCK_T, D].
-        q = tl.load(
-            query_ptr + bh * T * D + t_off[:, None] * D + tl.arange(0, D),
+        q = _tl.load(
+            query_ptr + bh * T * D + t_off[:, None] * D + _tl.arange(0, D),
             mask=t_mask[:, None],
             other=0.0,
         )
         # Load selected parent's children [C, D].
-        c = tl.load(
+        c = _tl.load(
             children_ptr
             + bh * (P * C * D)
             + sel * (C * D)
-            + tl.arange(0, C)[:, None] * D
-            + tl.arange(0, D)[None, :],
+            + _tl.arange(0, C)[:, None] * D
+            + _tl.arange(0, D)[None, :],
         )
-        logits = tl.dot(q, c.trans(1, 0), allow_tf32=False) * scale
+        logits = _tl.dot(q, c.trans(1, 0), allow_tf32=False) * scale
         # Mask empty children.
-        cc = tl.load(cc_ptr + bh * (P * C) + sel * C + tl.arange(0, C))
-        logits = tl.where(tl.arange(0, C)[None, :] < C, logits, float("-inf"))
-        logits = tl.where((cc > 0.0)[None, :], logits, float("-inf"))
+        cc = _tl.load(cc_ptr + bh * (P * C) + sel * C + _tl.arange(0, C))
+        logits = _tl.where(_tl.arange(0, C)[None, :] < C, logits, float("-inf"))
+        logits = _tl.where((cc > 0.0)[None, :], logits, float("-inf"))
 
         # Store logits [BLOCK_T, C] at output offset.
         for i in range(C):
-            tl.store(
+            _tl.store(
                 out_logits_ptr + bh * (T * P * C) + t_off * (P * C) + p * C + i,
                 logits[:, i],
                 mask=t_mask,

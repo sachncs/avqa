@@ -32,6 +32,7 @@ import json
 from pathlib import Path
 import statistics
 import time
+from typing import Callable, TypedDict
 
 import torch
 import torch.nn.functional as F  # noqa: N812
@@ -45,6 +46,7 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
+from avqa.attention_module import TensorModule
 
 DEFAULT_BATCH: int = 2
 DEFAULT_HEADS: int = 4
@@ -82,7 +84,7 @@ def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     return mod
 
 
-def bench(fn: object) -> dict[str, float]:
+def bench(fn: Callable[[], object]) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
     samples: list[float] = []
@@ -186,17 +188,35 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
         sdpa_stats = bench(sdpa_call)
 
         paper = build_attention(hopfield_enabled=False, adaptive="none")
-        hvaq_ent = build_attention(hopfield_enabled=True, adaptive="entropy")
-        hvaq_lin = build_attention(hopfield_enabled=True, adaptive="linear")
+        hvaq_ent: AVQAttention = build_attention(hopfield_enabled=True, adaptive="entropy")
+        hvaq_lin: AVQAttention = build_attention(hopfield_enabled=True, adaptive="linear")
 
-        def paper_call(paper=paper, q=q, k=k, v=v) -> object:  # noqa: B008
-            return paper(q, k, v, mask=None)
+        def paper_call(
+            paper: AVQAttention = paper,
+            q: torch.Tensor = q,
+            k: torch.Tensor = k,
+            v: torch.Tensor = v,
+        ) -> torch.Tensor:
+                result: torch.Tensor = paper(q, k, v, mask=None)
+                return result
 
-        def hvaq_ent_call(hvaq_ent=hvaq_ent, q=q, k=k, v=v) -> object:  # noqa: B008
-            return hvaq_ent(q, k, v, mask=None)
+        def hvaq_ent_call(
+            hvaq_ent: AVQAttention = hvaq_ent,
+            q: torch.Tensor = q,
+            k: torch.Tensor = k,
+            v: torch.Tensor = v,
+        ) -> torch.Tensor:
+                result: torch.Tensor = hvaq_ent(q, k, v, mask=None)
+                return result
 
-        def hvaq_lin_call(hvaq_lin=hvaq_lin, q=q, k=k, v=v) -> object:  # noqa: B008
-            return hvaq_lin(q, k, v, mask=None)
+        def hvaq_lin_call(
+            hvaq_lin: AVQAttention = hvaq_lin,
+            q: torch.Tensor = q,
+            k: torch.Tensor = k,
+            v: torch.Tensor = v,
+        ) -> torch.Tensor:  # noqa: B008
+                result: torch.Tensor = hvaq_lin(q, k, v, mask=None)
+                return result
 
         paper_stats = bench(paper_call)
         hvaq_ent_stats = bench(hvaq_ent_call)
@@ -346,10 +366,17 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "median": statistics.median(vals) if vals else 0.0,
             "min": min(vals) if vals else 0.0,
             "max": max(vals) if vals else 0.0,
-            "n": len(vals),
+            "n": float(len(vals)),
         }
 
-    def stats_from_medians(medians: list[float]) -> dict[str, float]:
+    class StatsDict(TypedDict):
+        median_ms: float
+        stdev_ms_across_seeds: float
+        n_seeds: int
+        min_ms: float
+        max_ms: float
+
+    def stats_from_medians(medians: list[float]) -> StatsDict:
         return {
             "median_ms": statistics.fmean(medians) if medians else 0.0,
             "stdev_ms_across_seeds": (statistics.stdev(medians) if len(medians) > 1 else 0.0),
@@ -358,7 +385,20 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             "max_ms": max(medians) if medians else 0.0,
         }
 
-    rows: dict[str, object] = {
+    class RatioDict(TypedDict):
+        mean: float
+        stdev: float
+
+    class _RowsDict(TypedDict, total=False):
+        sdpa: StatsDict
+        paper_single_pass: StatsDict
+        hvaq_entropy: StatsDict
+        hvaq_linear: StatsDict
+        top_p_concentration: dict[str, dict[str, float]]
+        top_p_concentration_ratio_hvaq_entropy_over_paper: RatioDict
+        output_diff_vs_paper: dict[str, dict[str, float]]
+
+    rows: _RowsDict = {
         "sdpa": stats_from_medians(seed_medians["sdpa"]),
         "paper_single_pass": stats_from_medians(seed_medians["paper_single_pass"]),
         "hvaq_entropy": stats_from_medians(seed_medians["hvaq_entropy"]),
@@ -385,8 +425,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915
             )
         ]
         rows["top_p_concentration_ratio_hvaq_entropy_over_paper"] = {
-            "mean": statistics.fmean(ent_means),
-            "stdev": statistics.stdev(ent_means) if len(ent_means) > 1 else 0.0,
+            "mean": float(statistics.fmean(ent_means)),
+            "stdev": float(statistics.stdev(ent_means) if len(ent_means) > 1 else 0.0),
         }
 
     raw_path = out_dir / "raw.json"

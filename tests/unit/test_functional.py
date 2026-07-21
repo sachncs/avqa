@@ -5,32 +5,36 @@ from __future__ import annotations
 import dataclasses
 
 import torch
+from typing_extensions import TypedDict, Unpack
 
-from avqa.config import AVQConfig, RefinementConfig
+from avqa.config import (
+    AVQConfig,
+    AttentionShapeConfig,
+    CodebookConfig,
+    RefinementConfig,
+    RoutingConfig,
+)
 from avqa.functional import attention
 
 
-def small_config(**overrides: object) -> AVQConfig:
+class _ConfigOverrides(TypedDict, total=False):
+    attention: AttentionShapeConfig
+    codebook: CodebookConfig
+    routing: RoutingConfig
+    refinement: RefinementConfig
+    dropout: float
+    causal: bool
+
+
+def small_config(**overrides: Unpack[_ConfigOverrides]) -> AVQConfig:
     """Tiny config for fast tests."""
-    defaults: dict[str, object] = {
-        "attention": __import__(
-            "avqa.config", fromlist=["AttentionShapeConfig"]
-        ).AttentionShapeConfig(
-            embed_dim=32,
-            num_heads=4,
-            head_dim=8,
-        ),
-        "codebook": __import__("avqa.config", fromlist=["CodebookConfig"]).CodebookConfig(
-            num_codewords=8,
-            children_per_codeword=2,
-        ),
-        "routing": __import__("avqa.config", fromlist=["RoutingConfig"]).RoutingConfig(
-            refinement_budget=3,
-        ),
-        "dropout": 0.0,
-    }
-    defaults.update(overrides)
-    return AVQConfig(**defaults)  # type: ignore[arg-type]
+    base = AVQConfig(
+        attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+        codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
+        routing=RoutingConfig(refinement_budget=3),
+        dropout=0.0,
+    )
+    return dataclasses.replace(base, **overrides)
 
 
 class TestFunctionalAttention:

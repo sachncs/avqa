@@ -6,34 +6,37 @@ import dataclasses
 
 import pytest
 import torch
+from typing_extensions import TypedDict, Unpack
 
 from avqa.attention_module import AVQAttention
 from avqa.cache import InMemoryKVCache
-from avqa.config import AttentionShapeConfig, AVQConfig, RefinementConfig
+from avqa.config import (
+    AttentionShapeConfig,
+    AVQConfig,
+    CodebookConfig,
+    RefinementConfig,
+    RoutingConfig,
+)
 from avqa.exceptions import AVQAError
 
 
-def small_config(**overrides: object) -> AVQConfig:
+class _ConfigOverrides(TypedDict, total=False):
+    attention: AttentionShapeConfig
+    codebook: CodebookConfig
+    routing: RoutingConfig
+    refinement: RefinementConfig
+    dropout: float
+
+
+def small_config(**overrides: Unpack[_ConfigOverrides]) -> AVQConfig:
     """Tiny config for fast tests."""
-    defaults: dict[str, object] = {
-        "attention": __import__(
-            "avqa.config", fromlist=["AttentionShapeConfig"]
-        ).AttentionShapeConfig(
-            embed_dim=32,
-            num_heads=4,
-            head_dim=8,
-        ),
-        "codebook": __import__("avqa.config", fromlist=["CodebookConfig"]).CodebookConfig(
-            num_codewords=8,
-            children_per_codeword=2,
-        ),
-        "routing": __import__("avqa.config", fromlist=["RoutingConfig"]).RoutingConfig(
-            refinement_budget=3,
-        ),
-        "dropout": 0.0,
-    }
-    defaults.update(overrides)
-    return AVQConfig(**defaults)  # type: ignore[arg-type]
+    base = AVQConfig(
+        attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+        codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
+        routing=RoutingConfig(refinement_budget=3),
+        dropout=0.0,
+    )
+    return dataclasses.replace(base, **overrides)
 
 
 class TestConstruction:
@@ -195,24 +198,18 @@ class TestRefinementDisabled:
     def test_disabled_does_not_quantize(self) -> None:
         """With refinement disabled, forward path does not touch codebook.
 
-        We verify this by monkey-patching quantize to track calls.
+        The :attr:`AVQAttention.last_keys` attribute is only set after
+        the VQ precompute path runs. Asserting it stays ``None`` is
+        the cleanest way to verify quantize is bypassed.
         """
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
             refinement=RefinementConfig(enabled=False),
         )
         module = AVQAttention(config, in_proj=False, out_proj=False)
-
-        called = {"n": 0}
-        original_quantize = module.backend.quantize
-
-        def tracking_quantize(*args: object, **kwargs: object) -> object:
-            called["n"] += 1
-            return original_quantize(*args, **kwargs)  # type: ignore[arg-type]
-
-        module.backend.quantize = tracking_quantize  # type: ignore[method-assign]
         module(torch.randn(1, 4, 32), torch.randn(1, 4, 32), torch.randn(1, 4, 32))
-        assert called["n"] == 0
+        assert module.last_keys is None
+        assert module.last_parent_assignments is None
 
 
 class TestErrorHandling:

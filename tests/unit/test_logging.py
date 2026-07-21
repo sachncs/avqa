@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 
 import pytest
 
@@ -16,15 +17,15 @@ from avqa.logging import (
 
 
 @pytest.fixture(autouse=True)
-def reset_logger_state() -> None:
+def reset_logger_state() -> Generator[None, None, None]:
     """Reset AVQA logger state around each test."""
     logger = logging.getLogger(AVQA_LOGGER_NAME)
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
     logger.setLevel(logging.NOTSET)
+    yield
     logger.propagate = True
     avqa_logging.set_configured(False)
-    yield
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
     avqa_logging.set_configured(False)

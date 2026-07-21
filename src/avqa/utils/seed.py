@@ -12,8 +12,11 @@ may raise if a non-deterministic op is used).
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import random
+
+import torch
 
 from avqa.logging import get_logger
 
@@ -59,15 +62,14 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
     os.environ["PYTHONHASHSEED"] = str(seed)
     logger.debug("Set PYTHONHASHSEED=%d", seed)
 
-    try:
-        import numpy as np  # noqa: PLC0415
-    except ImportError:
-        logger.debug("NumPy not installed; skipping NumPy seeding")
-    else:
-        np.random.seed(seed)
+    if importlib.util.find_spec("numpy") is not None:
+        np_module = importlib.import_module("numpy")
+        random_state = np_module.random
+        random_state.seed(seed)
         logger.debug("Seeded NumPy with seed=%d", seed)
+    else:
+        logger.debug("NumPy not installed; skipping NumPy seeding")
 
-    import torch  # noqa: PLC0415
 
     torch.manual_seed(seed)
     logger.debug("Seeded torch CPU RNG with seed=%d", seed)

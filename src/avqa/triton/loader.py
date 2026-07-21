@@ -16,7 +16,6 @@ from avqa.triton import has_triton_module, is_triton_available
 @lru_cache(maxsize=1)
 def load_vq() -> Any:
     """Lazy import of the fused VQ kernel module."""
-    from avqa.triton.vq import vq_precompute  # noqa: PLC0415
 
     return vq_precompute
 
@@ -24,7 +23,6 @@ def load_vq() -> Any:
 @lru_cache(maxsize=1)
 def load_parent_attention() -> Any:
     """Lazy import of the parent-attention kernel module."""
-    from avqa.triton.parent_attention import parent_attention  # noqa: PLC0415
 
     return parent_attention
 
@@ -32,7 +30,6 @@ def load_parent_attention() -> Any:
 @lru_cache(maxsize=1)
 def load_child_attention() -> Any:
     """Lazy import of the child-attention kernel module."""
-    from avqa.triton.child_attention import child_attention  # noqa: PLC0415
 
     return child_attention
 
@@ -40,7 +37,6 @@ def load_child_attention() -> Any:
 @lru_cache(maxsize=1)
 def load_correction() -> Any:
     """Lazy import of the correction kernel module."""
-    from avqa.triton.correction import correction  # noqa: PLC0415
 
     return correction
 

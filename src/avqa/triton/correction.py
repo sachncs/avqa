@@ -36,8 +36,11 @@ def correction(
         Dictionary with the updated ``state_max``, ``state_denom``,
         ``state_num``.
     """
-    import triton  # noqa: PLC0415
-    import triton.language as tl  # noqa: PLC0415
+    try:
+        import triton as _triton_module
+        import triton.language as _tl
+    except ImportError:
+        return None  # type: ignore[return-value]
 
     B, H, T, _ = state_max.shape
     D_v = state_num.shape[-1]
@@ -46,7 +49,7 @@ def correction(
     out_denom = torch.empty_like(state_denom)
     out_num = torch.empty_like(state_num)
 
-    @triton.jit  # type: ignore[misc]
+    @_triton_module.jit
     def correction_kernel(
         sm_ptr,
         sd_ptr,
@@ -61,35 +64,35 @@ def correction(
         od_ptr,
         on_ptr,
         T,
-        DV: tl.constexpr,
+        DV: _tl.constexpr,
     ) -> None:
         """Online-softmax tile-correction kernel (SPEC §11.7)."""
-        bht = tl.program_id(0)
-        new_max = tl.maximum(
-            tl.maximum(
-                tl.load(sm_ptr + bht),
-                tl.load(pm_ptr + bht),
+        bht = _tl.program_id(0)
+        new_max = _tl.maximum(
+            _tl.maximum(
+                _tl.load(sm_ptr + bht),
+                _tl.load(pm_ptr + bht),
             ),
-            tl.load(cm_ptr + bht),
+            _tl.load(cm_ptr + bht),
         )
-        s_old = tl.exp(tl.load(sm_ptr + bht) - new_max)
-        s_rem = tl.exp(tl.load(pm_ptr + bht) - new_max)
-        s_add = tl.exp(tl.load(cm_ptr + bht) - new_max)
-        tl.store(om_ptr + bht, new_max)
+        s_old = _tl.exp(_tl.load(sm_ptr + bht) - new_max)
+        s_rem = _tl.exp(_tl.load(pm_ptr + bht) - new_max)
+        s_add = _tl.exp(_tl.load(cm_ptr + bht) - new_max)
+        _tl.store(om_ptr + bht, new_max)
 
         denom = (
-            tl.load(sd_ptr + bht) * s_old
-            - tl.load(pd_ptr + bht) * s_rem
-            + tl.load(cd_ptr + bht) * s_add
+            _tl.load(sd_ptr + bht) * s_old
+            - _tl.load(pd_ptr + bht) * s_rem
+            + _tl.load(cd_ptr + bht) * s_add
         )
-        tl.store(od_ptr + bht, denom)
+        _tl.store(od_ptr + bht, denom)
 
-        d_off = tl.arange(0, DV)
-        n_old = tl.load(sn_ptr + bht * DV + d_off)
-        n_rem = tl.load(pn_ptr + bht * DV + d_off)
-        n_add = tl.load(cn_ptr + bht * DV + d_off)
+        d_off = _tl.arange(0, DV)
+        n_old = _tl.load(sn_ptr + bht * DV + d_off)
+        n_rem = _tl.load(pn_ptr + bht * DV + d_off)
+        n_add = _tl.load(cn_ptr + bht * DV + d_off)
         n_new = n_old * s_old - n_rem * s_rem + n_add * s_add
-        tl.store(on_ptr + bht * DV + d_off, n_new)
+        _tl.store(on_ptr + bht * DV + d_off, n_new)
 
     grid = (B * H * T,)
     correction_kernel[grid](

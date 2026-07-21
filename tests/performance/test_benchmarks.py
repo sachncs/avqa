@@ -10,6 +10,7 @@ All benchmarks compare AVQA against PyTorch SDPA on identical inputs.
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 import torch
@@ -24,6 +25,14 @@ from avqa.config import (
 )
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.utils.seed import seed_everything
+
+if TYPE_CHECKING:
+    # ``pytest_benchmark`` ships no type stubs. We declare a minimal
+    # Protocol locally to keep mypy happy in the type-only block.
+    from typing import Protocol as _Protocol
+
+    class BenchmarkFixture(_Protocol):
+        def __call__(self, function_to_benchmark: object) -> object: ...
 
 
 def small_attn_config(seq_len: int, num_heads: int = 4, embed_dim: int = 64) -> AVQConfig:
@@ -48,11 +57,12 @@ def small_attn_config(seq_len: int, num_heads: int = 4, embed_dim: int = 64) -> 
 @pytest.fixture(params=[64, 128, 256])
 def seq_len(request: pytest.FixtureRequest) -> int:
     """Sequence lengths to sweep."""
-    return request.param
+    param: int = request.param
+    return param
 
 
 @pytest.mark.benchmark(group="attention")
-def test_avqa_attention(seq_len: int, benchmark: object) -> None:
+def test_avqa_attention(seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark AVQA attention forward pass."""
     cfg = small_attn_config(seq_len=seq_len)
     module = AVQAttention(cfg, in_proj=False, out_proj=False)
@@ -67,7 +77,7 @@ def test_avqa_attention(seq_len: int, benchmark: object) -> None:
 
 
 @pytest.mark.benchmark(group="attention")
-def test_pytorch_attention(seq_len: int, benchmark: object) -> None:
+def test_pytorch_attention(seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark PyTorch SDPA reference for comparison."""
     q = torch.randn(1, 4, seq_len, 16)
     k = torch.randn(1, 4, seq_len, 16)
@@ -80,7 +90,7 @@ def test_pytorch_attention(seq_len: int, benchmark: object) -> None:
 
 
 @pytest.mark.benchmark(group="online-softmax")
-def test_online_softmax_attention(seq_len: int, benchmark: object) -> None:
+def test_online_softmax_attention(seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark online-softmax (FlashAttention-style) attention."""
     q = torch.randn(1, 4, seq_len, 16)
     k = torch.randn(1, 4, seq_len, 16)
@@ -94,7 +104,7 @@ def test_online_softmax_attention(seq_len: int, benchmark: object) -> None:
 
 
 @pytest.mark.benchmark(group="quantization")
-def test_vq_precompute(seq_len: int, benchmark: object) -> None:
+def test_vq_precompute(seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark hierarchical VQ precompute."""
     torch.manual_seed(0)
     cb = HierarchicalCodebook(
@@ -134,11 +144,12 @@ def test_attention_reproducibility() -> None:
 @pytest.fixture(params=[1024, 2048])
 def large_seq_len(request: pytest.FixtureRequest) -> int:
     """Large sequence lengths for scaling benchmarks."""
-    return request.param
+    param: int = request.param
+    return param
 
 
 @pytest.mark.benchmark(group="large-attention")
-def test_avqa_attention_large(large_seq_len: int, benchmark: object) -> None:
+def test_avqa_attention_large(large_seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark AVQA at large N (spec §3.19)."""
     cfg = small_attn_config(seq_len=large_seq_len)
     module = AVQAttention(cfg, in_proj=False, out_proj=False)
@@ -153,7 +164,7 @@ def test_avqa_attention_large(large_seq_len: int, benchmark: object) -> None:
 
 
 @pytest.mark.benchmark(group="large-attention")
-def test_pytorch_attention_large(large_seq_len: int, benchmark: object) -> None:
+def test_pytorch_attention_large(large_seq_len: int, benchmark: 'BenchmarkFixture') -> None:
     """Benchmark PyTorch SDPA at large N for comparison."""
     q = torch.randn(1, 4, large_seq_len, 16)
     k = torch.randn(1, 4, large_seq_len, 16)
