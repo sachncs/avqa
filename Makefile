@@ -35,7 +35,7 @@ bench:
 	PYTHONPATH=src pytest tests/performance/ --benchmark-only --benchmark-min-rounds=2
 
 coverage:
-	PYTHONPATH=src pytest tests/unit tests/integration --cov=avqa --cov-report=term --cov-fail-under=85
+	PYTHONPATH=src pytest tests/unit tests/integration --cov=avqa --cov-report=term --cov-fail-under=90
 
 clean:
 	rm -rf build/ dist/ .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage htmlcov/ *.egg-info src/*.egg-info

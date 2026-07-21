@@ -17,7 +17,7 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
-from avqa.exceptions import ConfigurationError
+from avqa.exceptions import AVQAError, ConfigurationError, ShapeError
 from avqa.hopfield import (
     hopfield_logits,
     paper_beta,
@@ -36,7 +36,7 @@ class TestPaperBeta:
         assert paper_beta(128) == pytest.approx(1.0 / math.sqrt(128.0))
 
     def test_paper_beta_rejects_zero(self) -> None:
-        with pytest.raises(ValueError, match="head_dim must be"):
+        with pytest.raises(ConfigurationError, match="head_dim must be"):
             paper_beta(0)
 
 
@@ -97,9 +97,9 @@ class TestPerQueryBeta:
 
     def test_rejects_non_positive_beta(self) -> None:
         p = torch.softmax(torch.randn(1, 1, 1, 4), dim=-1)
-        with pytest.raises(ValueError, match="beta_init must be"):
+        with pytest.raises(AVQAError, match="beta_init must be"):
             per_query_beta(p, beta_init=0.0, adaptive="entropy")
-        with pytest.raises(ValueError, match="beta_init must be"):
+        with pytest.raises(AVQAError, match="beta_init must be"):
             per_query_beta(p, beta_init=-0.5, adaptive="entropy")
 
 
@@ -138,11 +138,11 @@ class TestHopfieldLogits:
         torch.testing.assert_close(out, expected)
 
     def test_rejects_wrong_base_logits_rank(self) -> None:
-        with pytest.raises(ValueError, match="base_logits must be rank 4"):
+        with pytest.raises(ShapeError, match="base_logits must be rank 4"):
             hopfield_logits(torch.randn(2, 4, 6), torch.ones(2, 4, 6))
 
     def test_rejects_wrong_beta_q_shape(self) -> None:
-        with pytest.raises(ValueError, match="per_query_beta shape"):
+        with pytest.raises(ShapeError, match="per_query_beta shape"):
             hopfield_logits(torch.randn(2, 4, 6, 8), torch.ones(2, 4, 7))
 
 

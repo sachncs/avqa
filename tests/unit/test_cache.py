@@ -6,6 +6,12 @@ import pytest
 import torch
 
 from avqa.cache import InMemoryKVCache, KVCache, PagedKVCache
+from avqa.exceptions import (
+    AVQAError,
+    ConfigurationError,
+    NotInitializedError,
+    ShapeError,
+)
 
 
 class TestInMemoryKVCache:
@@ -65,7 +71,13 @@ class TestInMemoryKVCache:
     def test_load_state_dict_rejects_mismatch(self) -> None:
         """load_state_dict rejects mismatched num_heads."""
         cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
-        with pytest.raises(ValueError, match="num_heads"):
+        with pytest.raises(ShapeError, match="num_heads"):
+            cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
+
+    def test_load_state_dict_mismatch_is_avqaerror(self) -> None:
+        """All cache raises are AVQAError subclasses."""
+        cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
+        with pytest.raises(AVQAError, match="num_heads"):
             cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
 
 
@@ -105,10 +117,10 @@ class TestPagedKVCache:
         assert torch.equal(v_full, v)
 
     def test_max_pages_limit(self) -> None:
-        """max_pages raises when exceeded."""
+        """max_pages raises NotInitializedError when exceeded."""
         cache = PagedKVCache(page_size=1, num_heads=1, head_dim_k=4, head_dim_v=4, max_pages=2)
         cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 2, 4))
-        with pytest.raises(RuntimeError, match="full"):
+        with pytest.raises(NotInitializedError, match="full"):
             cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
 
     def test_reset(self) -> None:
@@ -120,8 +132,8 @@ class TestPagedKVCache:
         assert cache.num_pages == 0
 
     def test_invalid_page_size(self) -> None:
-        """page_size <= 0 raises."""
-        with pytest.raises(ValueError):
+        """page_size <= 0 raises ConfigurationError."""
+        with pytest.raises(ConfigurationError):
             PagedKVCache(page_size=0)
 
 
@@ -131,7 +143,7 @@ class TestKVCacheInterface:
     def test_cannot_instantiate(self) -> None:
         """KVCache cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(KVCache, '__new__')(KVCache)
+            KVCache.__new__(KVCache)
 
     def test_subclass_relationship(self) -> None:
         """Concrete caches inherit from KVCache."""

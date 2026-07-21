@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import torch
 
 from avqa.attention import OnlineSoftmaxState
+from avqa.exceptions import RoutingError
 from avqa.logging import get_logger
 from avqa.refinement import refine
 from avqa.routing import RoutingDecision, TopPRouter, compute_importance
@@ -56,22 +57,22 @@ def compute_pass_budgets(base: int, passes: int, decay: float) -> list[int]:
     """
     if decay <= 0.0 or decay > 1.0:
         msg = f"decay must be in (0, 1], got {decay}"
-        raise ValueError(msg)
+        raise RoutingError(msg)
     if passes <= 0:
         msg = f"passes must be positive, got {passes}"
-        raise ValueError(msg)
+        raise RoutingError(msg)
     if base <= 0:
         msg = f"base must be positive, got {base}"
-        raise ValueError(msg)
+        raise RoutingError(msg)
     return [max(1, round(base * (decay**i))) for i in range(passes)]
 
 
 class MultiPassRefiner:
-    """Multi-pass correction wrapper (SPEC \u00a715.3).
+    """Multi-pass correction wrapper (SPEC §15.3).
 
     Args:
         passes: Number of correction passes (default ``1`` = paper).
-        decay: Geometric per-pass budget decay ``\u03c1`` (default
+        decay: Geometric per-pass budget decay ``rho`` (default
             ``1.0`` = constant budget; set to ``0.5`` to halve the
             budget each pass).
 
@@ -83,10 +84,10 @@ class MultiPassRefiner:
     def __init__(self, passes: int = 1, decay: float = 1.0) -> None:
         if passes <= 0:
             msg = f"passes must be positive, got {passes}"
-            raise ValueError(msg)
+            raise RoutingError(msg)
         if decay <= 0.0 or decay > 1.0:
             msg = f"decay must be in (0, 1], got {decay}"
-            raise ValueError(msg)
+            raise RoutingError(msg)
         self.passes = passes
         self.decay = decay
         logger.debug(

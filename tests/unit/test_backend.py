@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from avqa.backend import Backend, TorchBackend, TritonBackend
+from avqa.backend import Backend, TorchBackend
+from avqa.exceptions import AVQAError, BackendError
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.quantizer import QuantizationResult
 from avqa.utils.numerics import online_softmax_step
@@ -169,32 +170,6 @@ class TestReduction:
         assert torch.allclose(out, expected, atol=1e-5)
 
 
-class TestTritonBackend:
-    """Tests for the Triton backend (gated by availability)."""
-
-    def test_is_available_returns_bool(self) -> None:
-        """is_available returns a boolean."""
-        assert isinstance(TritonBackend.is_available(), bool)
-
-    def test_naive_falls_back_to_torch(self) -> None:
-        """naive_attention delegates to TorchBackend."""
-        Q = torch.randn(1, 1, 2, 4)
-        K = torch.randn(1, 1, 3, 4)
-        V = torch.randn(1, 1, 3, 4)
-        out_triton = TritonBackend().naive_attention(Q, K, V)
-        out_torch = TorchBackend().naive_attention(Q, K, V)
-        assert torch.allclose(out_triton, out_torch)
-
-    def test_online_falls_back_to_torch(self) -> None:
-        """online_softmax_attention delegates to TorchBackend."""
-        Q = torch.randn(1, 1, 2, 4)
-        K = torch.randn(1, 1, 3, 4)
-        V = torch.randn(1, 1, 3, 4)
-        out_triton = TritonBackend().online_softmax_attention(Q, K, V)
-        out_torch = TorchBackend().online_softmax_attention(Q, K, V)
-        assert torch.allclose(out_triton, out_torch, atol=1e-5)
-
-
 class TestBackendFactory:
     """Tests for :meth:`Backend.create` factory."""
 
@@ -204,8 +179,12 @@ class TestBackendFactory:
         assert isinstance(backend, TorchBackend)
 
     def test_unknown_backend_raises(self) -> None:
-        """Unknown backend name raises ValueError."""
-        with pytest.raises(ValueError, match="not a known backend"):
+        """Unknown backend name raises BackendError (AVQAError subclass)."""
+        with pytest.raises(BackendError, match="not a known backend"):
+            Backend.create("nonexistent_backend")
+
+    def test_backend_error_is_avqaerror(self) -> None:
+        with pytest.raises(AVQAError, match="not a known backend"):
             Backend.create("nonexistent_backend")
 
     def test_default_is_torch(self) -> None:
@@ -220,9 +199,8 @@ class TestAbstractInterface:
     def test_cannot_instantiate(self) -> None:
         """Backend cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(Backend, '__new__')(Backend)
+            Backend.__new__(Backend)
 
     def test_subclass_relationship(self) -> None:
         """Concrete backends inherit from Backend."""
         assert issubclass(TorchBackend, Backend)
-        assert issubclass(TritonBackend, Backend)

@@ -13,6 +13,8 @@ from abc import ABC, abstractmethod
 
 import torch
 
+from avqa.exceptions import ConfigurationError, RoutingError
+
 
 class Scheduler(ABC):
     """Abstract scheduler interface (spec §4.7)."""
@@ -31,14 +33,14 @@ class Scheduler(ABC):
             A fresh :class:`Scheduler` instance.
 
         Raises:
-            ValueError: If ``strategy`` is unknown.
+            RoutingError: If ``strategy`` is unknown.
         """
         if strategy == "default":
             return DefaultScheduler(budget=budget)
         if strategy == "adaptive":
             return AdaptiveScheduler(min_budget=max(1, budget // 2), max_budget=budget)
         msg = f"unknown scheduler strategy: {strategy!r}"
-        raise ValueError(msg)
+        raise RoutingError(msg)
 
     @abstractmethod
     def budget_for(self, importance: torch.Tensor) -> int:
@@ -66,7 +68,7 @@ class DefaultScheduler(Scheduler):
 
     def __init__(self, budget: int = 8) -> None:
         if budget <= 0:
-            raise ValueError(f"budget must be > 0, got {budget}")
+            raise RoutingError(f"budget must be > 0, got {budget}")
         self.budget = budget
 
     def budget_for(self, importance: torch.Tensor) -> int:
@@ -95,13 +97,13 @@ class AdaptiveScheduler(Scheduler):
         entropy_threshold: float = 0.5,
     ) -> None:
         if min_budget <= 0:
-            raise ValueError(f"min_budget must be > 0, got {min_budget}")
+            raise ConfigurationError(f"min_budget must be > 0, got {min_budget}")
         if max_budget < min_budget:
-            raise ValueError(
+            raise ConfigurationError(
                 f"max_budget ({max_budget}) < min_budget ({min_budget})",
             )
         if not 0.0 < entropy_threshold <= 1.0:
-            raise ValueError(
+            raise ConfigurationError(
                 f"entropy_threshold must be in (0, 1], got {entropy_threshold}",
             )
         self.min_budget = min_budget

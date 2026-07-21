@@ -73,13 +73,30 @@ class TestMergeStrategies:
         assert out.shape == (1, 1, 4, 5)
 
     def test_weighted_merge_weights(self) -> None:
-        """Weights combine parent + child contributions."""
+        """WeightedMerge is a convex combo of parent_value and child_contrib.
+
+        Per :class:`MergeInputs` contract, ``parent_value`` and
+        ``child_value`` are already attention-weighted by the pipeline,
+        so WeightedMerge must NOT re-multiply by ``parent_probs`` (that
+        was a bug — see CRITICAL review finding B.001). With
+        ``parent_weight=1.0, child_weight=0.0`` the result is identical
+        to ``parent_value``; with ``parent_weight=0.0, child_weight=1.0``
+        it is the child contribution only.
+        """
         inputs = make_inputs()
-        out = WeightedMerge(parent_weight=0.3, child_weight=0.7).merge(inputs)
-        expected = 0.3 * inputs.parent_probs * inputs.parent_value + 0.7 * (
+        child_contrib = (
             inputs.child_probs.unsqueeze(-1) * inputs.child_value
         ).sum(dim=-2)
-        assert torch.allclose(out, expected, atol=1e-5)
+
+        out_all_parent = WeightedMerge(parent_weight=1.0, child_weight=0.0).merge(inputs)
+        assert torch.allclose(out_all_parent, inputs.parent_value, atol=1e-6)
+
+        out_all_child = WeightedMerge(parent_weight=0.0, child_weight=1.0).merge(inputs)
+        assert torch.allclose(out_all_child, child_contrib, atol=1e-6)
+
+        out_mix = WeightedMerge(parent_weight=0.3, child_weight=0.7).merge(inputs)
+        expected = 0.3 * inputs.parent_value + 0.7 * child_contrib
+        assert torch.allclose(out_mix, expected, atol=1e-5)
 
     def test_logit_merge_shape(self) -> None:
         """LogitMerge output shape is [B, H, N, D]."""
@@ -98,7 +115,7 @@ class TestMergeStrategyInterface:
     def test_cannot_instantiate(self) -> None:
         """MergeStrategy cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(MergeStrategy, '__new__')(MergeStrategy)
+            MergeStrategy.__new__(MergeStrategy)
 
     @pytest.mark.parametrize(
         "cls",

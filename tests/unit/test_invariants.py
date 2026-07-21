@@ -101,7 +101,17 @@ class TestAttentionInvariant:
     """Refined attention distribution sums to 1 (spec §7.17)."""
 
     def test_refined_attention_normalized(self) -> None:
-        """merge_value row sums are finite and consistent."""
+        """merge_value has the documented shape and is finite after refine().
+
+        Drives a full refinement pass with the default
+        :class:`ProbabilityMerge`. Asserts:
+        - output is finite (no NaN / Inf),
+        - output shape matches the documented contract ``[B, T, D_v]``
+          after merging heads,
+        - calling :meth:`AdaptiveRefinement.refine` again (idempotency
+          on no codebook change) returns the same merge value within
+          FP32 noise — guards against accidental side effects.
+        """
         result, parent_probs, cb, _, values = make_pipeline(
             B=1,
             H=2,
@@ -117,10 +127,7 @@ class TestAttentionInvariant:
         T = parent_probs.shape[2]
         C = cb.children_per_parent
 
-        parent_value_per_parent = parent_probs.unsqueeze(-1) * values.unsqueeze(
-            3
-        )  # [B, H, T, M0, D_v]
-
+        parent_value_per_parent = parent_probs.unsqueeze(-1) * values.unsqueeze(3)
         state = OnlineSoftmaxState.empty(1, H, T, D_v, D_v)
         importance = compute_importance(parent_probs, result.parent_counts)
         decision = TopPRouter().select(importance, budget=2)
@@ -135,8 +142,25 @@ class TestAttentionInvariant:
             attention_probs=parent_probs,
             parent_counts=result.parent_counts,
         )
-        # The merge value should have no NaN or Inf.
-        assert torch.isfinite(refinement.merge_value).all()
+        merge = refinement.merge_value
+        assert torch.isfinite(merge).all()
+        assert merge.shape == (1, H, T, D_v)
+        # Idempotency: refine() does not mutate aggregates/counts, so
+        # running twice from the same state must give bitwise-identical
+        # merge values.
+        state2 = state
+        refinement2 = refine(
+            state=state2,
+            parent_probs=parent_probs,
+            parent_value=parent_value_per_parent,
+            parent_aggregates=result.parent_aggregates,
+            child_aggregates=result.child_aggregates,
+            children_per_parent=C,
+            decision=decision,
+            attention_probs=parent_probs,
+            parent_counts=result.parent_counts,
+        )
+        assert torch.equal(merge, refinement2.merge_value)
 
 
 # ---------------------------------------------------------------------------

@@ -28,6 +28,7 @@ from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
+from avqa.exceptions import NotInitializedError
 from avqa.logging import get_logger
 from avqa.multipass import MultiPassRefiner
 from avqa.online_adaptation import online_codebook_adaptation
@@ -206,9 +207,20 @@ class AVQAttention(nn.Module):
         B, H, T, D = tensor.shape
         return tensor.transpose(1, 2).contiguous().view(B, T, H * D)
 
-    def causal_mask(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        """Lower-triangular mask for causal attention (1 = keep, 0 = mask)."""
-        return torch.tril(torch.ones(seq_len, seq_len, device=device, dtype=torch.bool))
+    def causal_mask(self, t_q: int, t_k: int, device: torch.device) -> torch.Tensor:
+        """Lower-triangular causal mask ``[T_q, T_k]`` (1 = keep, 0 = mask).
+
+        ``mask[i, j] = 1`` iff query position ``i`` may attend to key
+        position ``j``. With a KV cache (T_q smaller than T_k), cached
+        tokens at positions ``0 .. T_k - T_q - 1`` are entirely visible
+        to every query (the offset accounts for the cache prefix).
+        """
+        m = torch.zeros(t_q, t_k, device=device, dtype=torch.bool)
+        offset = t_k - t_q
+        for i in range(t_q):
+            j_max = i + offset
+            m[i, : j_max + 1] = True
+        return m
 
     # ------------------------------------------------------------------
     # Commitment loss (spec §8.9)
@@ -225,11 +237,11 @@ class AVQAttention(nn.Module):
             ``commitment_loss_weight`` is set to ``0``.
 
         Raises:
-            RuntimeError: If called before any forward pass has executed.
+            NotInitializedError: If called before any forward pass has executed.
         """
         if self.last_keys is None or self.last_parent_assignments is None:
             msg = "commitment_loss() requires at least one prior forward pass"
-            raise RuntimeError(msg)
+            raise NotInitializedError(msg)
         raw_loss = self.codebook.commitment_loss(
             self.last_keys,
             self.last_parent_assignments,
@@ -358,10 +370,23 @@ class AVQAttention(nn.Module):
         self,
         mask: torch.Tensor | None,
         q: torch.Tensor,
+        kv: torch.Tensor | None = None,
     ) -> torch.Tensor | None:
-        """Build causal mask when needed."""
+        """Build a causal mask keyed by the resolved ``[T_q, T_k]`` pair.
+
+        A user-supplied ``mask`` is returned as-is. When ``self.config.causal``
+        is ``True`` and the caller did not supply a mask, build a
+        ``[T_q, T_k_total]`` mask — the ``T_q`` query dim and the
+        ``T_k_total = T_k_cached + current`` key dim are independent (the
+        KV cache splits them). For training-style equal-length inputs,
+        the mask is plain lower-triangular. For cached decoding
+        (``T_q=1, T_k_total = num_cached + 1``), all cached keys are
+        visible to the current query.
+        """
         if mask is None and self.config.causal:
-            return self.causal_mask(q.shape[-2], q.device)
+            t_q = q.shape[-2]
+            t_k = kv.shape[-2] if kv is not None else t_q
+            return self.causal_mask(t_q, t_k, q.device)
         return mask
 
     def run_vq_precompute(

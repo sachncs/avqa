@@ -124,6 +124,11 @@ class TestStreamingVQBuffer:
             real.child_counts.to(ref.child_counts.dtype),
             ref.child_counts,
         )
+        # ponytail: streaming aggregates store keys sums, reference
+        # aggregates store values sums — those are not the same tensor.
+        # Pin counts only (VQ-intrinsic) and a sanity non-zero check on
+        # the streaming aggregate to ensure extend() is writing.
+        assert (real.parent_aggregates != 0).any()
 
     def test_reset_clears_state(self) -> None:
         """``reset`` drops the running aggregators to zero."""

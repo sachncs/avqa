@@ -10,7 +10,15 @@ from __future__ import annotations
 import pytest
 import torch
 
+from avqa import AVQAttention, AVQConfig
 from avqa.codebook import HierarchicalCodebook
+from avqa.config import (
+    AttentionShapeConfig,
+    CodebookConfig,
+    RefinementConfig,
+    RoutingConfig,
+)
+from avqa.exceptions import AVQAError
 from avqa.online_adaptation import online_codebook_adaptation
 
 
@@ -79,7 +87,12 @@ class TestBCARConvergence:
             )
 
         cb.validate_mean_constraint()
-        torch.testing.assert_close(cb.parents[0, 0], parents[0, 0], atol=5e-1, rtol=5e-1)
+        # Tighter tolerance than the prior atol=0.5, rtol=0.5 — that
+        # was essentially no-op; verify the BCAR EMA has actually
+        # driven ``cb.parents[0, 0]`` to within 0.1 of the target.
+        torch.testing.assert_close(
+            cb.parents[0, 0], parents[0, 0], atol=1e-1, rtol=1e-1
+        )
 
 
 class TestBCARMeanConstraint:
@@ -112,7 +125,7 @@ class TestBCARRobustness:
     """OPT-0003: API guards and per-step monotonicity."""
 
     def test_decay_must_be_in_range(self) -> None:
-        with pytest.raises(ValueError, match="decay must be in"):
+        with pytest.raises(AVQAError, match="decay must be in"):
             online_codebook_adaptation(
                 torch.zeros(1, 1, 1, 1),
                 parents=torch.zeros(1, 1, 1),
@@ -149,3 +162,67 @@ class TestBCARRobustness:
         # Parent 0 actually moved.
         moved = (cb.parents[0, 0] - original_parent[0, 0]).abs().max().item()
         assert moved > 0, "parent 0 should have moved toward the EMA centroid"
+
+
+class TestBCAREndToEnd:
+    """BCAR is wired through AVQAttention: ``bcar_enabled=True`` must
+    actually mutate ``codebook.parents``/``codebook.children`` after a
+    single forward pass.
+    """
+
+    def test_bcar_mutates_codebook_in_pipeline(self) -> None:
+        """A single AVQAttention forward with bcar_enabled=True moves the codebook."""
+
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
+            codebook=CodebookConfig(
+                num_codewords=8,
+                children_per_codeword=2,
+                bcar_enabled=True,
+                bcar_decay=0.5,
+            ),
+            routing=RoutingConfig(refinement_budget=2),
+            refinement=RefinementConfig(enabled=True),
+        )
+        torch.manual_seed(0)
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        parents_before = module.codebook.parents.detach().clone()
+        children_before = module.codebook.children.detach().clone()
+        torch.manual_seed(1)
+        q = torch.randn(2, 8, 32)
+        k = torch.randn(2, 8, 32)
+        v = torch.randn(2, 8, 32)
+        with torch.no_grad():
+            _ = module(q, k, v)
+        # At least one parent should have moved.
+        parent_moved = (module.codebook.parents - parents_before).abs().max().item()
+        child_moved = (module.codebook.children - children_before).abs().max().item()
+        assert parent_moved > 1e-6, f"parent did not move (max diff {parent_moved})"
+        # SPEC §7.9 invariant: parents = mean(children) at every step.
+        module.codebook.validate_mean_constraint()
+        # Children movement should also be > 0 in well-populated parents.
+        # We don't assert strictly because a parent may receive no keys.
+        assert child_moved >= 0
+
+    def test_bcar_disabled_does_not_mutate_codebook(self) -> None:
+        """bcar_enabled=False leaves the codebook untouched after forward."""
+
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
+            codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
+            routing=RoutingConfig(refinement_budget=2),
+            refinement=RefinementConfig(enabled=True),
+        )
+        torch.manual_seed(0)
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        parents_before = module.codebook.parents.detach().clone()
+        children_before = module.codebook.children.detach().clone()
+        torch.manual_seed(1)
+        q = torch.randn(2, 8, 32)
+        k = torch.randn(2, 8, 32)
+        v = torch.randn(2, 8, 32)
+        with torch.no_grad():
+            _ = module(q, k, v)
+        # Codebook should be unchanged (BCAR disabled).
+        assert torch.equal(module.codebook.parents, parents_before)
+        assert torch.equal(module.codebook.children, children_before)

@@ -30,7 +30,7 @@ from typing import Literal
 
 import torch
 
-from avqa.exceptions import ConfigurationError
+from avqa.exceptions import ConfigurationError, ShapeError
 
 AdaptiveSchedule = Literal["none", "entropy", "linear"]
 
@@ -39,7 +39,7 @@ def paper_beta(head_dim: int) -> float:
     """Return the paper's default temperature ``1 / \u221ad``."""
     if head_dim <= 0:
         msg = f"head_dim must be > 0, got {head_dim}"
-        raise ValueError(msg)
+        raise ConfigurationError(msg, {"head_dim": head_dim})
     return 1.0 / math.sqrt(head_dim)
 
 
@@ -80,7 +80,7 @@ def per_query_beta(
     """
     if beta_init <= 0.0:
         msg = f"beta_init must be > 0, got {beta_init}"
-        raise ValueError(msg)
+        raise ConfigurationError(msg, {"beta_init": beta_init})
     validate_adaptive(adaptive)
     if adaptive == "none":
         return torch.full(
@@ -125,13 +125,21 @@ def hopfield_logits(
     """
     if base_logits.dim() != 4:
         msg = f"base_logits must be rank 4 [B, H, N, M_0], got {base_logits.dim()}"
-        raise ValueError(msg)
+        raise ShapeError(
+            msg,
+            expected="[B, H, N, M_0]",
+            actual=tuple(base_logits.shape),
+        )
     if per_query_beta.shape != base_logits.shape[:-1]:
         msg = (
             f"per_query_beta shape {tuple(per_query_beta.shape)} must match "
             f"base_logits.shape[:-1]={tuple(base_logits.shape[:-1])}"
         )
-        raise ValueError(msg)
+        raise ShapeError(
+            msg,
+            expected=tuple(base_logits.shape[:-1]),
+            actual=tuple(per_query_beta.shape),
+        )
     # ``[B, H, N, 1] * [B, H, N, M_0]`` broadcasts over the M_0 axis.
     return per_query_beta.unsqueeze(-1) * base_logits * parent_beta
 

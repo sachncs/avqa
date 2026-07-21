@@ -10,10 +10,15 @@ ponytail: the functional API is a single function. Spec §3.5 requires
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
 
 from avqa.attention_module import AVQAttention
 from avqa.config import AVQConfig
+
+if TYPE_CHECKING:
+    from avqa.cache import KVCache
 
 
 def attention(
@@ -22,15 +27,24 @@ def attention(
     value: torch.Tensor,
     config: AVQConfig,
     mask: torch.Tensor | None = None,
+    kv_cache: "KVCache | None" = None,
 ) -> torch.Tensor:
     """Stateless attention (spec §3.5, §5.7).
+
+    Note:
+        The functional API is not strictly stateless when ``kv_cache``
+        is supplied — the cache is mutated in place. This is the only
+        way to drive incremental decoding through the functional entry
+        point; for fully stateless use, instantiate
+        :class:`AVQAttention` directly.
 
     Args:
         query: ``[B, T_q, E]``.
         key: ``[B, T_k, E]``.
         value: ``[B, T_k, E]``.
         config: :class:`AVQConfig`.
-        mask: Optional ``[T_q, T_k]`` boolean mask.
+        mask: Optional boolean mask (``[T_q, T_k]`` or ``[B, H, T_q, T_k]``).
+        kv_cache: Optional KV-cache to extend in place.
 
     Returns:
         ``[B, T_q, E]`` attention output.
@@ -48,7 +62,7 @@ def attention(
         torch.Size([2, 8, 64])
     """
     module = AVQAttention(config, in_proj=False, out_proj=False)
-    out: torch.Tensor = module(query, key, value, mask=mask)
+    out: torch.Tensor = module(query, key, value, mask=mask, kv_cache=kv_cache)
     return out
 
 

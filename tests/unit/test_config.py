@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from avqa import config as _config_mod
 from avqa.config import (
     SCHEMA_VERSION,
     AttentionShapeConfig,
@@ -53,7 +54,7 @@ class TestCodebookConfig:
         """Frozen — assignment raises."""
         cb = CodebookConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cb, 'num_codewords', 128)
+            cb.num_codewords = 128
 
 
 class TestRoutingConfig:
@@ -88,9 +89,9 @@ class TestMergeConfig:
 class TestBackendConfig:
     """Tests for BackendConfig."""
 
-    @pytest.mark.parametrize("name", ["torch", "triton"])
+    @pytest.mark.parametrize("name", ["torch"])
     def test_valid_backends(self, name: str) -> None:
-        """Both documented backends are accepted."""
+        """The only documented backend is accepted."""
         BackendConfig(name=name)
 
     def test_invalid_backend_raises(self) -> None:
@@ -170,7 +171,7 @@ class TestAVQConfig:
         """Top-level config is frozen."""
         cfg = AVQConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cfg, 'dropout', 0.5)
+            cfg.dropout = 0.5
 
     def test_dropout_range(self) -> None:
         """dropout must be in [0, 1]."""
@@ -181,7 +182,7 @@ class TestAVQConfig:
         """Sub-configs cannot be replaced via assignment."""
         cfg = AVQConfig()
         with pytest.raises((AttributeError, Exception)):
-            setattr(cfg, 'codebook', CodebookConfig(num_codewords=128))
+            cfg.codebook = CodebookConfig(num_codewords=128)
 
     def test_equality(self) -> None:
         """Two configs with the same fields are equal."""
@@ -233,6 +234,30 @@ class TestAVQConfigSerialization:
         """Unknown schema_version raises ConfigurationError."""
         with pytest.raises(ConfigurationError, match="schema_version"):
             AVQConfig.from_dict({"schema_version": "999"})
+
+    def test_from_dict_unknown_field_rejected(self) -> None:
+        """Unknown fields raise ConfigurationError (no silent schema drift)."""
+        with pytest.raises(ConfigurationError, match="unknown field"):
+            AVQConfig.from_dict({"some_made_up_field": 1.0})
+
+    def test_from_dict_runs_post_init(self) -> None:
+        """from_dict re-runs ``__post_init__`` (validation, auto-derivation)."""
+        # Negative tolerance should be rejected even when round-tripped.
+        with pytest.raises(ConfigurationError):
+            AVQConfig.from_dict({"tolerance_atol": -1.0})
+
+    def test_save_json_non_serializable_raises(self, tmp_path: Path) -> None:
+        """save_json raises ConfigurationError on non-JSON values."""
+        cfg = AVQConfig()
+        real_dumps = _config_mod.json.dumps
+        _config_mod.json.dumps = lambda *_a, **_kw: (_ for _ in ()).throw(  # type: ignore[assignment]
+            TypeError("Object of type set is not JSON serializable"),
+        )
+        try:
+            with pytest.raises(ConfigurationError, match="non-JSON"):
+                cfg.save_json(tmp_path / "out.json")
+        finally:
+            _config_mod.json.dumps = real_dumps
 
     def test_non_dict_rejected(self) -> None:
         """Non-dict input is rejected."""

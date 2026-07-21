@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from avqa.exceptions import ShapeError
+from avqa.exceptions import CodebookError, ShapeError
 from avqa.logging import get_logger
 
 if TYPE_CHECKING:
@@ -115,7 +115,7 @@ class VectorQuantizer(ABC):
         if name == "euclidean_hierarchical":
             return EuclideanHierarchicalQuantizer()
         msg = f"unknown quantizer: {name!r}"
-        raise ValueError(msg)
+        raise CodebookError(msg, {"name": name})
 
     @abstractmethod
     def precompute(

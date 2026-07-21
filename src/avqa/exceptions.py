@@ -80,6 +80,10 @@ class CodebookError(AVQAError):
     """
 
 
+class MergeError(AVQAError):
+    """Raised when a merge strategy fails or receives bad input."""
+
+
 class ShapeError(AVQAError):
     """Raised when tensor shapes violate documented contracts.
 
@@ -168,6 +172,7 @@ __all__ = [
     "ConfigurationError",
     "DeviceError",
     "DtypeError",
+    "MergeError",
     "NotInitializedError",
     "RoutingError",
     "ShapeError",

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import torch
 
-from avqa.exceptions import ConfigurationError
+from avqa.exceptions import ConfigurationError, MergeError
 
 
 @dataclass
@@ -68,7 +68,7 @@ class MergeStrategy(ABC):
             A fresh :class:`MergeStrategy` instance.
 
         Raises:
-            ValueError: If ``kind`` is unknown.
+            MergeError: If ``kind`` is unknown.
         """
         if kind == "probability":
             return ProbabilityMerge()
@@ -79,7 +79,7 @@ class MergeStrategy(ABC):
         if kind == "normalized":
             return NormalizedMerge()
         msg = f"unknown merge strategy: {kind!r}"
-        raise ValueError(msg)
+        raise MergeError(msg)
 
     @abstractmethod
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
@@ -122,16 +122,18 @@ class WeightedMerge(MergeStrategy):
         """Weighted sum of parent and child contributions (spec §3.11.2).
 
         Args:
-            inputs: Standard merge inputs.
+            inputs: Standard merge inputs. ``parent_value`` and
+                ``child_value`` are already attention-weighted by the
+                contract in :class:`MergeInputs`; this method does not
+                re-multiply by ``parent_probs`` or ``child_probs``.
 
         Returns:
-            ``self.parent_weight * parent + self.child_weight * child``.
+            ``self.parent_weight * parent_value + self.child_weight * child_value``.
         """
-        return (
-            self.parent_weight * inputs.parent_probs * inputs.parent_value
-            + self.child_weight
-            * (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
+        child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(
+            dim=-2
         )
+        return self.parent_weight * inputs.parent_value + self.child_weight * child_contrib
 
 
 class LogitMerge(MergeStrategy):
@@ -197,6 +199,7 @@ class NormalizedMerge(MergeStrategy):
 
 __all__ = [
     "LogitMerge",
+    "MergeError",
     "MergeInputs",
     "MergeStrategy",
     "NormalizedMerge",

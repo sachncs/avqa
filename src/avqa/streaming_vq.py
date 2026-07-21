@@ -53,7 +53,11 @@ class StreamingVQBuffer:
     ) -> None:
         if num_heads <= 0 or num_parents <= 0 or children_per_parent <= 0:
             msg = f"invalid shape: H={num_heads}, M_0={num_parents}, C={children_per_parent}"
-            raise ValueError(msg)
+            raise ShapeError(
+                msg,
+                expected="H, M_0, C all > 0",
+                actual=(num_heads, num_parents, children_per_parent),
+            )
         self.num_heads = num_heads
         self.num_parents = num_parents
         self.children_per_parent = children_per_parent

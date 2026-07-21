@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import torch
 
 from avqa.attention import OnlineSoftmaxState
+from avqa.exceptions import RoutingError
 from avqa.merge import MergeInputs, MergeStrategy
 from avqa.routing import RoutingDecision
 
@@ -124,43 +125,40 @@ def vectorized_correction(
     else:
         child_scale = child_counts.to(parent_logit.dtype)
 
-    # The state carries a D_k dimension. Use the running max as the common
-    # scale; replace -inf with the new tile max to avoid overflow. Tile
-    # outputs are kept at [B, H, T, 1] so they broadcast against D_k.
+    # NaN-safe common scale: state may be -inf on the first iteration, or
+    # some queries may have no valid parents (all -inf logits). Substitute
+    # the tile's amax in those rows so the exponentiation is always
+    # well-defined.
     m_raw = state.running_max[..., 0:1]  # [B, H, T, 1]
-    new_max_1d = torch.maximum(
-        parent_logit.amax(dim=-1, keepdim=True),
-        child_logits.amax(dim=(-1, -2), keepdim=True).squeeze(-1),  # [B, H, T, 1]
-    )
-    m_scalar_safe = torch.where(torch.isinf(m_raw) & (m_raw < 0), new_max_1d, m_raw)
-    parent_exp = torch.exp(parent_logit - m_scalar_safe) * parent_scale  # [B, H, T, P]
+    parent_max = parent_logit.amax(dim=-1, keepdim=True)  # [B, H, T, 1]
+    child_max = child_logits.amax(dim=(-1, -2), keepdim=True).squeeze(-1)  # [B, H, T, 1]
+    new_max_1d = torch.maximum(parent_max, child_max)
+    m_anchor = torch.where(
+        torch.isinf(m_raw) & (m_raw < 0), new_max_1d, m_raw
+    )  # [B, H, T, 1]
+    parent_exp = torch.exp(parent_logit - m_anchor) * parent_scale  # [B, H, T, P]
     parent_contrib_denom = parent_exp.sum(dim=-1, keepdim=True)  # [B, H, T, 1]
     parent_contrib_num = (parent_exp.unsqueeze(-1) * parent_value).sum(
         dim=-2, keepdim=True
     )  # [B, H, T, 1, D_v]
 
-    child_exp = torch.exp(child_logits - m_scalar_safe.unsqueeze(-1)) * child_scale.unsqueeze(
-        2
+    child_exp = (
+        torch.exp(child_logits - m_anchor.unsqueeze(-1)) * child_scale.unsqueeze(2)
     )  # [B, H, T, P, C]
-    child_contrib_denom = child_exp.sum(dim=(-1, -2), keepdim=True)  # [B, H, T, 1, 1]
-    child_contrib_denom = child_contrib_denom.squeeze(-1)  # [B, H, T, 1]
+    child_contrib_denom = child_exp.sum(dim=(-1, -2), keepdim=True).squeeze(-1)  # [B, H, T, 1]
     cv = child_value.unsqueeze(2).expand(B, H, T, P, C, D_v)
     child_contrib_num = (child_exp.unsqueeze(-1) * cv).sum(
         dim=(-2, -3), keepdim=True
-    )  # [B, H, T, 1, 1, D_v]
-    child_contrib_num = child_contrib_num.squeeze(-2)  # [B, H, T, 1, D_v]
-
-    parent_tile_max = parent_logit.amax(dim=-1, keepdim=True)  # [B, H, T, 1]
-    child_tile_max = child_logits.amax(dim=(-1, -2), keepdim=True)  # [B, H, T, 1, 1]
-    child_tile_max = child_tile_max.squeeze(-1)  # [B, H, T, 1]
+    ).squeeze(-2)  # [B, H, T, 1, D_v]
 
     return state.replace(
-        removed_max=parent_tile_max,
+        removed_max=parent_max,
         removed_denominator=parent_contrib_denom,
         removed_numerator=parent_contrib_num,
-        added_max=child_tile_max,
+        added_max=child_max,
         added_denominator=child_contrib_denom,
         added_numerator=child_contrib_num,
+        m_anchor=m_anchor,
     )
 
 
@@ -210,9 +208,9 @@ def refine(
     selected = decision.selected_indices  # [B, H, P]
     budget = selected.shape[-1]
     if budget <= 0:
-        raise ValueError(f"budget must be > 0, got {budget}")
+        raise RoutingError(f"budget must be > 0, got {budget}")
     if budget > parent_probs.shape[-1]:
-        raise ValueError(
+        raise RoutingError(
             f"budget ({budget}) exceeds number of parents ({parent_probs.shape[-1]})",
         )
 

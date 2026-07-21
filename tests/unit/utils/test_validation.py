@@ -5,9 +5,10 @@ from __future__ import annotations
 import pytest
 import torch
 
-from avqa.exceptions import DeviceError, DtypeError, ShapeError
+from avqa.exceptions import AVQAError, DeviceError, DtypeError, ShapeError
 from avqa.utils.validation import (
     ShapeLike,
+    ValueError as AVQAValueError,
     validate_contiguous,
     validate_device,
     validate_dtype,
@@ -179,24 +180,26 @@ class TestValidateFinite:
         validate_finite(torch.zeros(3))
 
     def test_nan_raises(self) -> None:
-        """Tensor with NaN raises ValueError."""
+        """Tensor with NaN raises AVQAValueError (AVQAError subclass)."""
         t = torch.zeros(3)
         t[0] = float("nan")
-        with pytest.raises(ValueError, match="non-finite"):
+        with pytest.raises(AVQAValueError, match="non-finite"):
+            validate_finite(t)
+        with pytest.raises(AVQAError, match="non-finite"):
             validate_finite(t)
 
     def test_inf_raises(self) -> None:
-        """Tensor with Inf raises ValueError."""
+        """Tensor with Inf raises AVQAValueError."""
         t = torch.zeros(3)
         t[0] = float("inf")
-        with pytest.raises(ValueError, match="non-finite"):
+        with pytest.raises(AVQAValueError, match="non-finite"):
             validate_finite(t)
 
     def test_neg_inf_raises(self) -> None:
-        """Tensor with -Inf raises ValueError."""
+        """Tensor with -Inf raises AVQAValueError."""
         t = torch.zeros(3)
         t[0] = float("-inf")
-        with pytest.raises(ValueError, match="non-finite"):
+        with pytest.raises(AVQAValueError, match="non-finite"):
             validate_finite(t)
 
 

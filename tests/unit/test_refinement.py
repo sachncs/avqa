@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from avqa.attention import OnlineSoftmaxState
+from avqa.exceptions import RoutingError
 from avqa.refinement import RefinementResult, refine
 from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
@@ -157,13 +158,13 @@ class TestRefine:
         assert torch.isfinite(result.state.running_numerator).all()
 
     def test_invalid_budget_zero(self) -> None:
-        """budget=0 raises."""
+        """budget=0 raises RoutingError."""
         state, pp, pv, pa, ca, ap, pc, cl = setup()
         decision = RoutingDecision(
             selected_indices=torch.zeros(1, 1, 0, dtype=torch.long),
             importance=torch.ones(1, 1, 8),
         )
-        with pytest.raises(ValueError, match="budget"):
+        with pytest.raises(RoutingError, match="budget"):
             refine(
                 state,
                 pp,
@@ -178,13 +179,13 @@ class TestRefine:
             )
 
     def test_invalid_budget_too_large(self) -> None:
-        """budget > num_parents raises."""
+        """budget > num_parents raises RoutingError."""
         state, pp, pv, pa, ca, ap, pc, cl = setup(M0=4)
         decision = RoutingDecision(
             selected_indices=torch.zeros(1, 1, 10, dtype=torch.long),
             importance=torch.ones(1, 1, 4),
         )
-        with pytest.raises(ValueError, match="exceeds"):
+        with pytest.raises(RoutingError, match="exceeds"):
             refine(
                 state,
                 pp,

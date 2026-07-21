@@ -18,6 +18,7 @@ import random
 
 import torch
 
+from avqa.exceptions import ConfigurationError
 from avqa.logging import get_logger
 
 logger = get_logger("utils.seed")
@@ -54,7 +55,7 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
     """
     if seed < 0:
         msg = f"seed must be non-negative, got {seed}"
-        raise ValueError(msg)
+        raise ConfigurationError(msg, {"seed": seed})
 
     logger.debug("Seeding all RNGs with seed=%d deterministic=%s", seed, deterministic)
 

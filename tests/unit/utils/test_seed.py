@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import builtins
+from collections.abc import Callable
 import os
 import random
 
 import pytest
 import torch
 
+from avqa.exceptions import AVQAError, ConfigurationError
 from avqa.utils.seed import seed_everything
 
 
@@ -52,7 +54,6 @@ class TestSeedEverything:
 
     def test_works_without_numpy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Seeding works even when NumPy is not importable."""
-        from collections.abc import Callable
 
         original_import: Callable[..., object] = builtins.__import__
 
@@ -66,8 +67,10 @@ class TestSeedEverything:
         assert result == 5
 
     def test_negative_seed_raises(self) -> None:
-        """Negative seeds raise ValueError."""
-        with pytest.raises(ValueError, match="non-negative"):
+        """Negative seeds raise ConfigurationError (AVQAError subclass)."""
+        with pytest.raises(ConfigurationError, match="non-negative"):
+            seed_everything(-1)
+        with pytest.raises(AVQAError, match="non-negative"):
             seed_everything(-1)
 
     def test_default_seed(self) -> None:

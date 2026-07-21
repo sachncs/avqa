@@ -14,7 +14,21 @@ from typing import TypeAlias
 
 import torch
 
-from avqa.exceptions import DeviceError, DtypeError, ShapeError
+from avqa.exceptions import (
+    AVQAError,
+    DeviceError,
+    DtypeError,
+    ShapeError,
+)
+
+
+class ValueError(AVQAError):
+    """AVQAError subclass for non-finite / invalid-data raises.
+
+    Defined inside ``validation.py`` to avoid a circular import; it
+    inherits from :class:`avqa.exceptions.AVQAError` so callers can
+    catch every AVQA raise uniformly.
+    """
 
 ShapeLike: TypeAlias = Sequence[int] | torch.Size | torch.Tensor
 """Anything that can be coerced to a tensor shape."""
@@ -310,7 +324,7 @@ def validate_finite(
     """
     if not torch.isfinite(tensor).all():
         msg = f"{name} contains non-finite values (NaN or Inf)"
-        raise ValueError(msg)
+        raise ValueError(msg, {"name": name, "dtype": str(tensor.dtype)})
 
 
 __all__ = [

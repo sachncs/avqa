@@ -90,20 +90,23 @@ class Router(ABC):
         """Factory: resolve ``strategy`` to a concrete :class:`Router`.
 
         Args:
-            strategy: ``"topp"`` (default) or ``"threshold"``.
+            strategy: ``"topp"`` (default), ``"threshold"``, or
+                ``"budget"``.
 
         Returns:
             A fresh :class:`Router` instance.
 
         Raises:
-            ValueError: If ``strategy`` is unknown.
+            RoutingError: If ``strategy`` is unknown.
         """
         if strategy == "topp":
             return TopPRouter()
         if strategy == "threshold":
             return ThresholdRouter()
+        if strategy == "budget":
+            return BudgetRouter()
         msg = f"unknown routing strategy: {strategy!r}"
-        raise ValueError(msg)
+        raise RoutingError(msg)
 
     @abstractmethod
     def select(
@@ -170,9 +173,11 @@ class TopPRouter(Router):
 class ThresholdRouter(Router):
     """Threshold-based selection (spec §2.8, optional).
 
-    Selects every codeword with importance >= threshold, capped at
-    ``budget`` (returns the highest-scoring ones if the threshold allows
-    more).
+    Selects every codeword with importance ``>= threshold`` (per (B, H)).
+    The exact number of returned indices is ``min(count_above, budget)``;
+    the router raises when fewer than ``budget`` entries meet the
+    threshold (spec §9.6.2). Use :class:`TopPRouter` for a fixed-budget
+    guarantee.
 
     Args:
         threshold: Minimum importance score to be selected.
@@ -199,19 +204,65 @@ class ThresholdRouter(Router):
         if budget <= 0:
             raise RoutingError(f"budget must be > 0, got {budget}")
         mask = importance >= self.threshold  # [B, H, M_0]
-        # Use top-k on masked values; entries below threshold become -inf.
+        above_per_head = mask.sum(dim=-1)  # [B, H]
+        if not torch.all(above_per_head >= budget):
+            short = int((above_per_head < budget).sum().item())
+            raise RoutingError(
+                f"threshold ({self.threshold}) yields fewer than budget ({budget}) "
+                f"entries for {short} (B, H) positions; lower threshold or use TopPRouter.",
+            )
+        # masked top-k now guaranteed to have >= budget valid entries.
         masked = torch.where(mask, importance, torch.full_like(importance, float("-inf")))
-        indices = masked.topk(min(budget, importance.shape[-1]), dim=-1).indices
+        _, indices = torch.sort(masked, dim=-1, descending=True, stable=True)
+        indices = indices[..., :budget]
         return RoutingDecision(selected_indices=indices, importance=importance)
 
 
-# NOTE: a previous ``BudgetRouter`` alias for ``TopPRouter`` has been
-# removed; the ``strategy="budget"`` config value is mapped to
-# :class:`TopPRouter` by ``Router.create`` for users who configure their
-# pipeline via "budget" terminology.
+class BudgetRouter(Router):
+    """Strict budget selector: returns exactly ``budget`` indices per (B, H).
+
+    Unlike :class:`ThresholdRouter`, this router never refuses; if the
+    entire importance distribution is uniform (all entries tie) it
+    returns the lowest-indexed ``budget`` parents deterministically.
+
+    Args:
+        deterministic: If ``True``, tie-break by lower index.
+
+    Example:
+        >>> router = BudgetRouter()
+        >>> importance = torch.tensor([[[0.1, 0.7, 0.3, 0.5]]])
+        >>> decision = router.select(importance, budget=2)
+        >>> decision.selected_indices
+        tensor([[[1, 3]]])
+    """
+
+    def __init__(self, deterministic: bool = True) -> None:
+        self.deterministic = deterministic
+
+    def select(
+        self,
+        importance: torch.Tensor,
+        budget: int,
+    ) -> RoutingDecision:
+        """Return exactly ``budget`` indices per (B, H)."""
+        if budget <= 0:
+            raise RoutingError(f"budget must be > 0, got {budget}")
+        if budget > importance.shape[-1]:
+            raise RoutingError(
+                f"budget ({budget}) exceeds number of codewords ({importance.shape[-1]})",
+            )
+        if self.deterministic:
+            _, indices = torch.sort(importance, dim=-1, descending=True, stable=True)
+        else:
+            _, indices = torch.sort(importance, dim=-1, descending=True)
+        return RoutingDecision(
+            selected_indices=indices[..., :budget],
+            importance=importance,
+        )
 
 
 __all__ = [
+    "BudgetRouter",
     "Router",
     "RoutingDecision",
     "ThresholdRouter",

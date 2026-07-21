@@ -40,8 +40,6 @@ Example:
 
 from __future__ import annotations
 
-import warnings
-
 from avqa.attention_module import AVQAttention
 from avqa.backend import Backend, TorchBackend
 from avqa.cache import KVCache
@@ -54,13 +52,16 @@ from avqa.exceptions import (
     ConfigurationError,
     DeviceError,
     DtypeError,
+    MergeError,
+    NotInitializedError,
     RoutingError,
     ShapeError,
 )
+from avqa.multipass import MultiPassRefiner
 from avqa.profiling import Profiler
 from avqa.quantizer import VectorQuantizer
 from avqa.refinement import AdaptiveRefinement
-from avqa.routing import Router
+from avqa.routing import BudgetRouter, Router
 from avqa.scheduler import Scheduler
 from avqa.utils.validation import (
     validate_contiguous,
@@ -73,6 +74,7 @@ from avqa.utils.validation import (
     validate_shape,
 )
 from avqa.version import __version__
+from avqa.visualization import Visualizer
 
 __all__ = [
     "AVQAError",
@@ -81,6 +83,7 @@ __all__ = [
     "AdaptiveRefinement",
     "Backend",
     "BackendError",
+    "BudgetRouter",
     "Codebook",
     "CodebookError",
     "ConfigurationError",
@@ -88,6 +91,9 @@ __all__ = [
     "DtypeError",
     "HierarchicalCodebook",
     "KVCache",
+    "MergeError",
+    "MultiPassRefiner",
+    "NotInitializedError",
     "Profiler",
     "Router",
     "RoutingError",
@@ -129,39 +135,6 @@ def parse_version(v: str) -> tuple[int, ...]:
 
 __version_info__ = parse_version(__version__)
 
+
 # Aliases for the two most common user-facing names.
 Codebook = HierarchicalCodebook
-
-# :class:`Visualizer` is the abstract base; the concrete JSONVisualizer
-# remains on avqa.visualization. We re-export via a lazy attribute to
-# avoid importing matplotlib/graphviz at module-load time.
-BUILTIN_VISUALIZERS = {"json"}
-
-
-def __getattr__(name: str) -> object:
-    """Lazy attribute lookup for genuinely expensive imports only.
-
-    Eager imports live at module top so ``from avqa import AVQAttention``
-    is straightforward. The :class:`Visualizer` factory and the
-    :class:`TritonBackend` need optional heavy dependencies, so they
-    remain lazy.
-    """
-    if name == "Visualizer":
-        try:
-            from avqa.visualization import Visualizer as _Visualizer
-        except ImportError:
-            msg = 'visualization extra is not installed'
-            raise ImportError(msg)
-
-        return _Visualizer
-    if name == "TritonBackend":
-        try:
-            from avqa.backend import TritonBackend as TritonBackend
-        except ImportError as exc:
-            warnings.warn(
-                f"TritonBackend unavailable in this environment: {exc}",
-                stacklevel=2,
-            )
-            raise
-        return TritonBackend
-    raise AttributeError(name)

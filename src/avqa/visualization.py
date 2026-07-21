@@ -12,6 +12,8 @@ from typing import TypedDict
 
 import torch
 
+from avqa.exceptions import ConfigurationError
+
 
 class RefinementTreeDict(TypedDict):
     """Schema for the dict returned by ``render_refinement_tree``."""
@@ -91,12 +93,12 @@ class Visualizer(ABC):
             A fresh :class:`Visualizer` instance.
 
         Raises:
-            ValueError: If ``backend`` is unknown.
+            ConfigurationError: If ``backend`` is unknown.
         """
         if backend == "json":
             return JSONVisualizer()
         msg = f"unknown visualizer backend: {backend!r}"
-        raise ValueError(msg)
+        raise ConfigurationError(msg, {"backend": backend})
 
     @abstractmethod
     def render_refinement_tree(self, root: TreeNode) -> RefinementTreeDict:
@@ -163,7 +165,11 @@ class JSONVisualizer(Visualizer):
         parent_counts: torch.Tensor,
         child_counts: torch.Tensor,
     ) -> CodebookUtilizationDict:
-        """Render codebook utilization fractions per head."""
+        """Render codebook utilization fractions per head.
+
+        All counters are reduced to ``[B, H]`` so consumers can index
+        ``dict["dead_parents"][b][h]`` uniformly across fields.
+        """
         parent_util = (parent_counts > 0).float().mean(dim=-1).tolist()
         child_util = (child_counts > 0).float().mean(dim=(-2, -1)).tolist()
         return {
@@ -171,7 +177,7 @@ class JSONVisualizer(Visualizer):
             "parent_utilization": parent_util,
             "child_utilization": child_util,
             "dead_parents": (parent_counts == 0).sum(dim=-1).tolist(),
-            "dead_children": (child_counts == 0).sum(dim=-1).tolist(),
+            "dead_children": (child_counts == 0).sum(dim=(-2, -1)).tolist(),
         }
 
     def render_timeline(self, events: list[TimelineEvent]) -> TimelineDict:

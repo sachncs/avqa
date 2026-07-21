@@ -15,6 +15,8 @@ from dataclasses import dataclass
 
 import torch
 
+from avqa.exceptions import ConfigurationError, NotInitializedError, ShapeError
+
 
 @dataclass
 class CacheEntry:
@@ -104,8 +106,10 @@ class InMemoryKVCache(KVCache):
             value: ``[B, H, T_new, D_v]`` new values.
         """
         if tuple(key.shape) != (*value.shape[:-1], self.head_dim_k):
-            raise ValueError(
+            raise ShapeError(
                 f"key/value shape mismatch: key={tuple(key.shape)}, value={tuple(value.shape)}",
+                expected=(*value.shape[:-1], self.head_dim_k),
+                actual=tuple(key.shape),
             )
         if self.cache_key.numel() == 0:
             self.cache_key = key.to(device=self.device, dtype=self.dtype)
@@ -119,10 +123,11 @@ class InMemoryKVCache(KVCache):
                 dim=-2,
             )
         if self.max_size > 0 and self.size > self.max_size:
-            # Drop the oldest tokens.
+            # Drop the oldest tokens. .contiguous() to keep downstream
+            # reshape/tracing paths from incurring hidden copies.
             excess = self.size - self.max_size
-            self.cache_key = self.cache_key[..., excess:, :]
-            self.cache_value = self.cache_value[..., excess:, :]
+            self.cache_key = self.cache_key[..., excess:, :].contiguous()
+            self.cache_value = self.cache_value[..., excess:, :].contiguous()
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cached (key, value); empty cache returns empty tensors."""
@@ -170,11 +175,19 @@ class InMemoryKVCache(KVCache):
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore cache from :meth:`state_dict` output."""
         if "num_heads" in state and int(state["num_heads"]) != self.num_heads:
-            raise ValueError("num_heads mismatch")
+            raise ShapeError("num_heads mismatch", expected=self.num_heads, actual=int(state["num_heads"]))
         if "head_dim_k" in state and int(state["head_dim_k"]) != self.head_dim_k:
-            raise ValueError("head_dim_k mismatch")
+            raise ShapeError(
+                "head_dim_k mismatch",
+                expected=self.head_dim_k,
+                actual=int(state["head_dim_k"]),
+            )
         if "head_dim_v" in state and int(state["head_dim_v"]) != self.head_dim_v:
-            raise ValueError("head_dim_v mismatch")
+            raise ShapeError(
+                "head_dim_v mismatch",
+                expected=self.head_dim_v,
+                actual=int(state["head_dim_v"]),
+            )
         cache_key = state.get("cache_key")
         cache_value = state.get("cache_value")
         if cache_key is not None and cache_value is not None and cache_key.numel() > 0:
@@ -217,7 +230,10 @@ class PagedKVCache(KVCache):
         dtype: torch.dtype = torch.float32,
     ) -> None:
         if page_size <= 0:
-            raise ValueError(f"page_size must be > 0, got {page_size}")
+            raise ConfigurationError(
+                f"page_size must be > 0, got {page_size}",
+                {"page_size": page_size},
+            )
         self.page_size = page_size
         self.num_heads = num_heads
         self.head_dim_k = head_dim_k
@@ -252,7 +268,9 @@ class PagedKVCache(KVCache):
     def allocate_page(self) -> None:
         """Allocate a new empty page."""
         if self.max_pages > 0 and len(self.pages) >= self.max_pages:
-            raise RuntimeError("paged KV cache is full")
+            raise NotInitializedError(
+                f"paged KV cache is full ({self.max_pages} pages)"
+            )
         self.pages.append(
             CacheEntry(
                 key=torch.zeros(
@@ -296,7 +314,11 @@ class PagedKVCache(KVCache):
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore metadata from a state dict (data not persisted)."""
         if "page_size" in state and int(state["page_size"]) != self.page_size:
-            raise ValueError("page_size mismatch")
+            raise ShapeError(
+                "page_size mismatch",
+                expected=self.page_size,
+                actual=int(state["page_size"]),
+            )
         self.reset()
 
     @property

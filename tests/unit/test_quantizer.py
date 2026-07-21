@@ -205,7 +205,7 @@ class TestAbstractInterface:
     def test_base_class_is_abstract(self) -> None:
         """VectorQuantizer cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(VectorQuantizer, '__new__')(VectorQuantizer)
+            VectorQuantizer.__new__(VectorQuantizer)
 
     def test_euclidean_is_subclass(self) -> None:
         """EuclideanHierarchicalQuantizer subclasses VectorQuantizer."""

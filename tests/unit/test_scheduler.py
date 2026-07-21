@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
+from avqa.exceptions import AVQAError, ConfigurationError, RoutingError
 from avqa.scheduler import AdaptiveScheduler, DefaultScheduler, Scheduler
 
 
@@ -24,7 +25,7 @@ class TestDefaultScheduler:
 
     def test_invalid_budget(self) -> None:
         """budget <= 0 raises."""
-        with pytest.raises(ValueError):
+        with pytest.raises(RoutingError):
             DefaultScheduler(budget=0)
 
 
@@ -45,21 +46,28 @@ class TestAdaptiveScheduler:
         assert s.budget_for(importance) == 4
 
     def test_invalid_min_budget(self) -> None:
-        """min_budget <= 0 raises."""
-        with pytest.raises(ValueError):
+        """min_budget <= 0 raises ConfigurationError."""
+        with pytest.raises(ConfigurationError):
             AdaptiveScheduler(min_budget=0)
 
     def test_invalid_max_budget(self) -> None:
-        """max_budget < min_budget raises."""
-        with pytest.raises(ValueError):
+        """max_budget < min_budget raises ConfigurationError."""
+        with pytest.raises(ConfigurationError):
             AdaptiveScheduler(min_budget=10, max_budget=4)
 
     def test_invalid_entropy_threshold(self) -> None:
-        """entropy_threshold outside (0, 1] raises."""
-        with pytest.raises(ValueError):
+        """entropy_threshold outside (0, 1] raises ConfigurationError."""
+        with pytest.raises(ConfigurationError):
             AdaptiveScheduler(entropy_threshold=0.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ConfigurationError):
             AdaptiveScheduler(entropy_threshold=2.0)
+
+    def test_raises_are_avqaerrors(self) -> None:
+        """All scheduler raises are AVQAError subclasses (catchable)."""
+        with pytest.raises(AVQAError):
+            DefaultScheduler(budget=0)
+        with pytest.raises(AVQAError):
+            AdaptiveScheduler(min_budget=0)
 
 
 class TestAbstractInterface:
@@ -68,7 +76,7 @@ class TestAbstractInterface:
     def test_cannot_instantiate(self) -> None:
         """Scheduler cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(Scheduler, '__new__')(Scheduler)
+            Scheduler.__new__(Scheduler)
 
     def test_subclass_relationship(self) -> None:
         """Concrete schedulers inherit from Scheduler."""

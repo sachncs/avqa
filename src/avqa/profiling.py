@@ -6,17 +6,20 @@ visual rendering lives in avqa.visualization.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import time
-from typing import IO
+from typing import IO, TYPE_CHECKING
 
 import torch
 
+from avqa.exceptions import ConfigurationError
 from avqa.logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = get_logger("profiling")
 
@@ -68,6 +71,7 @@ class ProfilerReport:
             "codebook_utilization": self.codebook_utilization,
             "cache_hits": self.cache_hits,
             "cache_misses": self.cache_misses,
+            "total_flops": self.total_flops,
             "schema_version": "avqa_profiler_v1",
         }
 
@@ -98,7 +102,7 @@ class Profiler:
         if name == "default":
             return cls()
         msg = f"unknown profiler: {name!r}"
-        raise ValueError(msg)
+        raise ConfigurationError(msg, {"name": name})
 
     def __init__(self) -> None:
         self.report = ProfilerReport()
@@ -119,14 +123,32 @@ class Profiler:
 
     @contextmanager
     def stage(self, name: str) -> Iterator[None]:
-        """Time a named stage."""
+        """Time a named stage and capture per-stage memory.
+
+        Per-stage memory is the delta in *current* resident memory
+        (``torch.cuda.memory_allocated()``), not the running peak — the
+        latter is a process-wide counter that double-counts when stages
+        overlap in time. The process peak is still tracked separately
+        on the report.
+        """
         start = time.perf_counter()
-        mem_before = peak_memory_bytes() if torch.cuda.is_available() else 0
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+            mem_before = torch.cuda.memory_allocated()
+        else:
+            mem_before = 0
         try:
             yield
         finally:
             duration_ms = (time.perf_counter() - start) * 1000.0
-            mem_after = peak_memory_bytes() if torch.cuda.is_available() else 0
+            if torch.cuda.is_available():
+                mem_after = torch.cuda.memory_allocated()
+                self.report.peak_memory_bytes = max(
+                    self.report.peak_memory_bytes,
+                    torch.cuda.max_memory_allocated(),
+                )
+            else:
+                mem_after = 0
             self.report.stage_timers.append(
                 StageTimer(
                     name=name,
@@ -134,22 +156,26 @@ class Profiler:
                     memory_bytes=max(mem_after - mem_before, 0),
                 )
             )
-            if torch.cuda.is_available():
-                self.report.peak_memory_bytes = max(
-                    self.report.peak_memory_bytes,
-                    torch.cuda.max_memory_allocated(),
-                )
 
     def record_routing(self, decision: object) -> None:
-        """Record a routing decision summary."""
+        """Record a routing decision summary.
+
+        Persists the selected indices and the importance score range
+        so consumers can answer "which codewords were selected" and
+        "how peaked the distribution was".
+        """
         selected = getattr(decision, "selected_indices", None)
+        importance = getattr(decision, "importance", None)
         if selected is None:
             return
-        self.report.routing_stats.append(
-            {
-                "num_selected": int(getattr(decision, "num_selected", 0)),
-            }
-        )
+        entry: dict[str, object] = {
+            "num_selected": int(getattr(decision, "num_selected", 0)),
+            "selected_indices": selected.detach().cpu().tolist(),
+        }
+        if importance is not None:
+            entry["importance_min"] = float(importance.min().item())
+            entry["importance_max"] = float(importance.max().item())
+        self.report.routing_stats.append(entry)
 
     def record_refinement(self, budget: int, num_refined: int) -> None:
         """Record a refinement step summary."""

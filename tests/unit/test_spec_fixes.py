@@ -6,6 +6,8 @@ to bring the implementation into compliance with the spec.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 import torch
 from typing_extensions import TypedDict, Unpack
@@ -25,7 +27,12 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
-from avqa.exceptions import AVQAError, ConfigurationError, ShapeError
+from avqa.exceptions import (
+    AVQAError,
+    ConfigurationError,
+    NotInitializedError,
+    ShapeError,
+)
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.refinement import refine
 from avqa.routing import TopPRouter, compute_importance
@@ -51,8 +58,6 @@ class ConfigOverrides(TypedDict, total=False):
 
 
 def small_config(**overrides: Unpack[ConfigOverrides]) -> AVQConfig:
-    import dataclasses
-
     base = AVQConfig(
         attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
         codebook=CodebookConfig(num_codewords=8, children_per_codeword=2),
@@ -359,10 +364,12 @@ class TestH4CommitmentLoss:
     """Commitment loss computation."""
 
     def test_commitment_loss_requires_forward(self) -> None:
-        """commitment_loss() raises before any forward pass."""
+        """commitment_loss() raises NotInitializedError before any forward pass."""
         config = small_config()
         module = AVQAttention(config, in_proj=False, out_proj=False)
-        with pytest.raises(RuntimeError, match="forward pass"):
+        with pytest.raises(NotInitializedError, match="forward pass"):
+            module.commitment_loss()
+        with pytest.raises(AVQAError, match="forward pass"):
             module.commitment_loss()
 
     def test_commitment_loss_after_forward(self) -> None:

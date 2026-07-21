@@ -7,6 +7,7 @@ import torch
 
 from avqa.exceptions import RoutingError
 from avqa.routing import (
+    BudgetRouter,
     Router,
     ThresholdRouter,
     TopPRouter,
@@ -157,13 +158,59 @@ class TestRoutingDecision:
         assert decision.num_selected == 4
 
 
+class TestThresholdRouterValidation:
+    """ThresholdRouter refuses when fewer than budget entries meet threshold."""
+
+    def test_below_threshold_raises(self) -> None:
+        """When all entries are below threshold, raise RoutingError."""
+        importance = torch.zeros(1, 1, 8)
+        router = ThresholdRouter(threshold=1.0)
+        with pytest.raises(RoutingError, match="threshold"):
+            router.select(importance, budget=2)
+
+    def test_partial_under_threshold_raises(self) -> None:
+        """When some (b, h) positions have fewer hits than budget, raise."""
+        importance = torch.tensor(
+            [[[0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
+        )  # [B=1, H=1, M_0=8]
+        router = ThresholdRouter(threshold=0.5)
+        with pytest.raises(RoutingError, match="threshold"):
+            router.select(importance, budget=3)
+
+
+class TestBudgetRouter:
+    """BudgetRouter returns exactly ``budget`` indices per (b, h)."""
+
+    def test_returns_exact_budget(self) -> None:
+        importance = torch.tensor([[[0.1, 0.9, 0.3, 0.5]]])
+        decision = BudgetRouter().select(importance, budget=2)
+        assert decision.num_selected == 2
+        assert decision.selected_indices.shape == (1, 1, 2)
+        # Highest two by score: 1, 3.
+        assert decision.selected_indices[0, 0].tolist() == [1, 3]
+
+    def test_ties_break_by_lower_index(self) -> None:
+        importance = torch.tensor([[[0.5, 0.5, 0.5, 0.5]]])
+        decision = BudgetRouter().select(importance, budget=2)
+        # Tie-break: lowest indices win.
+        assert decision.selected_indices[0, 0].tolist() == [0, 1]
+
+    def test_zero_budget_raises(self) -> None:
+        with pytest.raises(RoutingError, match="budget"):
+            BudgetRouter().select(torch.zeros(1, 1, 4), budget=0)
+
+    def test_over_budget_raises(self) -> None:
+        with pytest.raises(RoutingError, match="budget"):
+            BudgetRouter().select(torch.zeros(1, 1, 4), budget=8)
+
+
 class TestAbstractInterface:
     """Tests for the Router abstract base."""
 
     def test_cannot_instantiate(self) -> None:
         """Router cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            getattr(Router, '__new__')(Router)
+            Router.__new__(Router)
 
     def test_subclass_relationship(self) -> None:
         """All concrete routers inherit from Router."""
@@ -174,5 +221,6 @@ class TestAbstractInterface:
         """``Router.create`` maps strategy names to concrete classes."""
         assert isinstance(Router.create("topp"), TopPRouter)
         assert isinstance(Router.create("threshold"), ThresholdRouter)
-        with pytest.raises(ValueError, match="unknown"):
+        assert isinstance(Router.create("budget"), BudgetRouter)
+        with pytest.raises(RoutingError, match="unknown"):
             Router.create("nothing")

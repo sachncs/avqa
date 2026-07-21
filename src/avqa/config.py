@@ -130,6 +130,12 @@ class RoutingConfig:
     def __post_init__(self) -> None:
         require_positive(self.refinement_budget, "refinement_budget")
         require_positive(self.importance_temperature, "importance_temperature")
+        allowed = {"topp", "threshold", "budget"}
+        if self.strategy not in allowed:
+            raise ConfigurationError(
+                f"routing.strategy must be one of {sorted(allowed)}, got {self.strategy!r}",
+                {"strategy": self.strategy},
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,7 +175,7 @@ class BackendConfig:
     """Backend selection (spec §3.12, §5.9).
 
     Attributes:
-        name: ``"torch"`` or ``"triton"``.
+        name: ``"torch"`` (the only shipped backend).
         enable_autotune: Whether to autotune kernel parameters when supported.
         skip_validation: Disable runtime tensor validation (spec §6.12).
         hopfield: When ``True`` AVQAttention applies the HVAQ
@@ -183,7 +189,7 @@ class BackendConfig:
     hopfield: bool = False
 
     def __post_init__(self) -> None:
-        allowed = {"torch", "triton"}
+        allowed = {"torch"}
         if self.name not in allowed:
             msg = f"backend.name must be one of {sorted(allowed)}, got {self.name!r}"
             raise ConfigurationError(msg, {"backend.name": self.name})
@@ -432,23 +438,23 @@ class AVQConfig:
             if k != "schema_version" and k not in known_fields:
                 msg = f"AVQConfig.from_dict got unknown field {k!r}; known fields are {sorted(known_fields)}"
                 raise ConfigurationError(msg, {"unknown_field": k})
-        # Reconstruct via ``object.__new__`` then assign each declared
-        # field via ``object.__setattr__`` to bypass the frozen dataclass
-        # guard. This avoids the untyped ``**kwargs`` unpacking that
-        # the type checker cannot narrow.
-        instance = object.__new__(cls)
+        # Use ``cls.__init__`` so the outer ``__post_init__`` runs
+        # (validation, auto-derivation, etc.). Sub-configs are
+        # reconstructed by their own ``__init__`` for the same reason.
+        kwargs: dict[str, object] = {}
         for f in fields(cls):
             if f.name not in data:
                 continue
             value = data[f.name]
-            # M6: sub-config dataclasses reconstruct via their own __init__,
-            # which accepts the kwargs produced by asdict() in to_dict().
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
                     value = target(**value)
-            object.__setattr__(instance, f.name, value)
-        return instance
+            kwargs[f.name] = value
+        # mypy can't narrow dict[str, object] through **kwargs into the
+        # dataclass's union-of-sub-configs; the runtime constructor
+        # performs the actual validation via __post_init__.
+        return cls(**kwargs)  # type: ignore[arg-type]
 
     @staticmethod
     def resolve_field_type(type_string: object) -> type:
@@ -493,6 +499,14 @@ class AVQConfig:
             target.write_text(json.dumps(payload, indent=2, sort_keys=True))
         except OSError as exc:
             msg = f"failed to write AVQConfig JSON to {target}"
+            raise ConfigurationError(msg, {"path": str(target)}) from exc
+        except TypeError as exc:
+            # ``json.dumps`` raises TypeError when ``payload`` contains
+            # a non-JSON-serializable value (set, dtype, unknown object).
+            msg = (
+                f"AVQConfig.to_dict() produced non-JSON-serializable value "
+                f"for {target}"
+            )
             raise ConfigurationError(msg, {"path": str(target)}) from exc
         return target
 
