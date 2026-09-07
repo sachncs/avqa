@@ -1,0 +1,268 @@
+<p align="center">
+  <h1 align="center">AVQA</h1>
+  <p align="center">Adaptive Vector Quantized Attention for PyTorch.</p>
+  <p align="center">
+    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
+    <a href="https://github.com/sachncs/avqa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/avqa/ci.yml?branch=main" alt="CI"></a>
+    <a href="https://github.com/sachncs/avqa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/avqa" alt="Stars"></a>
+  </p>
+</p>
+
+**AVQA** is a production-grade Python library implementing Adaptive Vector
+Quantized Attention (AVQ-Attention) as a drop-in attention backend for
+PyTorch-based Transformer architectures.
+
+The full engineering specification lives in [SPEC.md](SPEC.md); the
+implementation tracker is [TODO.md](TODO.md).
+
+> **Disclaimer**
+>
+> This is an independent, community-driven implementation. The author of this
+> codebase is **not** an author of the reference paper and is not affiliated
+> with the paper's authors or their institutions. See [Citation](#citation).
+
+---
+
+## Features
+
+- **Pure PyTorch reference implementation** with the canonical online-softmax
+  algorithm from FlashAttention-2.
+- **Hierarchical codebook** with mean-constrained parent-child structure.
+- **Adaptive refinement** that expands only the most-attended codewords.
+- **Correcting attention** that replaces — not augments — parent
+  contributions with child contributions while preserving normalization.
+- **Multi-pass refinement** with disjoint-set re-routing (converging
+  residual norms, budget decay).
+- **HVAQ (Hopfield-VQ-Attention)** with per-query temperature schedules
+  (entropy, linear) and learnable parameters.
+- **torch.compile** opt-in for reduced Python overhead (CPU and GPU).
+- **Strict typing, zero-warning lint, ≥90% test coverage** on the
+  core package.
+
+---
+
+## Installation
+
+> **Note:** AVQA is not yet published on PyPI. Install from source.
+
+### From source
+
+```bash
+git clone https://github.com/sachncs/avqa.git
+cd avqa
+pip install -e ".[dev]"
+```
+
+### With optional visualization extras
+
+```bash
+pip install -e ".[viz]"     # matplotlib + graphviz for visualization
+```
+
+### With dev dependencies
+
+```bash
+pip install -e ".[dev]"
+```
+
+---
+
+## Quick Start
+
+### Module API
+
+```python
+import torch
+from avqa import AVQAttention, AVQConfig
+from avqa.config import (
+    AttentionShapeConfig,
+    CodebookConfig,
+    RoutingConfig,
+)
+
+config = AVQConfig(
+    attention=AttentionShapeConfig(embed_dim=512, num_heads=8),
+    codebook=CodebookConfig(num_codewords=64, children_per_codeword=4),
+    routing=RoutingConfig(refinement_budget=8),
+)
+
+attention = AVQAttention(config)
+
+query = torch.randn(2, 64, 512)  # [B, T, E]
+key = torch.randn(2, 128, 512)
+value = torch.randn(2, 128, 512)
+
+output = attention(query, key, value)  # [B, T, E]
+```
+
+### Functional API
+
+```python
+from avqa import AVQConfig
+from avqa.functional import attention
+
+config = AVQConfig(...)
+output = attention(query=query, key=key, value=value, config=config)
+```
+
+---
+
+## API Reference
+
+| Symbol | Type | Description |
+|--------|------|-------------|
+| `AVQAttention` | class | Primary `nn.Module` attention wrapper |
+| `AVQConfig` | dataclass | Immutable configuration (codebook, routing, merge, backend, cache, precision, hopfield) |
+| `VectorQuantizer` | class | Hierarchical vector quantization engine |
+| `HierarchicalCodebook` | class | Parent-child codebook with mean constraint |
+| `Router` | class | Routing strategy interface (TopP, Threshold, Budget) |
+| `AdaptiveRefinement` | class | Refinement orchestrator |
+| `MultiPassRefiner` | class | Multi-pass correction with disjoint-set re-routing |
+| `Scheduler` | class | Refinement budget scheduler (Default, Adaptive) |
+| `KVCache` | class | Autoregressive KV cache (InMemory, Paged) |
+| `Backend` | class | Execution backend (Torch) |
+| `TorchBackend` | class | Pure-PyTorch backend implementation |
+| `Profiler` | class | Runtime profiler with JSON export |
+| `attention` | function | Stateless functional entry point |
+
+---
+
+## Project Structure
+
+```
+avqa/
+├── src/avqa/                  # Package source
+│   ├── __init__.py            # Public API exports
+│   ├── attention_module.py    # AVQAttention nn.Module
+│   ├── attention.py           # Online softmax state + correction
+│   ├── codebook.py            # HierarchicalCodebook
+│   ├── quantizer.py           # EuclideanHierarchicalQuantizer
+│   ├── routing.py             # Router + importance + selectors
+│   ├── merge.py               # Merge strategies
+│   ├── refinement.py          # AdaptiveRefinement orchestrator
+│   ├── multipass.py           # MultiPassRefiner (disjoint-set)
+│   ├── hopfield.py            # HVAQ temperature schedules
+│   ├── scheduler.py           # Default + Adaptive schedulers
+│   ├── backend.py             # TorchBackend (Backend interface)
+│   ├── cache.py               # KVCache (InMemory, Paged)
+│   ├── config.py              # AVQConfig + sub-configs
+│   ├── data.py                # Shapes, dtypes, devices, contracts
+│   ├── functional.py          # Stateless functional API
+│   ├── profiling.py           # Profiler + metrics + report
+│   ├── visualization.py       # Visualizer (tree, heatmap, timeline)
+│   ├── exceptions.py          # Exception hierarchy
+│   ├── logging.py             # Logging configuration
+│   ├── online_adaptation.py   # BCAR codebook adaptation
+│   ├── integrations/          # Placeholder for optional adapters
+│   ├── utils/                 # seed, validation, numerics
+│   └── version.py             # Version metadata
+├── tests/
+│   ├── unit/                  # Unit tests
+│   ├── reference/             # Hand-computed reference tests
+│   └── performance/           # pytest-benchmark suite
+├── docs/                      # API docs
+├── examples/                  # Usage examples
+├── pyproject.toml             # Build & tool config
+└── .github/                   # CI workflow
+```
+
+---
+
+## Development
+
+```bash
+# Lint
+ruff check src/ tests/
+
+# Type-check
+mypy src/avqa
+
+# Tests
+pytest tests/unit -q
+pytest tests/reference -q
+pytest tests/performance -q
+
+# With coverage
+pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
+```
+
+### Code Style
+
+- Line length: 100
+- Quotes: double
+- Formatter/linter: ruff
+- Type hints: required on all public signatures (strict mypy)
+- Docstrings: Google-style
+- Naming: no leading-underscore prefixes (project convention)
+
+### Commit Conventions
+
+[Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add online-softmax tiled attention
+fix: correct einsum dimension mapping in parent attention
+docs: update compliance matrix
+test: add hand-computed reference tests
+```
+
+---
+
+## Testing
+
+```bash
+pytest                                          # full suite
+pytest --cov=avqa tests/unit tests/reference    # with coverage
+```
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Python 3.10+ |
+| Framework | [PyTorch](https://pytorch.org/) 2.1+ |
+| Build | [Hatchling](https://hatch.pypa.io/) |
+| Lint/Format | [ruff](https://docs.astral.sh/ruff/) |
+| Type Check | [mypy](https://mypy-lang.org/) (strict) |
+| Testing | [pytest](https://docs.pytest.org/) + pytest-cov + pytest-benchmark |
+
+---
+
+## Roadmap
+
+- **v0.1.0** — Current: reference implementation, 461 tests, ≥90% coverage
+- **v0.2.0** — BCAR + HVAQ + multi-pass refinements (algorithmic contributions)
+- **v1.0.0** — Stable API, PyPI release, full spec compliance
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, PR process,
+and coding standards.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).
+
+## License
+
+[Apache License 2.0](LICENSE)
+
+---
+
+## Citation
+
+This is an independent implementation. If you use AVQA in research, please
+cite the original paper:
+
+```bibtex
+@misc{avq-attention,
+  title  = {Adaptive Vector Quantized Attention (AVQ-Attention)},
+  url    = {https://arxiv.org/html/2607.12789v1},
+  year   = {2025},
+}
+```

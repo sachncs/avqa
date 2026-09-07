@@ -1,0 +1,45 @@
+{
+  "config": {
+    "batch": 2,
+    "children_per_codeword": 4,
+    "head_dim": 16,
+    "heads": 4,
+    "num_codewords": 16,
+    "refinement_budget": 4,
+    "reps": 10,
+    "seq_len": 64,
+    "warmup": 3
+  },
+  "rows": {
+    "hvaq_entropy": {
+      "max_ms": 1.8714580219238997,
+      "mean_ms": 1.3785999006358907,
+      "median_ms": 1.30975000502076,
+      "min_ms": 1.1617080017458647,
+      "stdev_ms": 0.21391442941005742
+    },
+    "hvaq_linear": {
+      "max_ms": 2.258624997921288,
+      "mean_ms": 1.3196372980019078,
+      "median_ms": 1.207874491228722,
+      "min_ms": 1.1089579784311354,
+      "stdev_ms": 0.3452481896513134
+    },
+    "paper_single_pass": {
+      "max_ms": 1.5295410121325403,
+      "mean_ms": 1.2265665020095184,
+      "median_ms": 1.173687502159737,
+      "min_ms": 1.0279999987687916,
+      "stdev_ms": 0.1689268960612837
+    },
+    "paper_vs_hvaq_entropy_max_abs_diff": 134217728.0,
+    "paper_vs_hvaq_linear_max_abs_diff": 0.0,
+    "sdpa": {
+      "max_ms": 0.061708997236564755,
+      "mean_ms": 0.05161270382814109,
+      "median_ms": 0.049000009312294424,
+      "min_ms": 0.04454198642633855,
+      "stdev_ms": 0.005379072114991084
+    }
+  }
+}
