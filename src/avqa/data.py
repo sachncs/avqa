@@ -66,9 +66,10 @@ def is_supported_dtype(dtype: torch.dtype) -> bool:
     return dtype in SUPPORTED_DTYPES
 
 
-# Supported devices (spec §6.10). CPU + CUDA are baseline; ROCm / Metal /
-# XPU are future. ROCm uses the cuda device type in PyTorch.
-SUPPORTED_DEVICES: Final[frozenset[str]] = frozenset({"cpu", "cuda", "mps"})
+# Supported devices (spec §6.10). CPU + CUDA are baseline; ROCm uses the
+# cuda device type in PyTorch. MPS / XPU are deferred until validated on
+# their respective CI matrices.
+SUPPORTED_DEVICES: Final[frozenset[str]] = frozenset({"cpu", "cuda"})
 
 
 def is_supported_device(device: str | torch.device) -> bool:

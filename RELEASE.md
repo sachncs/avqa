@@ -5,8 +5,7 @@
 This release marks the first public cut of AVQA, an independent
 community implementation of Adaptive Vector Quantized Attention
 (AVQ-Attention). The release targets **inference and training**
-support on CPU/MPS/CUDA backends via PyTorch, with optional Triton
-acceleration gated on CUDA availability.
+support on CPU/CUDA backends via PyTorch.
 
 ### Highlights
 
@@ -29,9 +28,9 @@ acceleration gated on CUDA availability.
 
 - The PyTorch reference is the only execution path shipped; a Triton
   kernel is planned for v0.2.0.
-- On macOS (MPS) and CPU, expect throughput comparable to PyTorch SDPA
-  plus the overhead of VQ precompute; adaptive refinement pays off for
-  long sequences (≥1k tokens).
+- On CPU, expect throughput comparable to PyTorch SDPA plus the
+  overhead of VQ precompute; adaptive refinement pays off for long
+  sequences (≥1k tokens).
 
 ### Compatibility
 
