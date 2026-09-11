@@ -270,6 +270,16 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
         )
         child_counts = child_cnt.view(B, H, M0, C)
 
+        logger.debug(
+            "precompute: B=%d H=%d N=%d M0=%d C=%d, dead_parents=%d",
+            B,
+            H,
+            N,
+            M0,
+            C,
+            int((parent_counts == 0).sum().item()),
+        )
+
         return QuantizationResult(
             parent_assignments=parent_assign,
             child_assignments=child_assign,

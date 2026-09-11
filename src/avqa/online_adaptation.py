@@ -141,6 +141,12 @@ def online_codebook_adaptation(
 
     # SPEC §7.9 invariant: parents = mean(children) at every step.
     parents.copy_(children.mean(dim=2))
+    logger.debug(
+        "bcar updated children/parents; decay=%.3f empty_cells=%d/%d",
+        decay,
+        int((count_per_pc == 0).sum().item()),
+        bh * M0 * C,
+    )
 
 
 __all__ = ["online_codebook_adaptation"]
