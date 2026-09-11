@@ -44,14 +44,15 @@ class Scheduler(ABC):
         raise RoutingError(msg)
 
     @abstractmethod
-    def budget_for(self, importance: torch.Tensor) -> int:
+    def budget_for(self, importance: torch.Tensor) -> int | torch.Tensor:
         """Return the refinement budget for the given importance scores.
 
         Args:
             importance: Per-codeword importance ``[B, H, M_0]``.
 
         Returns:
-            Number of parents to refine (P).
+            Number of parents to refine (P). May be a scalar (``int``)
+            or a per-(B, H) tensor of shape ``[B, H]``.
         """
 
 
@@ -74,6 +75,7 @@ class DefaultScheduler(Scheduler):
 
     def budget_for(self, importance: torch.Tensor) -> int:
         """Return the constant budget."""
+        del importance  # constant budget does not depend on importance
         return self.budget
 
 
@@ -111,18 +113,31 @@ class AdaptiveScheduler(Scheduler):
         self.max_budget = max_budget
         self.entropy_threshold = entropy_threshold
 
-    def budget_for(self, importance: torch.Tensor) -> int:
-        """Adapt budget based on average entropy across (B, H)."""
-        # Average importance over (B, H) → [M_0].
-        flat = importance.mean(dim=tuple(range(importance.ndim - 1)))
-        flat = flat / flat.sum().clamp_min(1e-12)
-        entropy = -(flat * flat.clamp_min(1e-12).log()).sum().item()
-        max_entropy = float(torch.log(torch.tensor(flat.numel())).item())
+    def budget_for(self, importance: torch.Tensor) -> int | torch.Tensor:
+        """Adapt budget per-(B, H) based on importance entropy.
+
+        Returns a tensor of shape ``[B, H]`` when ``importance`` is
+        ``[B, H, M_0]`` so each (B, H) position receives its own
+        budget. Returns a scalar when ``importance`` has rank 1.
+        """
+        if importance.ndim < 2:
+            # Scalar fallback for low-rank inputs.
+            flat = importance / importance.sum().clamp_min(1e-12)
+            entropy = -(flat * flat.clamp_min(1e-12).log()).sum().item()
+            max_entropy = float(torch.log(torch.tensor(flat.numel())).item())
+            norm_entropy = entropy / max_entropy if max_entropy > 0 else 1.0
+            return self.max_budget if norm_entropy < self.entropy_threshold else self.min_budget
+        # Per-(B, H) entropy: [B, H, M_0] -> [B, H]
+        p = importance / importance.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+        entropy = -(p * p.clamp_min(1e-12).log()).sum(dim=-1)
+        max_entropy = float(torch.log(torch.tensor(p.shape[-1])).item())
         norm_entropy = entropy / max_entropy if max_entropy > 0 else 1.0
-        # Low entropy → focused → expand budget; high entropy → spread → shrink.
-        if norm_entropy < self.entropy_threshold:
-            return self.max_budget
-        return self.min_budget
+        budget = torch.where(
+            norm_entropy < self.entropy_threshold,
+            torch.full_like(norm_entropy, float(self.max_budget)),
+            torch.full_like(norm_entropy, float(self.min_budget)),
+        )
+        return budget.to(torch.int64)
 
 
 __all__ = ["AdaptiveScheduler", "DefaultScheduler", "Scheduler"]
