@@ -144,7 +144,9 @@ def online_softmax_attention(
         diff = torch.where(torch.isnan(diff), torch.zeros_like(diff), diff)
         alpha = torch.exp(diff)
         beta_in = tile_logits - tile_max.unsqueeze(-1)
-        beta_in = torch.where(torch.isnan(beta_in), torch.full_like(beta_in, float("-inf")), beta_in)
+        beta_in = torch.where(
+            torch.isnan(beta_in), torch.full_like(beta_in, float("-inf")), beta_in
+        )
         beta = torch.exp(beta_in)
         tile_denom = beta.sum(dim=-1)
         new_denom = alpha * denom + tile_denom

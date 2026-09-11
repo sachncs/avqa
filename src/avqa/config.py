@@ -12,6 +12,7 @@ one module. They are interdependent frozen dataclasses composing a
 single :class:`AVQConfig` root; splitting them across files would just
 create import ceremony.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -503,10 +504,7 @@ class AVQConfig:
         except TypeError as exc:
             # ``json.dumps`` raises TypeError when ``payload`` contains
             # a non-JSON-serializable value (set, dtype, unknown object).
-            msg = (
-                f"AVQConfig.to_dict() produced non-JSON-serializable value "
-                f"for {target}"
-            )
+            msg = f"AVQConfig.to_dict() produced non-JSON-serializable value for {target}"
             raise ConfigurationError(msg, {"path": str(target)}) from exc
         return target
 

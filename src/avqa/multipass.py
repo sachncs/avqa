@@ -13,6 +13,7 @@ Residual-norms: ``||cur_attn - prev_attn||`` is recorded per pass.
 With ``passes=1`` this is ``[0.0]`` by construction; with ``passes>1``
 the norms should decrease monotonically.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -222,8 +223,8 @@ class MultiPassRefiner:
                 current_decision = decision
 
             # Recompute child_logits: Q . C_c^T / sqrt(D).
-            current_child_logits = (
-                torch.einsum("bhtd,bhmcd->bhtmc", query, child_keys_exp) / (D**0.5)
+            current_child_logits = torch.einsum("bhtd,bhmcd->bhtmc", query, child_keys_exp) / (
+                D**0.5
             )
             if child_counts is not None:
                 current_child_logits = current_child_logits.masked_fill(

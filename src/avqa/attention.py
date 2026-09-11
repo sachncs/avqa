@@ -9,6 +9,7 @@ ponytail: inlines the running-state and correction logic in one module.
 The :class:`OnlineSoftmaxState` is a tiny data class; the correction
 operator is one function (:func:`recover_parent_logits`).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -136,9 +137,7 @@ class OnlineSoftmaxState:
             New :class:`OnlineSoftmaxState` with the replacement applied.
         """
         if m_anchor is None:
-            new_max = torch.maximum(
-                torch.maximum(self.running_max, removed_max), added_max
-            )
+            new_max = torch.maximum(torch.maximum(self.running_max, removed_max), added_max)
             scale_removed = torch.exp(removed_max - new_max)
             scale_added = torch.exp(added_max - new_max)
         else:

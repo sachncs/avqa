@@ -7,8 +7,8 @@ import torch
 
 from avqa.exceptions import AVQAError, DeviceError, DtypeError, ShapeError
 from avqa.utils.validation import (
+    NonFiniteTensorError as AVQAValueError,
     ShapeLike,
-    ValueError as AVQAValueError,
     validate_contiguous,
     validate_device,
     validate_dtype,

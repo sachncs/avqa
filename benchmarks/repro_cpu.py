@@ -12,6 +12,7 @@ Outputs:
     benchmarks/raw/EXP-0001/config.json
     benchmarks/raw/EXP-0001/summary.md (if --markdown)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,6 +36,8 @@ DEFAULT_NUM_CODEWORDS: int = 16
 DEFAULT_BUDGET: int = 4
 WARMUP: int = 5
 REPS: int = 10
+
+
 def make_inputs(
     batch: int,
     seq_len: int,
@@ -48,6 +51,8 @@ def make_inputs(
     k = torch.randn(batch, seq_len, embed_dim, generator=gen)
     v = torch.randn(batch, seq_len, embed_dim, generator=gen)
     return q, k, v
+
+
 def make_avqa(heads: int, embed_dim: int) -> AVQAttention:
     """Build a small AVQA module sized for ``embed_dim``."""
     config = AVQConfig(
@@ -65,6 +70,8 @@ def make_avqa(heads: int, embed_dim: int) -> AVQAttention:
     module = AVQAttention(config, in_proj=False, out_proj=False)
     module.eval()
     return module
+
+
 def bench(
     fn: object,
     q: torch.Tensor,
@@ -89,6 +96,8 @@ def bench(
         "max_ms": max(samples_ms),
         "samples_ms": samples_ms,
     }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AVQA vs SDPA CPU baseline")
     parser.add_argument("--out", type=str, default="benchmarks/raw/EXP-0001")
@@ -113,10 +122,13 @@ def main(argv: list[str] | None = None) -> int:
         "sequence_lengths": list(DEFAULT_SEQ_LENS),
     }
     avqa = make_avqa(DEFAULT_HEADS, env_info["embed_dim"])
+
     def sdpa_call(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         return functional.scaled_dot_product_attention(q, k, v)
+
     def avqa_call(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         return avqa(q, k, v, mask=None)
+
     rows: list[dict[str, object]] = []
     for seq_len in DEFAULT_SEQ_LENS:
         q, k, v = make_inputs(
@@ -172,5 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {raw_path}")
     print(f"wrote {config_path}")
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -18,6 +18,7 @@ dataset) is intentionally deferred — the per-P mass concentration
 is the minimum that maps to the HVAQ claim without a multi-day
 LM harness setup.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,6 +53,8 @@ DEFAULT_BUDGET: int = 4
 DEFAULT_SEQ_LEN: int = 64
 WARMUP: int = 3
 REPS: int = 10
+
+
 def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     config = AVQConfig(
         attention=AttentionShapeConfig(
@@ -75,6 +78,8 @@ def build_attention(*, hopfield_enabled: bool, adaptive: str) -> AVQAttention:
     mod = AVQAttention(config, in_proj=False, out_proj=False)
     mod.eval()
     return mod
+
+
 def bench(fn: Callable[[], object]) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
@@ -90,6 +95,8 @@ def bench(fn: Callable[[], object]) -> dict[str, float]:
         "min_ms": min(samples),
         "max_ms": max(samples),
     }
+
+
 # ponytail: HVAQ-ENT's "downstream quality" claim is captured here as
 # a per-P mass concentration: the variable the schedule actually
 # moves. A real LM harness (model + dataset + training loop) is
@@ -104,6 +111,8 @@ def top_p_concentration(attention_probs: torch.Tensor, p: int) -> float:
     """
     top_p, _ = attention_probs.topk(min(p, attention_probs.shape[-1]), dim=-1)
     return float(top_p.sum(dim=-1).mean().item())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EXP-0006 HVAQ benchmark")
     parser.add_argument("--out", type=str, default="benchmarks/raw/EXP-0006")
@@ -153,6 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         q = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
         k = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
         v = torch.randn(DEFAULT_BATCH, DEFAULT_SEQ_LEN, embed_dim)
+
         def sdpa_call() -> object:
             qh = q.reshape(
                 DEFAULT_BATCH, DEFAULT_SEQ_LEN, DEFAULT_HEADS, DEFAULT_HEAD_DIM
@@ -164,34 +174,39 @@ def main(argv: list[str] | None = None) -> int:
                 DEFAULT_BATCH, DEFAULT_SEQ_LEN, DEFAULT_HEADS, DEFAULT_HEAD_DIM
             ).transpose(1, 2)
             return functional.scaled_dot_product_attention(qh, kh, vh)
+
         sdpa_stats = bench(sdpa_call)
         paper = build_attention(hopfield_enabled=False, adaptive="none")
         hvaq_ent: AVQAttention = build_attention(hopfield_enabled=True, adaptive="entropy")
         hvaq_lin: AVQAttention = build_attention(hopfield_enabled=True, adaptive="linear")
+
         def paper_call(
             paper: AVQAttention = paper,
             q: torch.Tensor = q,
             k: torch.Tensor = k,
             v: torch.Tensor = v,
         ) -> torch.Tensor:
-                result: torch.Tensor = paper(q, k, v, mask=None)
-                return result
+            result: torch.Tensor = paper(q, k, v, mask=None)
+            return result
+
         def hvaq_ent_call(
             hvaq_ent: AVQAttention = hvaq_ent,
             q: torch.Tensor = q,
             k: torch.Tensor = k,
             v: torch.Tensor = v,
         ) -> torch.Tensor:
-                result: torch.Tensor = hvaq_ent(q, k, v, mask=None)
-                return result
+            result: torch.Tensor = hvaq_ent(q, k, v, mask=None)
+            return result
+
         def hvaq_lin_call(
             hvaq_lin: AVQAttention = hvaq_lin,
             q: torch.Tensor = q,
             k: torch.Tensor = k,
             v: torch.Tensor = v,
         ) -> torch.Tensor:
-                result: torch.Tensor = hvaq_lin(q, k, v, mask=None)
-                return result
+            result: torch.Tensor = hvaq_lin(q, k, v, mask=None)
+            return result
+
         paper_stats = bench(paper_call)
         hvaq_ent_stats = bench(hvaq_ent_call)
         hvaq_lin_stats = bench(hvaq_lin_call)
@@ -280,9 +295,7 @@ def main(argv: list[str] | None = None) -> int:
             p_sq = (parents * parents).sum(dim=-1)  # [H, M_0]
             M_0 = parents.shape[1]
             logits = (
-                k_sq[:, :, None, None]
-                - 2.0 * cross.permute(0, 2, 1, 3)
-                + p_sq[None, :, None, :]
+                k_sq[:, :, None, None] - 2.0 * cross.permute(0, 2, 1, 3) + p_sq[None, :, None, :]
             )
             # Paper path: pure softmax.
             if name == "paper_single_pass":
@@ -320,11 +333,9 @@ def main(argv: list[str] | None = None) -> int:
             # Convert back to [B, H, N, M_0] then flatten to
             # probs shape [B, H, N, M_0]; flatten to [B, N, H*M_0] for
             # top-P concentration.
-            probs = (
-                probs.permute(0, 2, 1, 3)
-                .reshape(DEFAULT_BATCH, DEFAULT_SEQ_LEN, -1)
-            )
+            probs = probs.permute(0, 2, 1, 3).reshape(DEFAULT_BATCH, DEFAULT_SEQ_LEN, -1)
             seed_concentrations[name].append(top_p_concentration(probs, DEFAULT_BUDGET))
+
     def aggregate(vals: list[float]) -> dict[str, float]:
         return {
             "mean": statistics.fmean(vals) if vals else 0.0,
@@ -334,12 +345,14 @@ def main(argv: list[str] | None = None) -> int:
             "max": max(vals) if vals else 0.0,
             "n": float(len(vals)),
         }
+
     class StatsDict(TypedDict):
         median_ms: float
         stdev_ms_across_seeds: float
         n_seeds: int
         min_ms: float
         max_ms: float
+
     def stats_from_medians(medians: list[float]) -> StatsDict:
         return {
             "median_ms": statistics.fmean(medians) if medians else 0.0,
@@ -348,9 +361,11 @@ def main(argv: list[str] | None = None) -> int:
             "min_ms": min(medians) if medians else 0.0,
             "max_ms": max(medians) if medians else 0.0,
         }
+
     class RatioDict(TypedDict):
         mean: float
         stdev: float
+
     class _RowsDict(TypedDict, total=False):
         sdpa: StatsDict
         paper_single_pass: StatsDict
@@ -359,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         top_p_concentration: dict[str, dict[str, float]]
         top_p_concentration_ratio_hvaq_entropy_over_paper: RatioDict
         output_diff_vs_paper: dict[str, dict[str, float]]
+
     rows: _RowsDict = {
         "sdpa": stats_from_medians(seed_medians["sdpa"]),
         "paper_single_pass": stats_from_medians(seed_medians["paper_single_pass"]),
@@ -469,5 +485,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {raw_path}")
     print(f"wrote {config_path}")
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

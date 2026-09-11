@@ -16,6 +16,7 @@ ponytail: the nn.Module wrapper lives in the existing
 src/avqa/attention.py namespace; the pipeline class itself is small
 because every stage is delegated to the corresponding subsystem.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -173,9 +174,7 @@ class AVQAttention(nn.Module):
             self.parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0))
         if hopfield_active and config.hopfield.learnable_alpha:
             H = config.attention.num_heads
-            self.alpha = nn.Parameter(
-                torch.full((H,), config.hopfield.alpha)
-            )
+            self.alpha = nn.Parameter(torch.full((H,), config.hopfield.alpha))
 
         # H4: Store last forward pass data for commitment loss computation.
         self.last_keys: torch.Tensor | None = None
@@ -430,8 +429,12 @@ class AVQAttention(nn.Module):
         expected_parents = (H, M0, D)
         if tuple(self.codebook.parents.shape) != expected_parents:
             self.codebook = HierarchicalCodebook(
-                num_heads=H, num_parents=M0, children_per_parent=C,
-                head_dim=D, device=q.device, dtype=q.dtype,
+                num_heads=H,
+                num_parents=M0,
+                children_per_parent=C,
+                head_dim=D,
+                device=q.device,
+                dtype=q.dtype,
             )
             self.codebook.initialize_children_around_parents()
             result = self.backend.quantize(
@@ -490,9 +493,7 @@ class AVQAttention(nn.Module):
             current_state, residual_norms = refiner.refine(
                 state=state,
                 parent_probs=parent_attention_probs,
-                parent_value=(
-                    parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-                ),
+                parent_value=(parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
@@ -514,9 +515,7 @@ class AVQAttention(nn.Module):
             refinement = refine_step(
                 state=state,
                 parent_probs=parent_attention_probs,
-                parent_value=(
-                    parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)
-                ),
+                parent_value=(parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
@@ -529,10 +528,9 @@ class AVQAttention(nn.Module):
             )
             current_state = refinement.state
 
-        attn_out = (
-            current_state.running_numerator[:, :, :, 0, :]
-            / current_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
-        )
+        attn_out = current_state.running_numerator[
+            :, :, :, 0, :
+        ] / current_state.running_denominator[:, :, :, 0:1].clamp_min(1e-12)
 
         if self.config.execution.mode == "research":
             logger.debug(

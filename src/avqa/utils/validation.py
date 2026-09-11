@@ -7,6 +7,7 @@ provides the canonical validation helpers used across the codebase.
 Validation MAY be disabled in optimized execution modes (e.g., by setting
 ``AVQAConfig.skip_validation=True``).
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -29,6 +30,7 @@ class NonFiniteTensorError(AVQAError):
     inherits from :class:`avqa.exceptions.AVQAError` so callers can
     catch every AVQA raise uniformly.
     """
+
 
 ShapeLike: TypeAlias = Sequence[int] | torch.Size | torch.Tensor
 """Anything that can be coerced to a tensor shape."""

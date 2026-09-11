@@ -52,9 +52,7 @@ class TestMultiPassRefiner:
         """``passes=1`` is the paper-equivalent path; residual is [0.0]."""
         torch.manual_seed(0)
         m = MultiPassRefiner(passes=1, decay=1.0)
-        final_state, residuals = run_refiner(
-            m, B=1, H=1, T=4, P=4, M0=8, C=2, D=8
-        )
+        final_state, residuals = run_refiner(m, B=1, H=1, T=4, P=4, M0=8, C=2, D=8)
         assert len(residuals) == 1
         assert residuals[0] == 0.0
         assert final_state.running_numerator.shape == (1, 1, 4, 1, 8)
@@ -71,9 +69,7 @@ class TestMultiPassRefiner:
         """passes=4 with query/child_keys runs disjoint-set re-routing."""
         torch.manual_seed(42)
         m = MultiPassRefiner(passes=4, decay=0.5)
-        _, residuals = run_refiner_reroute(
-            m, B=1, H=1, T=4, M0=8, C=2, D=8
-        )
+        _, residuals = run_refiner_reroute(m, B=1, H=1, T=4, M0=8, C=2, D=8)
         assert len(residuals) == 4
         for r in residuals:
             assert r >= 0.0
@@ -82,9 +78,7 @@ class TestMultiPassRefiner:
         """Residuals are finite and non-negative across passes."""
         torch.manual_seed(7)
         m = MultiPassRefiner(passes=4, decay=0.5)
-        _, residuals = run_refiner_reroute(
-            m, B=2, H=2, T=8, M0=16, C=4, D=16
-        )
+        _, residuals = run_refiner_reroute(m, B=2, H=2, T=8, M0=16, C=4, D=16)
         assert len(residuals) == 4
         for r in residuals:
             assert r >= 0.0
@@ -128,7 +122,7 @@ class TestMultiPassRefiner:
         assert len(seen_indices) >= 2
         for i in range(1, len(seen_indices)):
             assert seen_indices[i].isdisjoint(seen_indices[i - 1]), (
-                f"pass {i} ({seen_indices[i]}) overlaps pass {i-1} ({seen_indices[i-1]})"
+                f"pass {i} ({seen_indices[i]}) overlaps pass {i - 1} ({seen_indices[i - 1]})"
             )
 
     def test_passes_4_decay_halves_budget(self) -> None:
@@ -156,7 +150,12 @@ class TestMultiPassRefiner:
 
 
 def make_dummy_inputs(
-    B: int, H: int, T: int, M0: int, C: int, D: int,
+    B: int,
+    H: int,
+    T: int,
+    M0: int,
+    C: int,
+    D: int,
 ) -> tuple[
     OnlineSoftmaxState,
     torch.Tensor,

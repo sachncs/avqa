@@ -23,6 +23,7 @@ integration; ``AVQAttention`` does not currently route through this
 module. See ``tests/unit/test_streaming_vq.py`` for the convergence
 test.
 """
+
 from __future__ import annotations
 
 import torch
