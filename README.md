@@ -267,9 +267,14 @@ This is an independent implementation. If you use AVQA in research, please
 cite the original paper:
 
 ```bibtex
-@misc{avq-attention,
-  title  = {Adaptive Vector Quantized Attention (AVQ-Attention)},
-  url    = {https://arxiv.org/html/2607.12789v1},
-  year   = {2025},
+@inproceedings{van2026avq,
+  title     = {AVQ-Attention: Adaptive Vector-Quantized Attention},
+  author    = {van den Dool, Winfried and Forr{\'e}, Patrick and Habibian, Amir and Asano, Yuki M. and Welling, Max},
+  booktitle = {European Conference on Computer Vision (ECCV)},
+  year      = {2026},
+  eprint    = {2607.12789},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url       = {https://arxiv.org/abs/2607.12789},
 }
 ```
