@@ -97,10 +97,26 @@ def online_codebook_adaptation(
     children_bh = children.repeat_interleave(B, dim=0)  # [bh, M_0, C, D]
 
     # Per-(parent, child) scatter-mean: m_{p,c} = sum k_j / n_{p,c}.
-    flat_pc_index = parent_index * C + child_index  # [bh, N]
-    one_hot_pc = torch.nn.functional.one_hot(flat_pc_index, num_classes=M0 * C).to(children.dtype)
-    sum_keys_per_pc = torch.einsum("bnc,bnd->bcd", one_hot_pc, keys_flat)  # [bh, M_0 * C, D]
-    count_per_pc = one_hot_pc.sum(dim=1)  # [bh, M_0 * C]
+    # Avoid materialising the [bh, N, M_0 * C] dense one-hot matrix; use
+    # index_add_ on a pre-zeroed buffer.
+    flat_pc_index = (parent_index * C + child_index)  # [bh, N]
+    flat_pc_index_offset = (flat_pc_index + torch.arange(bh, device=flat_pc_index.device).unsqueeze(1) * M0 * C).reshape(-1)
+    keys_flat_2d = keys_flat.reshape(-1, D)  # [bh * N, D]
+    sum_keys_per_pc = torch.zeros(
+        bh * M0 * C,
+        D,
+        device=keys_flat.device,
+        dtype=keys_flat.dtype,
+    )
+    sum_keys_per_pc.index_add_(0, flat_pc_index_offset, keys_flat_2d)
+    sum_keys_per_pc = sum_keys_per_pc.view(bh, M0 * C, D)
+    count_per_pc = torch.zeros(bh * M0 * C, device=keys_flat.device, dtype=keys_flat.dtype)
+    count_per_pc.index_add_(
+        0,
+        flat_pc_index_offset,
+        torch.ones_like(flat_pc_index_offset, dtype=keys_flat.dtype),
+    )
+    count_per_pc = count_per_pc.view(bh, M0 * C)
     inv_pc_count = torch.where(
         count_per_pc > 0,
         count_per_pc.reciprocal(),
