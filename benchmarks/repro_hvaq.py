@@ -271,10 +271,6 @@ def main(argv: list[str] | None = None) -> int:
             # Reshape (B, N, H*D) -> (B, H, N, D) so we can address
             # the per-head codebook correctly.
             keys_bhnd = k.reshape(DEFAULT_BATCH, DEFAULT_HEADS, DEFAULT_SEQ_LEN, DEFAULT_HEAD_DIM)
-            # Flatten to [B*H, N, D] for the distance computation.
-            keys_flat = keys_bhnd.reshape(
-                DEFAULT_BATCH * DEFAULT_HEADS, DEFAULT_SEQ_LEN, DEFAULT_HEAD_DIM
-            )
             # Per-(B, H, N) k_sq and per-(B, H, N) cross. The HVAQ
             # schedule is per-(B, N) (averaged over heads).
             k_sq_per_q = (keys_bhnd * keys_bhnd).sum(dim=-1)  # [B, H, N]
