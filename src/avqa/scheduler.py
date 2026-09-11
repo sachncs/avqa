@@ -123,19 +123,26 @@ class AdaptiveScheduler(Scheduler):
         if importance.ndim < 2:
             # Scalar fallback for low-rank inputs.
             flat = importance / importance.sum().clamp_min(1e-12)
-            entropy = -(flat * flat.clamp_min(1e-12).log()).sum().item()
+            entropy_scalar = -(flat * flat.clamp_min(1e-12).log()).sum().item()
             max_entropy = float(torch.log(torch.tensor(flat.numel())).item())
-            norm_entropy = entropy / max_entropy if max_entropy > 0 else 1.0
-            return self.max_budget if norm_entropy < self.entropy_threshold else self.min_budget
+            norm_entropy_scalar = entropy_scalar / max_entropy if max_entropy > 0 else 1.0
+            return (
+                self.max_budget if norm_entropy_scalar < self.entropy_threshold else self.min_budget
+            )
         # Per-(B, H) entropy: [B, H, M_0] -> [B, H]
         p = importance / importance.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-        entropy = -(p * p.clamp_min(1e-12).log()).sum(dim=-1)
+        entropy: torch.Tensor = -(p * p.clamp_min(1e-12).log()).sum(dim=-1)
         max_entropy = float(torch.log(torch.tensor(p.shape[-1])).item())
-        norm_entropy = entropy / max_entropy if max_entropy > 0 else 1.0
+        if max_entropy > 0:
+            norm_entropy: torch.Tensor = entropy / max_entropy
+        else:
+            norm_entropy = torch.ones_like(entropy)
+        max_fill = torch.full_like(norm_entropy, float(self.max_budget))
+        min_fill = torch.full_like(norm_entropy, float(self.min_budget))
         budget = torch.where(
             norm_entropy < self.entropy_threshold,
-            torch.full_like(norm_entropy, float(self.max_budget)),
-            torch.full_like(norm_entropy, float(self.min_budget)),
+            max_fill,
+            min_fill,
         )
         return budget.to(torch.int64)
 
