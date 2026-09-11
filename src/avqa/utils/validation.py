@@ -247,20 +247,20 @@ def validate_embed_dim(
 ) -> None:
     """Validate that the last dim of ``tensor`` matches ``expected_embed_dim``.
 
-    Args:
-        tensor: Tensor whose last dim should equal ``expected_embed_dim``.
-        expected_embed_dim: Required embedding dim.
-        name: Variable name used in error messages.
+        Args:
+            tensor: Tensor whose last dim should equal ``expected_embed_dim``.
+            expected_embed_dim: Required embedding dim.
+            name: Variable name used in error messages.
 
-    Raises:
-        ShapeError: If the last dim does not match.
+        Raises:
+            ShapeError: If the last dim does not match.
 
-Example:
-        >>> import torch
-        >>> validate_embed_dim(torch.zeros(2, 8, 128), 128)
-        >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        avqa.exceptions.ShapeError: tensor embed_dim mismatch
+    Example:
+            >>> import torch
+            >>> validate_embed_dim(torch.zeros(2, 8, 128), 128)
+            >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+            avqa.exceptions.ShapeError: tensor embed_dim mismatch
     """
     actual = tensor.shape[-1]
     if actual != expected_embed_dim:
@@ -278,19 +278,19 @@ def validate_device_match(
 ) -> None:
     """Validate that all tensors in ``tensors`` share the same device.
 
-    Args:
-        tensors: Sequence of tensors to check.
-        name: Variable name used in error messages.
+        Args:
+            tensors: Sequence of tensors to check.
+            name: Variable name used in error messages.
 
-    Raises:
-        DeviceError: If the tensors are on different devices.
+        Raises:
+            DeviceError: If the tensors are on different devices.
 
-Example:
-        >>> import torch
-        >>> validate_device_match([torch.zeros(2), torch.zeros(3)])
-        >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        avqa.exceptions.DeviceError: tensors device mismatch
+    Example:
+            >>> import torch
+            >>> validate_device_match([torch.zeros(2), torch.zeros(3)])
+            >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+            avqa.exceptions.DeviceError: tensors device mismatch
     """
     if not tensors:
         return

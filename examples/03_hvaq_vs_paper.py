@@ -22,12 +22,12 @@ from avqa.config import (
 def main() -> None:
     """Compare HVAQ (adaptive='entropy') to the paper-equivalent ('none')."""
     torch.manual_seed(0)
-    base = dict(
-        attention=AttentionShapeConfig(embed_dim=128, num_heads=4, head_dim=32),
-        codebook=CodebookConfig(num_codewords=32, children_per_codeword=4),
-        routing=RoutingConfig(refinement_budget=4),
-        backend=BackendConfig(hopfield=True),
-    )
+    base = {
+        "attention": AttentionShapeConfig(embed_dim=128, num_heads=4, head_dim=32),
+        "codebook": CodebookConfig(num_codewords=32, children_per_codeword=4),
+        "routing": RoutingConfig(refinement_budget=4),
+        "backend": BackendConfig(hopfield=True),
+    }
     cfg_paper = AVQConfig(**base, hopfield=HopfieldConfig(enabled=True, adaptive="none"))
     cfg_hvaq = AVQConfig(**base, hopfield=HopfieldConfig(enabled=True, adaptive="entropy"))
 
