@@ -46,20 +46,29 @@ Open a GitHub issue describing:
 
 ## Adding new components
 
-Each new component must implement the registry pattern documented in
-`src/avqa/registry.py`. To add a new quantizer:
+New components plug in via the `create()` factory pattern on the
+existing abstract base class. To add a new quantizer, subclass
+`VectorQuantizer` and register it inside `VectorQuantizer.create()`
+in `src/avqa/quantizer.py`:
 
 ```python
 from avqa.quantizer import VectorQuantizer
-from avqa.registry import QUANTIZER_REGISTRY
 
-@QUANTIZER_REGISTRY.register("my_quantizer")
 class MyQuantizer(VectorQuantizer):
-    def precompute(self, keys, values, codebook):
+    name = "my_quantizer"
+
+    def quantize(self, keys, values, codebook):
         ...
+
+# Register in VectorQuantizer.create():
+VectorQuantizer.create("my_quantizer")  # -> MyQuantizer()
 ```
 
-This avoids touching core library code and keeps the public API stable.
+The same pattern applies to `Backend.create`, `Router.create`,
+`MergeStrategy.create`, and `Scheduler.create` — add a `name`
+attribute to the subclass and dispatch on it inside `create()`. New
+components do not require modifying the abstract base class beyond
+the dispatch line.
 
 ## License
 
