@@ -55,12 +55,12 @@ def attention(
         >>> from avqa import AVQConfig
         >>> from avqa.functional import attention
         >>> config = AVQConfig()
-        >>> q = torch.randn(2, 8, 64)
-        >>> k = torch.randn(2, 16, 64)
-        >>> v = torch.randn(2, 16, 64)
+        >>> q = torch.randn(2, 8, 512)
+        >>> k = torch.randn(2, 16, 512)
+        >>> v = torch.randn(2, 16, 512)
         >>> out = attention(q, k, v, config)
         >>> out.shape
-        torch.Size([2, 8, 64])
+        torch.Size([2, 8, 512])
     """
     module = AVQAttention(config, in_proj=False, out_proj=False)
     out: torch.Tensor = module(query, key, value, mask=mask, kv_cache=kv_cache)

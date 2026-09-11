@@ -49,10 +49,14 @@ class ConfigurationError(AVQAError):
         config: Optional reference to the offending configuration object.
 
     Example:
-        >>> raise ConfigurationError(
-        ...     "refinement_budget must be > 0",
-        ...     {"refinement_budget": 0},
-        ... )
+        >>> try:
+        ...     raise ConfigurationError(
+        ...         "refinement_budget must be > 0",
+        ...         {"refinement_budget": 0},
+        ...     )
+        ... except ConfigurationError as e:
+        ...     e.message
+        'refinement_budget must be > 0'
     """
 
 
