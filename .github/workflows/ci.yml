@@ -78,13 +78,22 @@ jobs:
       - run: python -m build
       - run: twine check dist/*
 
-  audit:
-    name: Security audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: pip install pip-audit
-      - run: pip-audit
+audit:
+  name: Security audit
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+    - run: pip install pip-audit
+    - name: Generate requirements from pyproject.toml
+      run: |
+        python - <<'PY' > /tmp/avqa-reqs.txt
+        import pathlib, tomllib
+        data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+        deps = list(data["project"]["dependencies"])
+        extras = sum(data["project"].get("optional-dependencies", {}).values(), [])
+        print("\n".join(deps + extras))
+        PY
+    - run: pip-audit -r /tmp/avqa-reqs.txt
