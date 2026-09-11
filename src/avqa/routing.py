@@ -168,6 +168,12 @@ class TopPRouter(Router):
         else:
             _, indices = torch.sort(importance, dim=-1, descending=True)
         indices = indices[..., :budget]
+        logger.debug(
+            "topp selected budget=%d from M_0=%d (deterministic=%s)",
+            budget,
+            importance.shape[-1],
+            self.deterministic,
+        )
         return RoutingDecision(selected_indices=indices, importance=importance)
 
 
