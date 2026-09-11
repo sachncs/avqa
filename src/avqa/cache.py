@@ -16,6 +16,9 @@ from dataclasses import dataclass
 import torch
 
 from avqa.exceptions import ConfigurationError, NotInitializedError, ShapeError
+from avqa.logging import get_logger
+
+logger = get_logger("cache")
 
 
 @dataclass
@@ -97,6 +100,9 @@ class InMemoryKVCache(KVCache):
         self.dtype = dtype
         self.cache_key: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_k, device=device, dtype=dtype)
         self.cache_value: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_v, device=device, dtype=dtype)
+        self.eviction_count: int = 0
+        self.hit_count: int = 0
+        self.miss_count: int = 0
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append new tokens to the cache.
@@ -128,10 +134,17 @@ class InMemoryKVCache(KVCache):
             excess = self.size - self.max_size
             self.cache_key = self.cache_key[..., excess:, :].contiguous()
             self.cache_value = self.cache_value[..., excess:, :].contiguous()
+            self.eviction_count += 1
+            logger.debug(
+                "evicted %d tokens from KV cache (max_size=%d)",
+                excess,
+                self.max_size,
+            )
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cached (key, value); empty cache returns empty tensors."""
         if self.cache_key.numel() == 0 or self.cache_value.numel() == 0:
+            self.miss_count += 1
             empty_k = torch.zeros(
                 1,
                 self.num_heads,
@@ -149,7 +162,18 @@ class InMemoryKVCache(KVCache):
                 device=self.device,
             )
             return empty_k, empty_v
+        self.hit_count += 1
         return self.cache_key, self.cache_value
+
+    def cache_stats(self) -> dict[str, int]:
+        """Return eviction/hit/miss counters for observability."""
+        return {
+            "size": self.size,
+            "max_size": self.max_size,
+            "eviction_count": self.eviction_count,
+            "hit_count": self.hit_count,
+            "miss_count": self.miss_count,
+        }
 
     def reset(self) -> None:
         """Drop all cached entries."""
