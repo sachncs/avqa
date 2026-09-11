@@ -54,7 +54,7 @@ class AdaptiveRefinement:
     def refine(
         self,
         state: OnlineSoftmaxState,
-        parent_probs: torch.Tensor,
+        parent_logits: torch.Tensor,
         parent_value: torch.Tensor,
         parent_aggregates: torch.Tensor,
         child_aggregates: torch.Tensor,
@@ -66,7 +66,7 @@ class AdaptiveRefinement:
         """Run one refinement step (delegates to :func:`refine`)."""
         result = refine(
             state=state,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value,
             parent_aggregates=parent_aggregates,
             child_aggregates=child_aggregates,
@@ -163,7 +163,7 @@ def vectorized_correction(
 
 def refine(
     state: OnlineSoftmaxState,
-    parent_probs: torch.Tensor,
+    parent_logits: torch.Tensor,
     parent_value: torch.Tensor,
     parent_aggregates: torch.Tensor,
     child_aggregates: torch.Tensor,
@@ -185,7 +185,7 @@ def refine(
 
     Args:
         state: Running :class:`OnlineSoftmaxState` from the parent pass.
-        parent_probs: ``[B, H, T, M_0]`` parent attention probabilities.
+        parent_logits: ``[B, H, T, M_0]`` raw (pre-softmax) parent logits.
         parent_value: ``[B, H, T, M_0, D_v]`` parent-weighted value.
         parent_aggregates: ``[B, H, M_0, D_v]`` parent value aggregates.
         child_aggregates: ``[B, H, M_0, C, D_v]`` child value aggregates.
@@ -208,9 +208,9 @@ def refine(
     budget = selected.shape[-1]
     if budget <= 0:
         raise RoutingError(f"budget must be > 0, got {budget}")
-    if budget > parent_probs.shape[-1]:
+    if budget > parent_logits.shape[-1]:
         raise RoutingError(
-            f"budget ({budget}) exceeds number of parents ({parent_probs.shape[-1]})",
+            f"budget ({budget}) exceeds number of parents ({parent_logits.shape[-1]})",
         )
 
     B, H, T, _, D_v = parent_value.shape
@@ -229,7 +229,7 @@ def refine(
     children = torch.gather(child_aggregates, 2, parent_idx)  # [B, H, P, C, D_v]
 
     # Gather parent logits and weighted values for selected parents.
-    parent_logit_gathered = parent_probs.gather(-1, selected.unsqueeze(-2).expand(B, H, T, P))
+    parent_logit_gathered = parent_logits.gather(-1, selected.unsqueeze(-2).expand(B, H, T, P))
     parent_value_gathered = parent_value.gather(
         -2,
         selected.unsqueeze(-2).unsqueeze(-1).expand(B, H, T, P, D_v),
@@ -279,7 +279,8 @@ def refine(
     )
 
     # Merge strategy: combine parent and child aggregates.
-    parent_probs_for_merge = parent_logit_gathered.unsqueeze(-1)  # [B, H, T, P, 1]
+    # ``parent_logit_gathered`` is now raw logits; merge consumes softmaxed probs.
+    parent_probs_for_merge = parent_logit_gathered.softmax(dim=-1).unsqueeze(-1)
     parent_value_for_merge = parent_value_gathered  # [B, H, T, P, D_v]
     # Child probs from child logits via softmax.
     child_probs_for_merge = child_logits_gathered.softmax(dim=-1)  # [B, H, T, P, C]

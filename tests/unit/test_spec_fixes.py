@@ -167,7 +167,8 @@ class TestC3CorrectionRawAggregates:
         torch.manual_seed(0)
         B, H, T, M0, C, Dv = 1, 1, 4, 8, 2, 8
         state = OnlineSoftmaxState.empty(B, H, T, M0, Dv)
-        parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
+        parent_logits = torch.randn(B, H, T, M0)
+        parent_probs = parent_logits.softmax(dim=-1)
         parent_aggregates = torch.randn(B, H, M0, Dv)
         # Use raw aggregates for parent_value (correct usage).
         parent_value = parent_probs.unsqueeze(-1) * parent_aggregates.unsqueeze(2)
@@ -178,7 +179,7 @@ class TestC3CorrectionRawAggregates:
 
         result = refine(
             state=state,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value,
             parent_aggregates=parent_aggregates,
             child_aggregates=child_aggregates,
@@ -205,7 +206,8 @@ class TestC2C4StateReduction:
         torch.manual_seed(0)
         B, H, T, M0, C, Dv = 1, 1, 4, 8, 2, 8
         state = OnlineSoftmaxState.empty(B, H, T, M0, Dv)
-        parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
+        parent_logits = torch.randn(B, H, T, M0)
+        parent_probs = parent_logits.softmax(dim=-1)
         parent_aggregates = torch.randn(B, H, M0, Dv)
         parent_value = parent_probs.unsqueeze(-1) * parent_aggregates.unsqueeze(2)
         child_aggregates = torch.randn(B, H, M0, C, Dv)
@@ -214,7 +216,7 @@ class TestC2C4StateReduction:
 
         result = refine(
             state=state,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value,
             parent_aggregates=parent_aggregates,
             child_aggregates=child_aggregates,
@@ -255,7 +257,8 @@ class TestC5AdaptiveRefinement:
         torch.manual_seed(0)
         B, H, T, M0, C, Dv = 1, 1, 4, 8, 2, 8
         state = OnlineSoftmaxState.empty(B, H, T, M0, Dv)
-        parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
+        parent_logits = torch.randn(B, H, T, M0)
+        parent_probs = parent_logits.softmax(dim=-1)
         parent_aggregates = torch.randn(B, H, M0, Dv)
         parent_value = parent_probs.unsqueeze(-1) * parent_aggregates.unsqueeze(2)
         child_aggregates = torch.randn(B, H, M0, C, Dv)
@@ -265,7 +268,7 @@ class TestC5AdaptiveRefinement:
         ar = AdaptiveRefinement(children_per_parent=C)
         result = ar.refine(
             state=state,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value,
             parent_aggregates=parent_aggregates,
             child_aggregates=child_aggregates,

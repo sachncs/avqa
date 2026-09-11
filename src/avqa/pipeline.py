@@ -384,7 +384,7 @@ def run_pipeline(
     # Stage 11: refinement + final reduction.
     attn_out = state.refine_and_output(
         softmax_state,
-        parent_attention_probs,
+        parent_logits_scaled,
         result.parent_aggregates,
         child_logits_t,
         result,

@@ -26,7 +26,7 @@ def make_pipeline(
     budget: int = 2,
     seed: int = 0,
 ) -> tuple[QuantizationResult, torch.Tensor, HierarchicalCodebook, torch.Tensor, torch.Tensor]:
-    """Set up codebook, keys, values, and parent attention probs for tests."""
+    """Set up codebook, keys, values, and parent logits for tests."""
     torch.manual_seed(seed)
     cb = HierarchicalCodebook(
         num_heads=H,
@@ -40,11 +40,10 @@ def make_pipeline(
     quantizer = EuclideanHierarchicalQuantizer()
     result = quantizer.precompute(keys, values, cb)
 
-    # Build parent attention probs via softmax over parent logits.
-    parent_logits = torch.randn(B, H, N, M0)  # use random logits for simplicity
-    parent_probs = torch.softmax(parent_logits, dim=-1)
+    # Raw parent logits — refine() consumes logits, not post-softmax probs.
+    parent_logits = torch.randn(B, H, N, M0)
 
-    return result, parent_probs, cb, keys, values
+    return result, parent_logits, cb, keys, values
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +111,7 @@ class TestAttentionInvariant:
           on no codebook change) returns the same merge value within
           FP32 noise — guards against accidental side effects.
         """
-        result, parent_probs, cb, _, values = make_pipeline(
+        result, parent_logits, cb, _, values = make_pipeline(
             B=1,
             H=2,
             N=16,
@@ -124,16 +123,17 @@ class TestAttentionInvariant:
         )
         H = 2
         D_v = values.shape[-1]
-        T = parent_probs.shape[2]
+        T = parent_logits.shape[2]
         C = cb.children_per_parent
 
+        parent_probs = parent_logits.softmax(dim=-1)
         parent_value_per_parent = parent_probs.unsqueeze(-1) * values.unsqueeze(3)
         state = OnlineSoftmaxState.empty(1, H, T, D_v, D_v)
         importance = compute_importance(parent_probs, result.parent_counts)
         decision = TopPRouter().select(importance, budget=2)
         refinement = refine(
             state=state,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value_per_parent,
             parent_aggregates=result.parent_aggregates,
             child_aggregates=result.child_aggregates,
@@ -151,7 +151,7 @@ class TestAttentionInvariant:
         state2 = state
         refinement2 = refine(
             state=state2,
-            parent_probs=parent_probs,
+            parent_logits=parent_logits,
             parent_value=parent_value_per_parent,
             parent_aggregates=result.parent_aggregates,
             child_aggregates=result.child_aggregates,

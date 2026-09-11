@@ -104,7 +104,7 @@ class MultiPassRefiner:
     def refine(
         self,
         state: OnlineSoftmaxState,
-        parent_probs: torch.Tensor,
+        parent_logits: torch.Tensor,
         parent_value: torch.Tensor,
         parent_aggregates: torch.Tensor,
         child_aggregates: torch.Tensor,
@@ -122,7 +122,7 @@ class MultiPassRefiner:
 
         Args:
             state: Running online-softmax state from the parent pass.
-            parent_probs, parent_value, parent_aggregates: As in
+            parent_logits, parent_value, parent_aggregates: As in
                 :func:`avqa.refinement.refine`.
             child_aggregates, children_per_parent: As in
                 :func:`avqa.refinement.refine`.
@@ -148,7 +148,7 @@ class MultiPassRefiner:
         if self.passes == 1:
             result = refine(
                 state=state,
-                parent_probs=parent_probs,
+                parent_logits=parent_logits,
                 parent_value=parent_value,
                 parent_aggregates=parent_aggregates,
                 child_aggregates=child_aggregates,
@@ -173,7 +173,7 @@ class MultiPassRefiner:
             )
             result = refine(
                 state=state,
-                parent_probs=parent_probs,
+                parent_logits=parent_logits,
                 parent_value=parent_value,
                 parent_aggregates=parent_aggregates,
                 child_aggregates=child_aggregates,
@@ -189,7 +189,7 @@ class MultiPassRefiner:
 
         budgets = self.pass_budgets(decision.num_selected)
         B, H, _, D = query.shape
-        M0 = parent_probs.shape[-1]
+        M0 = parent_logits.shape[-1]
         C = children_per_parent
         device = state.running_max.device
 
@@ -233,7 +233,7 @@ class MultiPassRefiner:
 
             result = refine(
                 state=current_state,
-                parent_probs=parent_probs,
+                parent_logits=parent_logits,
                 parent_value=parent_value,
                 parent_aggregates=parent_aggregates,
                 child_aggregates=child_aggregates,

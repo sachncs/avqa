@@ -477,7 +477,7 @@ class AVQAttention(nn.Module):
     def refine_and_output(
         self,
         state: OnlineSoftmaxState,
-        parent_attention_probs: torch.Tensor,
+        parent_logits: torch.Tensor,
         parent_values: torch.Tensor,
         child_logits: torch.Tensor,
         result: QuantizationResult,
@@ -495,13 +495,13 @@ class AVQAttention(nn.Module):
             )
             current_state, residual_norms = refiner.refine(
                 state=state,
-                parent_probs=parent_attention_probs,
-                parent_value=(parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)),
+                parent_logits=parent_logits,
+                parent_value=(parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
                 decision=decision,
-                attention_probs=parent_attention_probs,
+                attention_probs=parent_logits.softmax(dim=-1),
                 parent_counts=result.parent_counts,
                 child_logits=child_logits,
                 child_counts=result.child_counts,
@@ -517,13 +517,13 @@ class AVQAttention(nn.Module):
         else:
             refinement = refine_step(
                 state=state,
-                parent_probs=parent_attention_probs,
-                parent_value=(parent_attention_probs.unsqueeze(-1) * parent_values.unsqueeze(2)),
+                parent_logits=parent_logits,
+                parent_value=(parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
                 decision=decision,
-                attention_probs=parent_attention_probs,
+                attention_probs=parent_logits.softmax(dim=-1),
                 parent_counts=result.parent_counts,
                 child_logits=child_logits,
                 child_counts=result.child_counts,
