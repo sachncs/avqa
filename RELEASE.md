@@ -21,17 +21,14 @@ acceleration gated on CUDA availability.
 - **Adaptive refinement** with importance-based top-P selection,
   parent logit recovery, and online-softmax state correction (§7.12,
   §7.13, §9.7).
-- **Hugging Face Transformers integration**: `replace_attention()`
-  swaps attention modules in-place while preserving pretrained
-  weights elsewhere.
-- **vLLM / FlashAttention / xFormers** interop helpers, each gated by
-  an `is_*_available()` runtime check.
+- **Drop-in `AVQAttention` nn.Module**; framework adapters for
+  Hugging Face, vLLM, FlashAttention, and xFormers are user-supplied
+  (see `src/avqa/integrations/README.md` for a scaffold).
 
 ### Performance Notes
 
-- Triton kernels are scaffolded but delegate to the PyTorch reference
-  when CUDA + Triton are not both available. The first Triton-native
-  release will follow in v0.2.0.
+- The PyTorch reference is the only execution path shipped; a Triton
+  kernel is planned for v0.2.0.
 - On macOS (MPS) and CPU, expect throughput comparable to PyTorch SDPA
   plus the overhead of VQ precompute; adaptive refinement pays off for
   long sequences (≥1k tokens).
@@ -40,18 +37,21 @@ acceleration gated on CUDA availability.
 
 - Python ≥ 3.10
 - PyTorch ≥ 2.1
-- Optional: `transformers ≥ 4.40`, `triton ≥ 2.2`, `flash-attn ≥ 2.5`,
-  `xformers ≥ 0.27`, `vllm ≥ 0.5`.
+- Optional: `matplotlib`, `graphviz` (installed via `pip install -e ".[viz]"`).
+  Framework integrations are user-supplied — see
+  `src/avqa/integrations/README.md`.
 
 ### Known Limitations
 
 - Spec chapters 11-15 are not implemented in detail; the public API
   surfaces are honored, but kernel-internals, profiling-internals,
   visualization-rendering, and serialization-schema internals are
-  left to vendor libraries (or future community extensions via the
-  `avqa.registry` mechanism).
+  left to vendor libraries.
 - Speculative decoding, FAISS, FP8/INT8 quantization, and per-batch
   dead-code resampling are deferred to future releases.
+- Hugging Face, vLLM, FlashAttention, and xFormers adapters were
+  removed in v0.1.0 (see CHANGELOG); ship them in sibling packages if
+  you need them.
 
 ### Acknowledgements
 
