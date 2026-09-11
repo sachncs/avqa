@@ -324,6 +324,12 @@ class AttentionShapeConfig:
             raise ConfigurationError(
                 msg, {"embed_dim": self.embed_dim, "num_heads": self.num_heads}
             )
+        # Auto-derive head_dim from embed_dim // num_heads. Mutating
+        # ``self`` from ``__post_init__`` is supported by the dataclass
+        # protocol even on frozen+slots dataclasses; this keeps the
+        # derivation local to the sub-config and out of AVQConfig.
+        if self.head_dim == 0:
+            object.__setattr__(self, "head_dim", self.embed_dim // self.num_heads)
 
 
 # ---------------------------------------------------------------------------
@@ -382,17 +388,6 @@ class AVQConfig:
         require_in_range(self.dropout, 0.0, 1.0, "dropout")
         require_positive(self.tolerance_atol, "tolerance_atol")
         require_positive(self.tolerance_rtol, "tolerance_rtol")
-        # Auto-derive head_dim if user left it at 0.
-        if self.attention.head_dim == 0:
-            object.__setattr__(
-                self,
-                "attention",
-                AttentionShapeConfig(
-                    embed_dim=self.attention.embed_dim,
-                    num_heads=self.attention.num_heads,
-                    head_dim=self.attention.embed_dim // self.attention.num_heads,
-                ),
-            )
 
     # ------------------------------------------------------------------
     # Serialization (spec §3.20, §5.12)
