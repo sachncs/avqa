@@ -32,17 +32,17 @@ def setup(
     """Build the inputs needed by refine()."""
     torch.manual_seed(seed)
     state = OnlineSoftmaxState.empty(B, H, T, M0, Dv)
-    parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
+    parent_logits = torch.randn(B, H, T, M0)
     parent_value = torch.randn(B, H, T, M0, Dv)
     parent_aggregates = torch.randn(B, H, M0, Dv)
     child_aggregates = torch.randn(B, H, M0, C, Dv)
     # Real child logits: Q · C_c^T / sqrt(D).
     child_logits = torch.randn(B, H, T, M0, C)
-    attention_probs = parent_probs.clone()
+    attention_probs = parent_logits.softmax(dim=-1)
     parent_counts = torch.rand(B, H, M0) + 0.1
     return (
         state,
-        parent_probs,
+        parent_logits,
         parent_value,
         parent_aggregates,
         child_aggregates,

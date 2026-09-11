@@ -170,7 +170,8 @@ def make_dummy_inputs(
 ]:
     """Build the argument bundle ``refine`` consumes with deterministic data."""
     state = OnlineSoftmaxState.empty(B, H, T, 1, D)
-    parent_probs = torch.softmax(torch.randn(B, H, T, M0), dim=-1)
+    parent_logits = torch.randn(B, H, T, M0)
+    parent_probs = parent_logits.softmax(dim=-1)
     parent_value = parent_probs.unsqueeze(-1) * torch.randn(B, H, T, M0, D)
     parent_aggregates = torch.randn(B, H, M0, D)
     child_aggregates = torch.randn(B, H, M0, C, D)
@@ -183,7 +184,7 @@ def make_dummy_inputs(
     child_logits = torch.randn(B, H, T, M0, C, dtype=torch.float32)
     return (
         state,
-        parent_probs,
+        parent_logits,
         parent_value,
         parent_aggregates,
         child_aggregates,
@@ -201,7 +202,7 @@ def run_refiner(
     """Drive ``m`` without re-routing (no query/child_keys)."""
     (
         state,
-        parent_probs,
+        parent_logits,
         parent_value,
         parent_aggregates,
         child_aggregates,
@@ -213,7 +214,7 @@ def run_refiner(
     ) = make_dummy_inputs(B, H, T, M0, C, D)
     return m.refine(
         state=state,
-        parent_probs=parent_probs,
+        parent_logits=parent_logits,
         parent_value=parent_value,
         parent_aggregates=parent_aggregates,
         child_aggregates=child_aggregates,
@@ -232,7 +233,7 @@ def run_refiner_reroute(
     """Drive ``m`` with disjoint-set re-routing (query + child_keys)."""
     (
         state,
-        parent_probs,
+        parent_logits,
         parent_value,
         parent_aggregates,
         child_aggregates,
@@ -246,7 +247,7 @@ def run_refiner_reroute(
     child_keys = torch.randn(H, M0, C, D)
     return m.refine(
         state=state,
-        parent_probs=parent_probs,
+        parent_logits=parent_logits,
         parent_value=parent_value,
         parent_aggregates=parent_aggregates,
         child_aggregates=child_aggregates,
