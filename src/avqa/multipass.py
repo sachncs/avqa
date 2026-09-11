@@ -101,7 +101,7 @@ class MultiPassRefiner:
         """Return the per-pass budgets for a given base budget."""
         return compute_pass_budgets(base, self.passes, self.decay)
 
-    def refine(
+    def refine(  # noqa: PLR0917
         self,
         state: OnlineSoftmaxState,
         parent_logits: torch.Tensor,
