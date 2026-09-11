@@ -293,7 +293,7 @@ class TestLearnableParameters:
         torch.testing.assert_close(mod.alpha.data, torch.tensor([2.0, 2.0]))
 
     def test_no_learnable_params_when_disabled(self) -> None:
-        """No learnable params when learnable flags are False."""
+        """No gradient on parent_beta / alpha when learnable flags are False."""
 
         config = AVQConfig(
             attention=AttentionShapeConfig(embed_dim=32, num_heads=2, head_dim=16),
@@ -304,8 +304,12 @@ class TestLearnableParameters:
             hopfield=HopfieldConfig(enabled=True, adaptive="entropy"),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
-        assert not hasattr(mod, "parent_beta")
-        assert not hasattr(mod, "alpha")
+        # Parameters are always registered (stable state_dict keys) but
+        # require no grad when the corresponding learnable flag is off.
+        assert hasattr(mod, "parent_beta")
+        assert hasattr(mod, "alpha")
+        assert not mod.parent_beta.requires_grad
+        assert not mod.alpha.requires_grad
 
     def test_parent_beta_gradient_flows(self) -> None:
         """Gradient flows through learnable parent_beta.
