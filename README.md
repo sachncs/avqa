@@ -13,14 +13,21 @@
 Quantized Attention (AVQ-Attention) as a drop-in attention backend for
 PyTorch-based Transformer architectures.
 
+## Why AVQA?
+
+- **Problem**: vanilla attention scales O(N²) in sequence length and dominates
+  long-context compute and memory.
+- **Solution**: AVQA quantizes keys into a hierarchical codebook, computes
+  attention at the codebook level, then refines only the most-attended
+  codewords.
+- **Audience**: PyTorch users training or serving Transformer models with
+  long sequences (≥1k tokens) where memory and FLOPs are the bottleneck.
+- **Differentiator**: drop-in `nn.Module` plus algorithmic contributions
+  (BCAR online codebook adaptation, HVAQ temperature schedules, multi-pass
+  refinement with disjoint-set re-routing).
+
 The full engineering specification lives in [SPEC.md](SPEC.md); the
 implementation tracker is [TODO.md](TODO.md).
-
-> **Disclaimer**
->
-> This is an independent, community-driven implementation. The author of this
-> codebase is **not** an author of the reference paper and is not affiliated
-> with the paper's authors or their institutions. See [Citation](#citation).
 
 ---
 
