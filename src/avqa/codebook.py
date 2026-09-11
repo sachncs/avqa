@@ -175,7 +175,10 @@ class HierarchicalCodebook:
         # ponytail: spec §8.10 says C_{p,c} = C_p - 0.1*epsilon; sign
         # doesn't matter since epsilon ~ N(0,I) is symmetric.
         perturbation = perturbation - perturbation.mean(dim=2, keepdim=True)
-        self.children = self.parents.unsqueeze(2) + self.perturbation_scale * perturbation
+        # Mutate in place so external references to ``self.children`` remain valid.
+        self.children.copy_(
+            self.parents.unsqueeze(2) + self.perturbation_scale * perturbation
+        )
         # Enforce the constraint exactly (float rounding can drift).
         self.reproject_parents()
 
@@ -212,9 +215,10 @@ class HierarchicalCodebook:
         """Set each parent to the mean of its children (spec §7.9).
 
         Maintains the parent-child mean constraint after every operation
-        that perturbs ``children``.
+        that perturbs ``children``. Mutates ``self.parents`` in place so
+        external references to the tensor remain valid.
         """
-        self.parents = self.children.mean(dim=2)
+        self.parents.copy_(self.children.mean(dim=2))
 
     def validate_mean_constraint(self, atol: float = 1e-5) -> None:
         """Raise :class:`CodebookError` if the mean constraint is violated.
