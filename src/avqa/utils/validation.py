@@ -22,7 +22,7 @@ from avqa.exceptions import (
 )
 
 
-class ValueError(AVQAError):
+class NonFiniteTensorError(AVQAError):
     """AVQAError subclass for non-finite / invalid-data raises.
 
     Defined inside ``validation.py`` to avoid a circular import; it
@@ -320,11 +320,11 @@ def validate_finite(
         name: Variable name used in error messages.
 
     Raises:
-        ValueError: If any element is non-finite.
+        NonFiniteTensorError: If any element is non-finite.
     """
     if not torch.isfinite(tensor).all():
         msg = f"{name} contains non-finite values (NaN or Inf)"
-        raise ValueError(msg, {"name": name, "dtype": str(tensor.dtype)})
+        raise NonFiniteTensorError(msg, {"name": name, "dtype": str(tensor.dtype)})
 
 
 __all__ = [
