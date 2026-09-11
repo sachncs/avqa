@@ -170,9 +170,7 @@ class TestThresholdRouterValidation:
 
     def test_partial_under_threshold_raises(self) -> None:
         """When some (b, h) positions have fewer hits than budget, raise."""
-        importance = torch.tensor(
-            [[[0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
-        )  # [B=1, H=1, M_0=8]
+        importance = torch.tensor([[[0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]])  # [B=1, H=1, M_0=8]
         router = ThresholdRouter(threshold=0.5)
         with pytest.raises(RoutingError, match="threshold"):
             router.select(importance, budget=3)

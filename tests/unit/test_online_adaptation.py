@@ -90,9 +90,7 @@ class TestBCARConvergence:
         # Tighter tolerance than the prior atol=0.5, rtol=0.5 — that
         # was essentially no-op; verify the BCAR EMA has actually
         # driven ``cb.parents[0, 0]`` to within 0.1 of the target.
-        torch.testing.assert_close(
-            cb.parents[0, 0], parents[0, 0], atol=1e-1, rtol=1e-1
-        )
+        torch.testing.assert_close(cb.parents[0, 0], parents[0, 0], atol=1e-1, rtol=1e-1)
 
 
 class TestBCARMeanConstraint:

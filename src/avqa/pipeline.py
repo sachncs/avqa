@@ -97,12 +97,10 @@ def parent_logits(
             mask_bh = mask
         # Codeword-level mask: codeword p is valid for query q if at
         # least one key assigned to p is allowed by the user mask.
-        one_hot = torch.nn.functional.one_hot(
-            parent_assignments, num_classes=M_0
-        ).to(torch.float32)  # [B, H, N, M_0]
-        codeword_present = (
-            torch.matmul(mask_bh.to(torch.float32), one_hot) > 0
-        )  # [B, H, T_q, M_0]
+        one_hot = torch.nn.functional.one_hot(parent_assignments, num_classes=M_0).to(
+            torch.float32
+        )  # [B, H, N, M_0]
+        codeword_present = torch.matmul(mask_bh.to(torch.float32), one_hot) > 0  # [B, H, T_q, M_0]
         logits = logits.masked_fill(~codeword_present, float("-inf"))
     logits = logits.masked_fill(~valid_mask.unsqueeze(2), float("-inf"))
     return logits
@@ -140,9 +138,7 @@ def online_softmax(
         tile_max_raw,
     )
     tile_exp = torch.exp(parent_logits - safe_max)
-    tile_exp = torch.where(
-        torch.isnan(tile_exp), torch.zeros_like(tile_exp), tile_exp
-    )
+    tile_exp = torch.where(torch.isnan(tile_exp), torch.zeros_like(tile_exp), tile_exp)
     tile_denom = (tile_exp * parent_counts.unsqueeze(2)).sum(dim=-1, keepdim=True)
     tile_num = torch.einsum("bhta,bhad->bhtd", tile_exp, parent_values).unsqueeze(-2)
     state = OnlineSoftmaxState.empty(B, H, T_q, head_dim_v, D_v)
@@ -177,14 +173,11 @@ def child_logits(
     C = children_per_parent
     M_0 = codebook_children.shape[1]
     expanded_children = codebook_children.unsqueeze(0).expand(B, H, M_0, C, D)
-    parent_idx = (
-        selected_indices.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D)
-    )
+    parent_idx = selected_indices.unsqueeze(-1).unsqueeze(-1).expand(B, H, P, C, D)
     selected_keys = torch.gather(expanded_children, 2, parent_idx)
     logits = torch.einsum("bhtd,bhpcd->bhtpc", q, selected_keys) / math.sqrt(head_dim)
     selected_counts = (
-        torch.gather(child_counts, 2, selected_indices.unsqueeze(-1).expand(B, H, P, C))
-        > 0
+        torch.gather(child_counts, 2, selected_indices.unsqueeze(-1).expand(B, H, P, C)) > 0
     )
     return logits.masked_fill(~selected_counts.unsqueeze(2), float("-inf"))
 
@@ -242,9 +235,7 @@ def apply_hopfield(
 
     alpha_param = getattr(state, "alpha", state.config.hopfield.alpha)
     alpha_source = (
-        alpha_param.view(1, -1, 1)
-        if isinstance(alpha_param, torch.Tensor)
-        else alpha_param
+        alpha_param.view(1, -1, 1) if isinstance(alpha_param, torch.Tensor) else alpha_param
     )
     beta_q = per_query_beta(
         probs_for_entropy,
@@ -322,7 +313,12 @@ def run_pipeline(
     # Stage 6: parent logits with mask + codeword validity.
     valid = result.parent_counts > 0
     parent_logits_t = parent_logits(
-        q, state.codebook.parents, valid, mask, D, result.parent_assignments,
+        q,
+        state.codebook.parents,
+        valid,
+        mask,
+        D,
+        result.parent_assignments,
     )
 
     # Stage 7: online softmax with raw (pre-HVAQ) parent logits to
@@ -330,7 +326,11 @@ def run_pipeline(
     # happens AFTER routing so the per-query temperature can be derived
     # from the top-P entropy (SPEC §16.2).
     softmax_state, parent_attention_probs = online_softmax(
-        parent_logits_t, result.parent_aggregates, result.parent_counts, D, D_v,
+        parent_logits_t,
+        result.parent_aggregates,
+        result.parent_counts,
+        D,
+        D_v,
     )
 
     # Stage 8: routing — compute importance, ask the scheduler for the

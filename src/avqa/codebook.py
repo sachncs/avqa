@@ -12,6 +12,7 @@ The parent-child mean constraint (§7.9) requires:
 This is enforced after every training update via
 :meth:`HierarchicalCodebook.reproject_parents`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -176,9 +177,7 @@ class HierarchicalCodebook:
         # doesn't matter since epsilon ~ N(0,I) is symmetric.
         perturbation = perturbation - perturbation.mean(dim=2, keepdim=True)
         # Mutate in place so external references to ``self.children`` remain valid.
-        self.children.copy_(
-            self.parents.unsqueeze(2) + self.perturbation_scale * perturbation
-        )
+        self.children.copy_(self.parents.unsqueeze(2) + self.perturbation_scale * perturbation)
         # Enforce the constraint exactly (float rounding can drift).
         self.reproject_parents()
 

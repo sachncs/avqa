@@ -253,7 +253,8 @@ class TestLearnableParameters:
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
             hopfield=HopfieldConfig(
-                enabled=True, adaptive="entropy",
+                enabled=True,
+                adaptive="entropy",
                 learnable_parent_beta=True,
             ),
         )
@@ -273,8 +274,10 @@ class TestLearnableParameters:
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
             hopfield=HopfieldConfig(
-                enabled=True, adaptive="linear",
-                alpha=2.0, learnable_alpha=True,
+                enabled=True,
+                adaptive="linear",
+                alpha=2.0,
+                learnable_alpha=True,
             ),
         )
         mod = AVQAttention(config, in_proj=False, out_proj=False)
@@ -313,7 +316,8 @@ class TestLearnableParameters:
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
             hopfield=HopfieldConfig(
-                enabled=True, adaptive="entropy",
+                enabled=True,
+                adaptive="entropy",
                 learnable_parent_beta=True,
             ),
         )
@@ -339,7 +343,8 @@ class TestLearnableParameters:
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
             hopfield=HopfieldConfig(
-                enabled=True, adaptive="linear",
+                enabled=True,
+                adaptive="linear",
                 learnable_alpha=True,
             ),
         )
@@ -360,7 +365,8 @@ class TestLearnableParameters:
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
             hopfield=HopfieldConfig(
-                enabled=True, adaptive="entropy",
+                enabled=True,
+                adaptive="entropy",
                 learnable_parent_beta=True,
             ),
         )
@@ -396,9 +402,7 @@ class TestDownstreamConsumerInvariant:
         for scale in (0.25, 1.0, 2.0, 8.5):
             rescaled = base * scale
             topk_scaled = rescaled.topk(k=4, dim=-1).indices
-            assert torch.equal(topk_paper, topk_scaled), (
-                f"top-K mismatch at scale={scale}"
-            )
+            assert torch.equal(topk_paper, topk_scaled), f"top-K mismatch at scale={scale}"
 
     def test_argmax_invariant_under_entropy_schedule(self) -> None:
         """HVAQ-ENT does not change which parent wins the argmax."""

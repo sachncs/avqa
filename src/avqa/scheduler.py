@@ -7,6 +7,7 @@ is provided as an extension.
 ponytail: collapsed the planned scheduler package (5 sub-modules) into
 one src/avqa/scheduler.py.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

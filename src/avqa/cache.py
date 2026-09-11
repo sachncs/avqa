@@ -8,6 +8,7 @@ ponytail: collapsed the planned cache package (4 sub-modules) into one
 src/avqa/cache.py. The in-memory cache is the reference; paged is the
 vLLM-compatible layout.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -98,8 +99,12 @@ class InMemoryKVCache(KVCache):
         self.max_size = max_size
         self.device = device
         self.dtype = dtype
-        self.cache_key: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_k, device=device, dtype=dtype)
-        self.cache_value: torch.Tensor = torch.empty(0, num_heads, 0, head_dim_v, device=device, dtype=dtype)
+        self.cache_key: torch.Tensor = torch.empty(
+            0, num_heads, 0, head_dim_k, device=device, dtype=dtype
+        )
+        self.cache_value: torch.Tensor = torch.empty(
+            0, num_heads, 0, head_dim_v, device=device, dtype=dtype
+        )
         self.eviction_count: int = 0
         self.hit_count: int = 0
         self.miss_count: int = 0
@@ -199,7 +204,9 @@ class InMemoryKVCache(KVCache):
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore cache from :meth:`state_dict` output."""
         if "num_heads" in state and int(state["num_heads"]) != self.num_heads:
-            raise ShapeError("num_heads mismatch", expected=self.num_heads, actual=int(state["num_heads"]))
+            raise ShapeError(
+                "num_heads mismatch", expected=self.num_heads, actual=int(state["num_heads"])
+            )
         if "head_dim_k" in state and int(state["head_dim_k"]) != self.head_dim_k:
             raise ShapeError(
                 "head_dim_k mismatch",
@@ -292,9 +299,7 @@ class PagedKVCache(KVCache):
     def allocate_page(self) -> None:
         """Allocate a new empty page."""
         if self.max_pages > 0 and len(self.pages) >= self.max_pages:
-            raise NotInitializedError(
-                f"paged KV cache is full ({self.max_pages} pages)"
-            )
+            raise NotInitializedError(f"paged KV cache is full ({self.max_pages} pages)")
         self.pages.append(
             CacheEntry(
                 key=torch.zeros(

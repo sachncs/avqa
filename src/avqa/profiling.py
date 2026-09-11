@@ -4,6 +4,7 @@ ponytail: the profiler is one Profiler class that collects stage
 timings, memory, and per-step statistics. Report export is JSON-only;
 visual rendering lives in avqa.visualization.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager

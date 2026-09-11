@@ -24,6 +24,7 @@ References
 - AVQ-Attention paper (§8.9): offline EMA training of the codebook.
 - Bottou & Bengio (1994): stochastic K-means convergence rate.
 """
+
 from __future__ import annotations
 
 import torch
@@ -64,11 +65,10 @@ def online_codebook_adaptation(
         msg = f"decay must be in [0, 1), got {decay}"
         raise ConfigurationError(msg, {"decay": decay})
     if parents.dim() != 3 or children.dim() != 4:
-        msg = (
-            f"unexpected shapes: parents {tuple(parents.shape)}, "
-            f"children {tuple(children.shape)}"
+        msg = f"unexpected shapes: parents {tuple(parents.shape)}, children {tuple(children.shape)}"
+        raise CodebookError(
+            msg, {"parents": tuple(parents.shape), "children": tuple(children.shape)}
         )
-        raise CodebookError(msg, {"parents": tuple(parents.shape), "children": tuple(children.shape)})
 
     if parent_assignments is None:
         if child_assignments is None:

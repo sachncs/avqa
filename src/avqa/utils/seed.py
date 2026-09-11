@@ -10,6 +10,7 @@ specific GPU model, driver, and PyTorch build. When strict determinism
 is required, also set ``torch.use_deterministic_algorithms(True)`` (which
 may raise if a non-deterministic op is used).
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -70,7 +71,6 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
         logger.debug("Seeded NumPy with seed=%d", seed)
     else:
         logger.debug("NumPy not installed; skipping NumPy seeding")
-
 
     torch.manual_seed(seed)
     logger.debug("Seeded torch CPU RNG with seed=%d", seed)

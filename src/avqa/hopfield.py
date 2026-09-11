@@ -23,6 +23,7 @@ the attention-mass entropy and feed it to one of two schedules:
 Paper-equivalence: with ``\u03b2_init = 1 / \u221ad`` and
 ``adaptive = \"none\"`` HVAQ matches the paper to FP32.
 """
+
 from __future__ import annotations
 
 import math

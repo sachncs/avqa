@@ -84,9 +84,7 @@ class TestMergeStrategies:
         it is the child contribution only.
         """
         inputs = make_inputs()
-        child_contrib = (
-            inputs.child_probs.unsqueeze(-1) * inputs.child_value
-        ).sum(dim=-2)
+        child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
 
         out_all_parent = WeightedMerge(parent_weight=1.0, child_weight=0.0).merge(inputs)
         assert torch.allclose(out_all_parent, inputs.parent_value, atol=1e-6)

@@ -10,9 +10,7 @@ from avqa.exceptions import RoutingError
 from avqa.utils.numerics import online_softmax_step
 
 
-def make_state(
-    B: int = 1, H: int = 1, T: int = 4, Dk: int = 8, Dv: int = 16
-) -> OnlineSoftmaxState:
+def make_state(B: int = 1, H: int = 1, T: int = 4, Dk: int = 8, Dv: int = 16) -> OnlineSoftmaxState:
     """Allocate an empty OnlineSoftmaxState."""
     return OnlineSoftmaxState.empty(B, H, T, Dk, Dv)
 
@@ -158,12 +156,8 @@ class TestOnlineSoftmaxStateReplace:
         # (no contribution cancellation since added==removed).
         assert torch.isfinite(new.running_max).all()
         assert torch.equal(new.running_max, torch.zeros_like(new.running_max))
-        assert torch.equal(
-            new.running_denominator, torch.zeros_like(new.running_denominator)
-        )
-        assert torch.equal(
-            new.running_numerator, torch.zeros_like(new.running_numerator)
-        )
+        assert torch.equal(new.running_denominator, torch.zeros_like(new.running_denominator))
+        assert torch.equal(new.running_numerator, torch.zeros_like(new.running_numerator))
 
     def test_m_anchor_matches_caller_scale(self) -> None:
         """When m_anchor is passed, replace uses it (not the raw removed_max)
@@ -188,12 +182,8 @@ class TestOnlineSoftmaxStateReplace:
         )
         # added == removed → no-op → all zeros.
         assert torch.isfinite(new.running_max).all()
-        assert torch.equal(
-            new.running_denominator, torch.zeros_like(new.running_denominator)
-        )
-        assert torch.equal(
-            new.running_numerator, torch.zeros_like(new.running_numerator)
-        )
+        assert torch.equal(new.running_denominator, torch.zeros_like(new.running_denominator))
+        assert torch.equal(new.running_numerator, torch.zeros_like(new.running_numerator))
 
     def test_m_anchor_differs_from_default(self) -> None:
         """Without m_anchor, replace uses max(state, removed, added).

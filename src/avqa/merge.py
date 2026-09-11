@@ -7,6 +7,7 @@ ponytail: collapsed the planned merge package (8 sub-modules) into one
 src/avqa/merge.py. Four strategies on a single input contract; each is a
 small function.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -130,9 +131,7 @@ class WeightedMerge(MergeStrategy):
         Returns:
             ``self.parent_weight * parent_value + self.child_weight * child_value``.
         """
-        child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(
-            dim=-2
-        )
+        child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
         return self.parent_weight * inputs.parent_value + self.child_weight * child_contrib
 
 

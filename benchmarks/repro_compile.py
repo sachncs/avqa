@@ -11,6 +11,7 @@ Run:
 The companion module ``benchmarks/repro_compile.py`` exercises the
 ``compile_enabled`` opt-in (OPT-0002).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,6 +39,8 @@ DEFAULT_NUM_CODEWORDS: int = 16
 DEFAULT_BUDGET: int = 4
 WARMUP: int = 5
 REPS: int = 10
+
+
 def make_inputs(
     batch: int, seq_len: int, embed_dim: int, *, seed: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -46,6 +49,8 @@ def make_inputs(
     k = torch.randn(batch, seq_len, embed_dim, generator=gen)
     v = torch.randn(batch, seq_len, embed_dim, generator=gen)
     return q, k, v
+
+
 def make_module(embed_dim: int, num_heads: int, *, compile_enabled: bool) -> AVQAttention:
     config = AVQConfig(
         attention=AttentionShapeConfig(
@@ -61,6 +66,8 @@ def make_module(embed_dim: int, num_heads: int, *, compile_enabled: bool) -> AVQ
     mod = AVQAttention(config, in_proj=False, out_proj=False)
     mod.eval()
     return mod
+
+
 def bench(fn: object) -> dict[str, float]:
     for _ in range(WARMUP):
         fn()
@@ -78,6 +85,8 @@ def bench(fn: object) -> dict[str, float]:
         "max_ms": max(samples),
         "samples_ms": samples,
     }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EXP-0003 OPT-0002 compile_enabled benchmark")
     parser.add_argument("--out", type=str, default="benchmarks/raw/EXP-0003")
@@ -105,8 +114,10 @@ def main(argv: list[str] | None = None) -> int:
     with torch.no_grad():
         compiled.codebook.parents.copy_(eager.codebook.parents)
         compiled.codebook.children.copy_(eager.codebook.children)
+
     def sdpa_call(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         return functional.scaled_dot_product_attention(q, k, v)
+
     rows: list[dict[str, object]] = []
     for seq_len in DEFAULT_SEQ_LENS:
         q, k, v = make_inputs(
@@ -159,5 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {raw_path}")
     print(f"wrote {config_path}")
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -7,6 +7,7 @@ top-P parents, gathers their children, and hands them to the merge
 ponytail: collapsed the planned refinement package (5 sub-modules) into
 one src/avqa/refinement.py. The orchestrator is a single function.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -133,23 +134,21 @@ def vectorized_correction(
     parent_max = parent_logit.amax(dim=-1, keepdim=True)  # [B, H, T, 1]
     child_max = child_logits.amax(dim=(-1, -2), keepdim=True).squeeze(-1)  # [B, H, T, 1]
     new_max_1d = torch.maximum(parent_max, child_max)
-    m_anchor = torch.where(
-        torch.isinf(m_raw) & (m_raw < 0), new_max_1d, m_raw
-    )  # [B, H, T, 1]
+    m_anchor = torch.where(torch.isinf(m_raw) & (m_raw < 0), new_max_1d, m_raw)  # [B, H, T, 1]
     parent_exp = torch.exp(parent_logit - m_anchor) * parent_scale  # [B, H, T, P]
     parent_contrib_denom = parent_exp.sum(dim=-1, keepdim=True)  # [B, H, T, 1]
     parent_contrib_num = (parent_exp.unsqueeze(-1) * parent_value).sum(
         dim=-2, keepdim=True
     )  # [B, H, T, 1, D_v]
 
-    child_exp = (
-        torch.exp(child_logits - m_anchor.unsqueeze(-1)) * child_scale.unsqueeze(2)
+    child_exp = torch.exp(child_logits - m_anchor.unsqueeze(-1)) * child_scale.unsqueeze(
+        2
     )  # [B, H, T, P, C]
     child_contrib_denom = child_exp.sum(dim=(-1, -2), keepdim=True).squeeze(-1)  # [B, H, T, 1]
     cv = child_value.unsqueeze(2).expand(B, H, T, P, C, D_v)
-    child_contrib_num = (child_exp.unsqueeze(-1) * cv).sum(
-        dim=(-2, -3), keepdim=True
-    ).squeeze(-2)  # [B, H, T, 1, D_v]
+    child_contrib_num = (
+        (child_exp.unsqueeze(-1) * cv).sum(dim=(-2, -3), keepdim=True).squeeze(-2)
+    )  # [B, H, T, 1, D_v]
 
     return state.replace(
         removed_max=parent_max,
