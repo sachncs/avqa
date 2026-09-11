@@ -87,12 +87,12 @@ class AVQAttention(nn.Module):
     Example:
         >>> config = AVQConfig()
         >>> module = AVQAttention(config)
-        >>> q = torch.randn(2, 8, 64, 64)
-        >>> k = torch.randn(2, 8, 128, 64)
-        >>> v = torch.randn(2, 8, 128, 64)
+        >>> q = torch.randn(2, 64, 512)
+        >>> k = torch.randn(2, 128, 512)
+        >>> v = torch.randn(2, 128, 512)
         >>> out = module(q, k, v)
         >>> out.shape
-        torch.Size([2, 8, 64, 64])
+        torch.Size([2, 64, 512])
     """
 
     def __init__(self, config: AVQConfig, *, in_proj: bool = True, out_proj: bool = True) -> None:

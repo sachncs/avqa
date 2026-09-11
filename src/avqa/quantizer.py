@@ -150,8 +150,9 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
             to deterministic behaviour for ties).
 
     Example:
+        >>> from avqa.codebook import HierarchicalCodebook
         >>> cb = HierarchicalCodebook(num_heads=2, num_parents=4, children_per_parent=2, head_dim=8)
-        >>> torch.manual_seed(0)
+        >>> _ = torch.manual_seed(0)
         >>> cb.initialize_parents_random()
         >>> q = EuclideanHierarchicalQuantizer()
         >>> keys = torch.randn(1, 2, 16, 8)

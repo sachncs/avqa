@@ -112,7 +112,7 @@ def is_configured() -> bool:
     """Return whether :func:`configure_logger` has been called.
 
     Example:
-        >>> configure_logger()
+        >>> _ = configure_logger()
         >>> is_configured()
         True
     """

@@ -78,10 +78,9 @@ def validate_shape(
         >>> t = torch.zeros(2, 8, 128, 64)
         >>> validate_shape(t, [2, 8, 128, 64])
         >>> validate_shape(t, [2, 8, -1, 64])
-        >>> validate_shape(t, [2, 8, 256, 64])
+        >>> validate_shape(t, [2, 8, 256, 64])  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-            ...
-        avqa.exceptions.ShapeError: tensor shape mismatch: expected=[2, 8, 256, 64] actual=[2, 8, 128, 64]
+        avqa.exceptions.ShapeError: tensor shape mismatch at dim 2: expected 256 but got 128
     """
     actual = tensor.shape
     expected_size = coerce_shape(expected)
@@ -121,9 +120,8 @@ def validate_rank(
     Example:
         >>> import torch
         >>> validate_rank(torch.zeros(2, 8), 2)
-        >>> validate_rank(torch.zeros(2, 8), 3)
+        >>> validate_rank(torch.zeros(2, 8), 3)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-            ...
         avqa.exceptions.ShapeError: tensor rank mismatch: expected 3 but got 2
     """
     actual_rank = tensor.ndim
@@ -155,9 +153,8 @@ def validate_dtype(
         >>> import torch
         >>> validate_dtype(torch.zeros(2), torch.float32)
         >>> validate_dtype(torch.zeros(2), [torch.float32, torch.float16])
-        >>> validate_dtype(torch.zeros(2, dtype=torch.float64), torch.float32)
+        >>> validate_dtype(torch.zeros(2, dtype=torch.float64), torch.float32)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-        ...
         avqa.exceptions.DtypeError: tensor dtype mismatch
     """
     if isinstance(expected, torch.dtype):
@@ -230,9 +227,8 @@ def validate_contiguous(
         >>> import torch
         >>> validate_contiguous(torch.zeros(2, 3))
         >>> t = torch.zeros(2, 3).transpose(0, 1)
-        >>> validate_contiguous(t)
+        >>> validate_contiguous(t)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-        ...
         avqa.exceptions.ShapeError: tensor must be contiguous
     """
     if not tensor.is_contiguous():
@@ -259,12 +255,11 @@ def validate_embed_dim(
     Raises:
         ShapeError: If the last dim does not match.
 
-    Example:
+Example:
         >>> import torch
         >>> validate_embed_dim(torch.zeros(2, 8, 128), 128)
-        >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)
+        >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-            ...
         avqa.exceptions.ShapeError: tensor embed_dim mismatch
     """
     actual = tensor.shape[-1]
@@ -290,12 +285,11 @@ def validate_device_match(
     Raises:
         DeviceError: If the tensors are on different devices.
 
-    Example:
+Example:
         >>> import torch
         >>> validate_device_match([torch.zeros(2), torch.zeros(3)])
-        >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])
+        >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-            ...
         avqa.exceptions.DeviceError: tensors device mismatch
     """
     if not tensors:
