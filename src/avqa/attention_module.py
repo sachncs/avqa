@@ -166,15 +166,20 @@ class AVQAttention(nn.Module):
         )
 
         # OPT-0005 (HVAQ): learnable parameters for per-parent beta_p
-        # and per-head alpha. When disabled these are absent from
-        # parameters() and have zero overhead.
+        # and per-head alpha. Always register the parameters so
+        # state_dict keys are stable across flag toggles; gradients
+        # are gated by requires_grad on the underlying tensor.
         hopfield_active = config.backend.hopfield and config.hopfield.adaptive != "none"
-        if hopfield_active and config.hopfield.learnable_parent_beta:
-            M0 = config.codebook.num_codewords
-            self.parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0))
-        if hopfield_active and config.hopfield.learnable_alpha:
-            H = config.attention.num_heads
-            self.alpha = nn.Parameter(torch.full((H,), config.hopfield.alpha))
+        M0 = config.codebook.num_codewords
+        H = config.attention.num_heads
+        parent_beta_train = hopfield_active and config.hopfield.learnable_parent_beta
+        alpha_train = hopfield_active and config.hopfield.learnable_alpha
+        self.parent_beta = nn.Parameter(
+            torch.ones(1, 1, 1, M0), requires_grad=parent_beta_train
+        )
+        self.alpha = nn.Parameter(
+            torch.full((H,), config.hopfield.alpha), requires_grad=alpha_train
+        )
 
         # H4: Store last forward pass data for commitment loss computation.
         self.last_keys: torch.Tensor | None = None
