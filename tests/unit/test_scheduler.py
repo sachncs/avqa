@@ -70,6 +70,24 @@ class TestAdaptiveScheduler:
         assert budget[1, 0].item() == 2
         assert budget[1, 1].item() == 8
 
+    def test_heterogeneous_num_valid_per_bh(self) -> None:
+        """Budget floor is per-(B, H): a head with more valid parents keeps a larger budget."""
+        s = AdaptiveScheduler(min_budget=2, max_budget=8)
+        importance = torch.zeros(2, 2, 16)
+        # Heterogeneous valid counts: batch 0 has 6 valid parents, batch 1 has 2.
+        parent_counts = torch.zeros(2, 2, 16)
+        parent_counts[0, 0, :6] = 1.0
+        parent_counts[0, 1, :6] = 1.0
+        parent_counts[1, 0, :2] = 1.0
+        parent_counts[1, 1, :2] = 1.0
+        num_valid_per_bh = parent_counts.sum(dim=-1)
+        raw_budget = s.budget_for(importance)
+        budget_per_bh = torch.minimum(raw_budget, num_valid_per_bh.to(raw_budget.dtype))
+        assert int(budget_per_bh[0, 0].item()) == 6
+        assert int(budget_per_bh[0, 1].item()) == 6
+        assert int(budget_per_bh[1, 0].item()) == 2
+        assert int(budget_per_bh[1, 1].item()) == 2
+
     def test_invalid_min_budget(self) -> None:
         """min_budget <= 0 raises ConfigurationError."""
         with pytest.raises(ConfigurationError):
