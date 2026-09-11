@@ -337,10 +337,13 @@ def run_pipeline(
     # budget, ask the router for the selected parent indices.
     importance = compute_importance(parent_attention_probs, result.parent_counts)
     assert state.scheduler is not None  # guarded by use_naive check above
-    budget = state.scheduler.budget_for(importance)
+    raw_budget = state.scheduler.budget_for(importance)
     num_valid_per_bh = (result.parent_counts > 0).sum(dim=-1)
-    min_valid = int(num_valid_per_bh.min().item())
-    budget = min(budget, min_valid)
+    if isinstance(raw_budget, torch.Tensor):
+        budget_per_bh = torch.minimum(raw_budget, num_valid_per_bh.to(raw_budget.dtype))
+        budget = int(budget_per_bh.min().item())
+    else:
+        budget = min(raw_budget, int(num_valid_per_bh.min().item()))
     if budget <= 0:
         return naive_fallback(state, q, k, v, mask)
     decision = state.router.select(importance, budget)

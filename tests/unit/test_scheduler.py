@@ -37,13 +37,38 @@ class TestAdaptiveScheduler:
         s = AdaptiveScheduler(min_budget=4, max_budget=32)
         importance = torch.zeros(1, 1, 64)
         importance[0, 0, 0] = 100.0
-        assert s.budget_for(importance) == 32
+        budget = s.budget_for(importance)
+        assert int(budget.max().item()) == 32
 
     def test_high_entropy_returns_min(self) -> None:
         """Spread (high-entropy) importance → min_budget."""
         s = AdaptiveScheduler(min_budget=4, max_budget=32)
         importance = torch.ones(1, 1, 64)
-        assert s.budget_for(importance) == 4
+        budget = s.budget_for(importance)
+        assert int(budget.max().item()) == 4
+
+    def test_returns_per_bh_tensor(self) -> None:
+        """budget_for returns a per-(B, H) tensor for [B, H, M_0] input."""
+        s = AdaptiveScheduler(min_budget=2, max_budget=8)
+        importance = torch.zeros(2, 4, 16)
+        budget = s.budget_for(importance)
+        assert isinstance(budget, torch.Tensor)
+        assert budget.shape == (2, 4)
+        assert budget.dtype == torch.int64
+
+    def test_per_bh_budgets_respond_to_entropy(self) -> None:
+        """Two heads with different entropy get different per-(B, H) budgets."""
+        s = AdaptiveScheduler(min_budget=2, max_budget=8)
+        importance = torch.zeros(2, 2, 16)
+        importance[0, 0, 0] = 100.0  # focused head
+        importance[1, 0, :] = 1.0  # spread head
+        importance[0, 1, :] = 1.0  # spread head
+        importance[1, 1, 0] = 100.0  # focused head
+        budget = s.budget_for(importance)
+        assert budget[0, 0].item() == 8
+        assert budget[0, 1].item() == 2
+        assert budget[1, 0].item() == 2
+        assert budget[1, 1].item() == 8
 
     def test_invalid_min_budget(self) -> None:
         """min_budget <= 0 raises ConfigurationError."""
