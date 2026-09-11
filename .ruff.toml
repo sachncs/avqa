@@ -55,6 +55,9 @@ ignore = [
 "examples/**/*.py" = [
   "E402",  # imports not at top
   "T201",  # print (examples use print)
+  "N806",  # canonical tensor notation B/H/T/D/N/C is uppercase in examples
+  "N803",  # canonical tensor argument names
+  "W292",  # trailing newline handled per-example
 ]
 "src/avqa/**/*.py" = [
   "N806",    # Variable B/H/T/D/N/C in function should be lowercase

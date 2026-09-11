@@ -31,9 +31,8 @@ def main() -> None:
     q = torch.randn(2, 16, 128)
     k = torch.randn(2, 16, 128)
     v = torch.randn(2, 16, 128)
-    with profiler.stage("forward"):
-        with torch.no_grad():
-            out = attention(q, k, v)
+    with profiler.stage("forward"), torch.no_grad():
+        out = attention(q, k, v)
 
     report = profiler.report
     print(f"output shape: {tuple(out.shape)}")

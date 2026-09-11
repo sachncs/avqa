@@ -174,9 +174,7 @@ class AVQAttention(nn.Module):
         H = config.attention.num_heads
         parent_beta_train = hopfield_active and config.hopfield.learnable_parent_beta
         alpha_train = hopfield_active and config.hopfield.learnable_alpha
-        self.parent_beta = nn.Parameter(
-            torch.ones(1, 1, 1, M0), requires_grad=parent_beta_train
-        )
+        self.parent_beta = nn.Parameter(torch.ones(1, 1, 1, M0), requires_grad=parent_beta_train)
         self.alpha = nn.Parameter(
             torch.full((H,), config.hopfield.alpha), requires_grad=alpha_train
         )
@@ -501,7 +499,9 @@ class AVQAttention(nn.Module):
             current_state, residual_norms = refiner.refine(
                 state=state,
                 parent_logits=parent_logits,
-                parent_value=(parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)),
+                parent_value=(
+                    parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)
+                ),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,
@@ -523,7 +523,9 @@ class AVQAttention(nn.Module):
             refinement = refine_step(
                 state=state,
                 parent_logits=parent_logits,
-                parent_value=(parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)),
+                parent_value=(
+                    parent_logits.softmax(dim=-1).unsqueeze(-1) * parent_values.unsqueeze(2)
+                ),
                 parent_aggregates=parent_values,
                 child_aggregates=result.child_aggregates,
                 children_per_parent=C,

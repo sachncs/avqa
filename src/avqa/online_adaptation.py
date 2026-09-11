@@ -99,8 +99,10 @@ def online_codebook_adaptation(
     # Per-(parent, child) scatter-mean: m_{p,c} = sum k_j / n_{p,c}.
     # Avoid materialising the [bh, N, M_0 * C] dense one-hot matrix; use
     # index_add_ on a pre-zeroed buffer.
-    flat_pc_index = (parent_index * C + child_index)  # [bh, N]
-    flat_pc_index_offset = (flat_pc_index + torch.arange(bh, device=flat_pc_index.device).unsqueeze(1) * M0 * C).reshape(-1)
+    flat_pc_index = parent_index * C + child_index  # [bh, N]
+    flat_pc_index_offset = (
+        flat_pc_index + torch.arange(bh, device=flat_pc_index.device).unsqueeze(1) * M0 * C
+    ).reshape(-1)
     keys_flat_2d = keys_flat.reshape(-1, D)  # [bh * N, D]
     sum_keys_per_pc = torch.zeros(
         bh * M0 * C,
