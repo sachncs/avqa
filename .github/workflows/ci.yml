@@ -32,7 +32,7 @@ jobs:
           python-version: "3.12"
       - run: pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e . --no-deps
-      - run: pip install mypy
+      - run: pip install "mypy>=1.10,<2"
       - run: mypy src/avqa
 
   test:
