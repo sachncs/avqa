@@ -60,7 +60,12 @@ prof/
 docs/_build/
 docs/_static/
 docs/_templates/
-site/
+
+# Site build artifacts
+site/node_modules/
+site/dist/
+site/.vite/
+site/.cache/
 
 # Local secrets / configs
 *.local.toml

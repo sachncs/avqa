@@ -6,8 +6,14 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
     <a href="https://github.com/sachncs/avqa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/avqa/ci.yml?branch=main" alt="CI"></a>
     <a href="https://github.com/sachncs/avqa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/avqa" alt="Stars"></a>
+    <a href="https://sachncs.github.io/avqa/"><img src="https://img.shields.io/badge/site-avqa.dev-7C8CFF" alt="Site"></a>
   </p>
 </p>
+
+> **Live site:** [sachncs.github.io/avqa](https://sachncs.github.io/avqa/) —
+> product page, deep dives, and benchmarks. Source lives under
+> [`site/`](site/) and is deployed automatically by
+> [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 
 **AVQA** is a production-grade Python library implementing Adaptive Vector
 Quantized Attention (AVQ-Attention) as a drop-in attention backend for
