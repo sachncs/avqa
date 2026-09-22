@@ -102,9 +102,7 @@ class AVQAttention(nn.Module):
             torch.manual_seed(config.execution.seed)
             self._initialize_impl(config, in_proj=in_proj, out_proj=out_proj)
 
-    def _initialize_impl(
-        self, config: AVQConfig, *, in_proj: bool, out_proj: bool
-    ) -> None:
+    def _initialize_impl(self, config: AVQConfig, *, in_proj: bool, out_proj: bool) -> None:
         super().__init__()
         self.config = config
         self.backend = Backend.create(config.backend.name)
