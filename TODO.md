@@ -316,8 +316,8 @@ are not shipped capabilities. See
       (commit `cf0ed99`).
 - [x] TASK-P.044 Enforce the supported Python range in CI and release verification
       (commit `04ea7eb`).
-- [ ] TASK-P.045 Apply ExecutionConfig.deterministic during forward safely
-      (implementation pending).
+- [x] TASK-P.045 Apply ExecutionConfig.deterministic during forward safely
+      (commit `c641dde`).
 
 ### Cleanup pass (2026-07-21)
 
