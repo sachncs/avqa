@@ -320,8 +320,8 @@ are not shipped capabilities. See
       (commit `c641dde`).
 - [x] TASK-P.046 Complete frontend navigation landmarks and icon labels
       (commit `f707f78`).
-- [ ] TASK-P.047 Make mobile navigation dismissible with Escape
-      (implementation pending).
+- [x] TASK-P.047 Make mobile navigation dismissible with Escape
+      (commit `4b3e551`).
 
 ### Cleanup pass (2026-07-21)
 
