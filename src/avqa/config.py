@@ -18,6 +18,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import asdict, dataclass, field, fields
 import json
+import math
 from pathlib import Path
 
 from avqa.exceptions import ConfigurationError
@@ -31,21 +32,21 @@ DEFAULT_EMA_DECAY: float = 0.99
 
 def require_positive(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is not positive."""
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_non_negative(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is negative."""
-    if value < 0:
+    if not math.isfinite(value) or value < 0:
         msg = f"{field_name} must be >= 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_in_range(value: float, lo: float, hi: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is outside ``[lo, hi]``."""
-    if not lo <= value <= hi:
+    if not math.isfinite(value) or not lo <= value <= hi:
         msg = f"{field_name} must be in [{lo}, {hi}], got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
@@ -152,6 +153,9 @@ class RefinementConfig:
 
     def __post_init__(self) -> None:
         require_in_range(self.threshold, 0.0, 1.0, "threshold")
+        require_positive(self.passes, "passes")
+        require_in_range(self.pass_decay, 0.0, 1.0, "pass_decay")
+        require_positive(self.pass_decay, "pass_decay")
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,12 +299,14 @@ class HopfieldConfig:
     learnable_alpha: bool = False
 
     def __post_init__(self) -> None:
-        if self.beta_init < 0.0:
-            msg = f"hopfield.beta_init must be >= 0, got {self.beta_init}"
-            raise ConfigurationError(msg, {"hopfield.beta_init": self.beta_init})
-        if self.alpha < 0.0:
-            msg = f"hopfield.alpha must be >= 0, got {self.alpha}"
-            raise ConfigurationError(msg, {"hopfield.alpha": self.alpha})
+        require_non_negative(self.beta_init, "hopfield.beta_init")
+        require_non_negative(self.alpha, "hopfield.alpha")
+        allowed = {"none", "entropy", "linear"}
+        if self.adaptive not in allowed:
+            raise ConfigurationError(
+                f"hopfield.adaptive must be one of {sorted(allowed)}, got {self.adaptive!r}",
+                {"hopfield.adaptive": self.adaptive},
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,6 +337,12 @@ class AttentionShapeConfig:
         # derivation local to the sub-config and out of AVQConfig.
         if self.head_dim == 0:
             object.__setattr__(self, "head_dim", self.embed_dim // self.num_heads)
+        elif self.head_dim != self.embed_dim // self.num_heads:
+            expected = self.embed_dim // self.num_heads
+            raise ConfigurationError(
+                f"head_dim ({self.head_dim}) must equal embed_dim // num_heads ({expected})",
+                {"head_dim": self.head_dim, "expected": expected},
+            )
 
 
 # ---------------------------------------------------------------------------
