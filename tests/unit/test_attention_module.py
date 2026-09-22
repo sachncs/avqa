@@ -164,6 +164,27 @@ class TestForwardNaive:
         )
         assert out.shape == next_token.shape
 
+    def test_invalid_cached_mask_does_not_mutate_cache(self) -> None:
+        """Rejected masks cannot append K/V to the mutable cache."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        first = torch.randn(1, 1, 32)
+        module(first, first, first, kv_cache=cache)
+        next_token = torch.randn(1, 1, 32)
+        with pytest.raises(ShapeError, match="resolved query/key"):
+            module(
+                next_token,
+                next_token,
+                next_token,
+                mask=torch.ones(1, 1, dtype=torch.bool),
+                kv_cache=cache,
+            )
+        assert cache.size == 1
+
     def test_rejects_mask_device_mismatch(self) -> None:
         """Masks must share the query device."""
         if not torch.backends.mps.is_available() and not torch.cuda.is_available():

@@ -355,7 +355,7 @@ class AVQAttention(nn.Module):
         self,
         mask: torch.Tensor | None,
         query: torch.Tensor,
-        key: torch.Tensor,
+        key_length: int,
     ) -> None:
         """Validate a user mask against resolved query/key dimensions."""
         if mask is None or self.config.backend.skip_validation:
@@ -380,7 +380,7 @@ class AVQAttention(nn.Module):
             )
 
         expected_query = int(query.shape[-2])
-        expected_key = int(key.shape[-2])
+        expected_key = key_length
         if mask.ndim == 2:
             expected_shape = (expected_query, expected_key)
             if tuple(mask.shape) != expected_shape:

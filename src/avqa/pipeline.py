@@ -295,9 +295,14 @@ def run_pipeline(
     v = state.split_heads(v_proj, H)
 
     state.sync_codebook_device(q)
+    user_mask = mask is not None
+    if user_mask:
+        cached_length = kv_cache.size if kv_cache is not None else 0
+        state.validate_mask(mask, q, int(k.shape[-2]) + cached_length)
     k_full, v_full = state.resolve_kv_cache(k, v, kv_cache)
     mask = state.resolve_mask(mask, q, kv=k_full)
-    state.validate_mask(mask, q, k_full)
+    if not user_mask:
+        state.validate_mask(mask, q, int(k_full.shape[-2]))
 
     use_naive = state.scheduler is None or state.config.execution.mode == "reference"
     if use_naive:
