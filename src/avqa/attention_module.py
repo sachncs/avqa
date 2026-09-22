@@ -41,6 +41,7 @@ from avqa.utils.validation import (
     validate_device_match,
     validate_dtype,
     validate_embed_dim,
+    validate_finite,
     validate_rank,
     validate_shape,
 )
@@ -342,6 +343,7 @@ class AVQAttention(nn.Module):
         for name, tensor in [("query", query), ("key", key), ("value", value)]:
             validate_rank(tensor, 3, name=name)
             validate_dtype(tensor, supported_dtypes, name=name)
+            validate_finite(tensor, name=name)
         validate_embed_dim(query, self.config.attention.embed_dim, name="query")
         validate_embed_dim(key, self.config.attention.embed_dim, name="key")
         validate_embed_dim(value, self.config.attention.embed_dim, name="value")

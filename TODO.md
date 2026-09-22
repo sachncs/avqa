@@ -286,6 +286,8 @@ are not shipped capabilities. See
       build and remove duplicated public version literals (commit `daac321`).
 - [x] TASK-P.029 Preserve multi-batch first append for empty KV-cache sentinels
       (commit `ff9edea`).
+- [ ] TASK-P.030 Reject non-finite attention inputs before pipeline mutation
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

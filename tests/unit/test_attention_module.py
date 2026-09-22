@@ -18,6 +18,7 @@ from avqa.config import (
     RoutingConfig,
 )
 from avqa.exceptions import AVQAError, DeviceError, DtypeError, ShapeError
+from avqa.utils.validation import NonFiniteTensorError
 
 
 class _ConfigOverrides(TypedDict, total=False):
@@ -256,6 +257,18 @@ class TestForwardNaive:
         mask = torch.ones(4, 4, dtype=torch.bool, device=device)
         with pytest.raises(DeviceError, match="mask device"):
             module(q, q, q, mask=mask)
+
+    def test_rejects_non_finite_inputs_before_forward(self) -> None:
+        """NaN and Inf inputs fail before attention state can be mutated."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        query = torch.randn(1, 4, 32)
+        key = torch.randn(1, 4, 32)
+        value = torch.randn(1, 4, 32)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        query[0, 0, 0] = float("nan")
+        with pytest.raises(NonFiniteTensorError, match="query contains non-finite"):
+            module(query, key, value, kv_cache=cache)
+        assert cache.size == 0
 
 
 class TestForwardAVQ:
