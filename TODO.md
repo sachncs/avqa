@@ -318,6 +318,8 @@ are not shipped capabilities. See
       (commit `04ea7eb`).
 - [x] TASK-P.045 Apply ExecutionConfig.deterministic during forward safely
       (commit `c641dde`).
+- [ ] TASK-P.046 Complete frontend navigation landmarks and icon labels
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

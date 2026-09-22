@@ -40,7 +40,7 @@ export function Nav() {
           <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
         </a>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-1">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="nav-link rounded-full px-3 py-1.5">
               {l.label}
@@ -86,7 +86,7 @@ export function Nav() {
             id="mobile-navigation"
             className="absolute top-[78px] w-[92%] rounded-2xl border border-white/10 bg-ink-950/95 p-3 backdrop-blur-xl md:hidden"
           >
-            <div className="flex flex-col">
+            <nav aria-label="Mobile primary navigation" className="flex flex-col">
               {links.map((l) => (
                 <a
                   key={l.href}
@@ -113,7 +113,7 @@ export function Nav() {
               >
                 <Github className="h-4 w-4" /> GitHub
               </a>
-            </div>
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>

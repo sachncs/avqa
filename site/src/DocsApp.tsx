@@ -37,7 +37,7 @@ export default function DocsApp() {
             <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
             <span className="font-semibold tracking-[0.16em] text-white">AVQA <span className="font-normal tracking-normal text-ink-400">docs</span></span>
           </a>
-          <nav className="hidden items-center gap-4 md:flex">
+          <nav aria-label="Documentation header navigation" className="hidden items-center gap-4 md:flex">
             <a href="/avqa/" className="nav-link inline-flex items-center gap-2"><ArrowLeft className="h-4 w-4" /> Product</a>
             <a href={GITHUB_URL} className="nav-link inline-flex items-center gap-2" target="_blank" rel="noreferrer"><Github className="h-4 w-4" /> GitHub</a>
           </nav>
@@ -51,7 +51,7 @@ export default function DocsApp() {
         </div>
       </div>
       <div className="container-edge grid gap-10 py-10 lg:grid-cols-[220px_minmax(0,760px)] lg:gap-16">
-        <aside id="docs-navigation" className={`${menuOpen ? "block" : "hidden"} lg:block`}>
+        <aside id="docs-navigation" aria-label="Documentation sections" className={`${menuOpen ? "block" : "hidden"} lg:block`}>
           <div className="sticky top-24 space-y-7">
             {(["Build with AVQA", "Understand AVQA"] as const).map((group) => (
               <div key={group}>
@@ -65,7 +65,7 @@ export default function DocsApp() {
             ))}
           </div>
         </aside>
-        <main className="min-w-0"><DocsPage page={page} /></main>
+        <main id="documentation-content" className="min-w-0"><DocsPage page={page} /></main>
       </div>
     </div>
   );
