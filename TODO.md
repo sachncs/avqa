@@ -196,6 +196,11 @@ Every completed task MUST satisfy:
 
 ### Framework Integrations
 
+> Historical note: the entries below describe integrations that existed in
+> pre-alpha development history. They were removed before `v0.1.0` and are
+> deferred from the current support contract. The authoritative current-state
+> record is `SPEC_COMPLIANCE.md` and `docs/compatibility.md`.
+
 - [x] TASK-12.001 Hugging Face adapter (commit `0e0d397`;
       weight-transfer hardening `155285a`)
 - [x] TASK-12.002 vLLM paged-attention adapter (commit `2131523`;
@@ -213,9 +218,11 @@ Every completed task MUST satisfy:
 
 ## Live next-open task
 
-All items in the "Active Tasks" section above are now `[x]` except for
+All core items in the "Active Tasks" section above are now `[x]` except for
 `TASK-11.001`–`TASK-11.004` (Triton GPU kernels and benchmarking), which
-remain blocked on the CUDA-matrix CI runner. See
+remain blocked on the CUDA-matrix CI runner. The framework-integration entries
+above are historical and deferred from the public-alpha support contract; they
+are not shipped capabilities. See
 `PUBLICATION.md` "Outstanding Gaps Before Publication" and `OPTIMIZATIONS.md`
 "Optimization Backlog" for the cross-referenced gates.
 
@@ -226,6 +233,8 @@ remain blocked on the CUDA-matrix CI runner. See
       `9e642e6`).
 - [x] TASK-P.002 Keep CI dependencies aligned with the supported alpha surface;
       removed the stale framework-integration install (commit `2abc5c6`).
+- [x] TASK-P.003 Reconcile historical integration entries with the current
+      public-alpha support contract (commit pending).
 
 ### Cleanup pass (2026-07-21)
 
