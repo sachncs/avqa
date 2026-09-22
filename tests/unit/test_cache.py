@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 import torch
 
@@ -229,6 +231,19 @@ class TestInMemoryKVCache:
         assert stats["miss_count"] == 1
         assert stats["hit_count"] == 1
 
+    def test_concurrent_appends_publish_consistent_state(self) -> None:
+        """Concurrent appends are serialized without losing tokens."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 1, 4)
+        value = torch.ones(1, 1, 1, 4)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(lambda _: cache.append(key, value), range(32)))
+
+        cached_key, cached_value = cache.lookup()
+        assert cached_key.shape[-2] == 32
+        assert cached_value.shape[-2] == 32
+
 
 class TestPagedKVCache:
     """Tests for the paged KV cache (spec §3.15)."""
@@ -264,6 +279,19 @@ class TestPagedKVCache:
         assert v_full.shape == (1, 1, 5, 4)
         assert torch.equal(k_full, k)
         assert torch.equal(v_full, v)
+
+    def test_concurrent_appends_publish_complete_pages(self) -> None:
+        """Concurrent paged appends do not expose partial page publication."""
+        cache = PagedKVCache(page_size=4, num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 1, 4)
+        value = torch.ones(1, 1, 1, 4)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(lambda _: cache.append(key, value), range(16)))
+
+        cached_key, cached_value = cache.lookup()
+        assert cached_key.shape[-2] == 16
+        assert cached_value.shape[-2] == 16
 
     def test_max_pages_limit(self) -> None:
         """max_pages raises NotInitializedError when exceeded."""
