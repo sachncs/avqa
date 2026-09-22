@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+from threading import RLock
 import time
 from typing import IO, TYPE_CHECKING
 
@@ -107,19 +108,23 @@ class Profiler:
 
     def __init__(self) -> None:
         self.report = ProfilerReport()
+        self._lock = RLock()
 
     @contextmanager
     def session(self) -> Iterator[None]:
         """Open a profiling session."""
-        self.session_start = time.perf_counter()
+        session_start = time.perf_counter()
         try:
             yield
         finally:
-            self.report.total_duration_ms = (time.perf_counter() - self.session_start) * 1000.0
+            duration_ms = (time.perf_counter() - session_start) * 1000.0
+            with self._lock:
+                self.report.total_duration_ms = duration_ms
+                stage_count = len(self.report.stage_timers)
             logger.debug(
                 "Profiler session: %.2f ms, %d stages",
-                self.report.total_duration_ms,
-                len(self.report.stage_timers),
+                duration_ms,
+                stage_count,
             )
 
     @contextmanager
@@ -150,13 +155,18 @@ class Profiler:
                 )
             else:
                 mem_after = 0
-            self.report.stage_timers.append(
-                StageTimer(
-                    name=name,
-                    duration_ms=duration_ms,
-                    memory_bytes=max(mem_after - mem_before, 0),
+            with self._lock:
+                self.report.stage_timers.append(
+                    StageTimer(
+                        name=name,
+                        duration_ms=duration_ms,
+                        memory_bytes=max(mem_after - mem_before, 0),
+                    )
                 )
-            )
+                self.report.peak_memory_bytes = max(
+                    self.report.peak_memory_bytes,
+                    int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else 0,
+                )
 
     def record_routing(self, decision: object) -> None:
         """Record a routing decision summary.
@@ -176,25 +186,30 @@ class Profiler:
         if importance is not None:
             entry["importance_min"] = float(importance.min().item())
             entry["importance_max"] = float(importance.max().item())
-        self.report.routing_stats.append(entry)
+        with self._lock:
+            self.report.routing_stats.append(entry)
 
     def record_refinement(self, budget: int, num_refined: int) -> None:
         """Record a refinement step summary."""
-        self.report.refinement_stats.append(
-            {"budget": budget, "num_refined": num_refined},
-        )
+        with self._lock:
+            self.report.refinement_stats.append(
+                {"budget": budget, "num_refined": num_refined},
+            )
 
     def set_codebook_utilization(self, head_utilization: dict[str, float]) -> None:
         """Record per-head codebook utilization."""
-        self.report.codebook_utilization.update(head_utilization)
+        with self._lock:
+            self.report.codebook_utilization.update(head_utilization)
 
     def record_cache_hit(self) -> None:
         """Record a cache hit."""
-        self.report.cache_hits += 1
+        with self._lock:
+            self.report.cache_hits += 1
 
     def record_cache_miss(self) -> None:
         """Record a cache miss."""
-        self.report.cache_misses += 1
+        with self._lock:
+            self.report.cache_misses += 1
 
     def export_json(self, path: str | Path | IO[str]) -> None:
         """Export the report to a JSON file (spec §3.17 reproducibility).
@@ -202,7 +217,8 @@ class Profiler:
         Args:
             path: File path or open file handle.
         """
-        data = json.dumps(self.report.to_dict(), indent=2)
+        with self._lock:
+            data = json.dumps(self.report.to_dict(), indent=2)
         if isinstance(path, (str, Path)):
             with Path(path).open("w") as f:
                 f.write(data)

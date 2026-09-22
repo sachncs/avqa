@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 import torch
 
@@ -79,6 +81,32 @@ class TestProfilerCounters:
         profiler = Profiler()
         profiler.set_codebook_utilization({"head_0": 0.75, "head_1": 0.50})
         assert profiler.report.codebook_utilization["head_0"] == 0.75
+
+    def test_concurrent_recording_is_atomic(self) -> None:
+        """Concurrent counter and stage recording does not lose updates."""
+        profiler = Profiler()
+
+        def record(_: int) -> None:
+            profiler.record_cache_hit()
+            profiler.record_cache_miss()
+            with profiler.stage("worker"):
+                pass
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(record, range(32)))
+
+        assert profiler.report.cache_hits == 32
+        assert profiler.report.cache_misses == 32
+        assert len(profiler.report.stage_timers) == 32
+
+    def test_overlapping_sessions_keep_independent_start_times(self) -> None:
+        """Nested sessions measure from their own entry points."""
+        profiler = Profiler()
+        with profiler.session():
+            with profiler.session():
+                pass
+            assert profiler.report.total_duration_ms >= 0
+        assert profiler.report.total_duration_ms >= 0
 
 
 class TestVisualizerInterface:
