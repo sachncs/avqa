@@ -191,11 +191,15 @@ Record:
 - refinement budget
 - codebook size
 
-Configurations SHALL be stored as machine-readable files under:
+Tracked public-alpha records are stored as machine-readable configuration
+files alongside their raw output under:
 
 ```text
-benchmarks/configs/
+benchmarks/raw/<experiment>/config.json
 ```
+
+Each tracked experiment also includes `raw.json` and `summary.md`. A record
+without all three files is incomplete and must not be used as public evidence.
 
 ---
 
