@@ -149,6 +149,8 @@ class AVQAttention(nn.Module):
         # API (its public child tensor is named ``children``). Mirror its
         # tensors as module buffers so AVQAttention checkpoints persist and
         # restore the full attention state without changing that API.
+        self.codebook_parents: torch.Tensor
+        self.codebook_children: torch.Tensor
         self.register_buffer("codebook_parents", self.codebook.parents)
         self.register_buffer("codebook_children", self.codebook.children)
 
