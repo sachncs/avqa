@@ -224,6 +224,8 @@ remain blocked on the CUDA-matrix CI runner. See
 - [x] TASK-P.001 Execute every checked-in example in CI and compile examples in
       the test suite so public API walkthroughs cannot silently drift (commit
       `9e642e6`).
+- [x] TASK-P.002 Keep CI dependencies aligned with the supported alpha surface;
+      removed the stale framework-integration install (commit pending).
 
 ### Cleanup pass (2026-07-21)
 

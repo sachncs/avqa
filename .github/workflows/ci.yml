@@ -78,8 +78,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,viz]"
-      - name: Install integration dependencies
-        run: pip install matplotlib transformers
       - name: Unit + reference tests with coverage
         run: |
           pytest tests/unit tests/reference \
