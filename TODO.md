@@ -340,6 +340,8 @@ are not shipped capabilities. See
       approval (commit `d7df3a4`).
 - [x] TASK-P.056 Add a compatibility-report issue template for the support
       matrix (commit `a93865a`).
+- [x] TASK-P.057 Reconcile benchmark protocol paths with tracked evidence and
+      test required experiment artifacts (commit `57828b4`).
 
 ### Cleanup pass (2026-07-21)
 
