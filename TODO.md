@@ -336,8 +336,8 @@ are not shipped capabilities. See
       (commit `54f99c9`).
 - [x] TASK-P.054 Reconcile Unreleased changelog with current readiness work
       (commit `854e12b`).
-- [ ] TASK-P.055 Gate PyPI publication behind explicit trusted-publishing
-      approval (implementation pending).
+- [x] TASK-P.055 Gate PyPI publication behind explicit trusted-publishing
+      approval (commit `d7df3a4`).
 
 ### Cleanup pass (2026-07-21)
 
