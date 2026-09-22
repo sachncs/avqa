@@ -43,8 +43,8 @@ implementation tracker is [TODO.md](TODO.md).
 
 ## Features
 
-- **Pure PyTorch reference implementation** with the canonical online-softmax
-  algorithm from FlashAttention-2.
+- **Pure PyTorch reference implementation** with a tiled online-softmax
+  algorithm inspired by published memory-efficient attention methods.
 - **Hierarchical codebook** with mean-constrained parent-child structure.
 - **Adaptive refinement** that expands only the most-attended codewords.
 - **Correcting attention** that replaces — not augments — parent

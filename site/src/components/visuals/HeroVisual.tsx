@@ -129,7 +129,7 @@ export function HeroVisual({ className = "", size = 420 }: Props) {
 
       <div className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-950/80 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-ink-300 backdrop-blur">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-soft" />
-        O(N · log N)
+        Hierarchical routing
       </div>
       <div className="pointer-events-none absolute -bottom-3 -left-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-950/80 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-ink-300 backdrop-blur">
         <span className="h-1.5 w-1.5 rounded-full bg-accent-300 animate-pulse-soft" />

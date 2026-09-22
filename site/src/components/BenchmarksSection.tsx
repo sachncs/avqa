@@ -3,7 +3,7 @@ import { FadeIn } from "./FadeIn";
 const ROWS = [
   {
     method: "vanilla attention",
-    desc: "O(N²) · dense softmax",
+    desc: "Dense softmax reference",
     cost: "O(N²)",
     scaling: "Quadratic",
     highlight: false,
@@ -11,15 +11,15 @@ const ROWS = [
   {
     method: "AVQA — single pass",
     desc: "Quantize → route → refine",
-    cost: "≈ O(N · K · log C)",
-    scaling: "Sub-quadratic",
+    cost: "Budget-dependent",
+    scaling: "Workload-specific",
     highlight: true,
   },
   {
     method: "AVQA — multi-pass (ACMPR)",
     desc: "Disjoint-set re-routing",
-    cost: "≈ O(N · K · log C · P)",
-    scaling: "Bounded by budget",
+    cost: "Budget × passes",
+    scaling: "Workload-specific",
     highlight: true,
   },
 ];
@@ -39,7 +39,8 @@ export function BenchmarksSection() {
             AVQA ships a strict benchmarking protocol. Every result published
             below comes from a deterministic run — warm-up, repetitions,
             platform metadata, raw JSON, and a hand-written summary. No
-            cherry-picking.
+            cherry-picking. Work scales with the configured routing budget;
+            validate end-to-end throughput on your workload.
           </p>
         </FadeIn>
 
@@ -49,9 +50,9 @@ export function BenchmarksSection() {
               <div className="border-b border-white/5 px-5 py-4">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[11px] uppercase tracking-widest text-ink-400">
-                    Complexity comparison
+                    Work model comparison
                   </span>
-                  <span className="font-mono text-[10px] text-ink-500">theoretical</span>
+                  <span className="font-mono text-[10px] text-ink-500">reference model</span>
                 </div>
               </div>
               <div className="divide-y divide-white/5">

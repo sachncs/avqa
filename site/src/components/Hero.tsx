@@ -102,7 +102,7 @@ export function Hero() {
             </div>
             <div className="mt-6 grid grid-cols-3 gap-3 text-center">
               {[
-                { k: "O(N·K·D)", v: "routed", sub: "fixed budget" },
+                { k: "K × D", v: "routed work", sub: "fixed budget" },
                 { k: "0.1.0", v: "release", sub: "public alpha" },
                 { k: "90%", v: "coverage gate", sub: "CI enforced" },
               ].map((m) => (

@@ -1,7 +1,7 @@
 const ITEMS = [
   "PyTorch",
-  "FlashAttention-2 online softmax",
-  "torch.compile ready",
+  "Online softmax tiles",
+  "torch.compile opt-in",
   "Apache 2.0",
   "Strict typing · mypy clean",
   "≥90% test coverage",
