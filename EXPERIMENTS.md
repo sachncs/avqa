@@ -25,7 +25,7 @@
 
 Status:
 
-Completed
+Completed — historical exploratory baseline; not a release performance claim.
 
 Date:
 
@@ -111,7 +111,9 @@ Variables:
 - Controlled: batch size, head count, head_dim, num_codewords, budget,
   warm-up iterations (5), repetitions (10), seed (0).
 
-Method: warm-up + 10 timed iterations per (backend, sequence length);
+Method: warm-up + 10 timed iterations per (backend, sequence length). This
+historical run predates the current public-alpha protocol minimums and is
+retained for provenance, not as an authoritative release benchmark.
 report median, mean, stdev, min, max, raw samples.
 
 ---

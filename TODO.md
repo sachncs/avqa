@@ -246,6 +246,8 @@ are not shipped capabilities. See
 - [x] TASK-P.008 Validate boolean configuration fields before runtime use
       (commit `f423a96`).
 - [x] TASK-P.009 Check repository Markdown links in CI (commit `78ac108`).
+- [x] TASK-P.010 Reconcile benchmark protocol and historical experiment
+      boundaries with the public-alpha support contract (commit pending).
 
 ### Cleanup pass (2026-07-21)
 

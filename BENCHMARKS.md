@@ -10,6 +10,15 @@
 >
 > Benchmark results produced outside this protocol SHALL NOT be considered authoritative.
 
+## Public-alpha boundary
+
+For `v0.1.0`, the authoritative comparison is the shipped pure-PyTorch
+reference backend against PyTorch SDPA on a documented CPU environment.
+FlashAttention, xFormers, vendor kernels, Triton, and GPU baselines are
+optional future comparisons only when the relevant dependency and device are
+validated in the same record. Their names in this protocol do not imply that
+AVQA ships or supports those integrations.
+
 ---
 
 # Benchmark Philosophy
@@ -128,17 +137,14 @@ Evaluate scaling with:
 
 # Baselines
 
-Every benchmark SHALL compare against:
+Every public-alpha benchmark SHALL compare against:
 
 - PyTorch SDPA
-- FlashAttention
-- FlashAttention-2
-- FlashAttention-3 (if available)
-- xFormers
 - AVQA Reference Backend
-- AVQA Triton Backend
 
-New baselines MAY be added but existing baselines SHALL remain unless deprecated.
+Additional baselines MAY be added when available and validated; unsupported
+baselines are not required and must be marked as unavailable rather than
+silently omitted.
 
 ---
 
@@ -238,7 +244,7 @@ Long-context benchmarks SHALL be included whenever supported by the model.
 
 Every benchmark SHALL include warm-up iterations.
 
-Minimum:
+Minimum for an authoritative public-alpha record:
 
 - 20 warm-up iterations
 
@@ -250,7 +256,7 @@ Warm-up measurements SHALL NOT be included in reported statistics.
 
 Each benchmark SHALL execute:
 
-Minimum:
+Minimum for an authoritative public-alpha record:
 
 - 30 repetitions
 
