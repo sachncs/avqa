@@ -555,6 +555,12 @@ class PagedKVCache(KVCache):
                     expected=int(key.shape[-2]),
                     actual=tuple(positions.shape),
                 )
+            if positions.dtype != torch.long:
+                raise ShapeError(
+                    "serialized page positions must use torch.long",
+                    expected=torch.long,
+                    actual=positions.dtype,
+                )
             batch_size = int(key.shape[0])
             if expected_batch is None:
                 expected_batch = batch_size
@@ -570,7 +576,7 @@ class PagedKVCache(KVCache):
                 device=positions.device,
                 dtype=torch.long,
             )
-            if not torch.equal(positions.to(dtype=torch.long), expected_positions):
+            if not torch.equal(positions, expected_positions):
                 raise ShapeError(
                     "serialized page positions must be contiguous",
                     expected=f"{expected_position}:{expected_position + key.shape[-2]}",

@@ -317,6 +317,16 @@ class TestPagedKVCache:
         with pytest.raises(ShapeError, match="contiguous"):
             restored.load_state_dict(payload)
 
+    def test_load_state_dict_rejects_non_integer_positions(self) -> None:
+        """Checkpoint metadata must not be silently narrowed to integers."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+        payload = cache.state_dict()
+        payload["page_0_positions"] = torch.tensor([0.5])
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match=r"torch\.long"):
+            restored.load_state_dict(payload)
+
     def test_load_state_dict_rejects_page_batch_drift(self) -> None:
         """A checkpoint cannot combine pages from different request batches."""
         cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
