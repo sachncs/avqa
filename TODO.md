@@ -308,8 +308,8 @@ are not shipped capabilities. See
       (commit `a4083cb`).
 - [x] TASK-P.040 Restore CI formatter compliance after initialization refactor
       (commit `fb1794b`).
-- [ ] TASK-P.041 Cancel superseded CI and Pages runs on the main branch
-      (implementation pending).
+- [x] TASK-P.041 Cancel superseded CI and Pages runs on the main branch
+      (commit `071d5c4`).
 
 ### Cleanup pass (2026-07-21)
 
