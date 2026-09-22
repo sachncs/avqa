@@ -234,7 +234,7 @@ are not shipped capabilities. See
 - [x] TASK-P.002 Keep CI dependencies aligned with the supported alpha surface;
       removed the stale framework-integration install (commit `2abc5c6`).
 - [x] TASK-P.003 Reconcile historical integration entries with the current
-      public-alpha support contract (commit pending).
+      public-alpha support contract (commit `1868991`).
 
 ### Cleanup pass (2026-07-21)
 
