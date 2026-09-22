@@ -22,6 +22,10 @@ one ``src/avqa/backend.py``. The class-based factory
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import torch
 
@@ -60,6 +64,41 @@ class Backend(ABC):
     """
 
     name: str = "abstract"
+    _factories: ClassVar[dict[str, Callable[[], Backend]]] = {}
+
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[[], Backend],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a backend factory for dependency-injected creation.
+
+        Args:
+            name: Stable backend identifier used by :meth:`create`.
+            factory: Zero-argument callable returning a :class:`Backend`.
+            replace: Allow replacing an existing registration.
+
+        Raises:
+            BackendError: If the name, factory, or registration conflicts.
+
+        Third-party integrations can register an optional backend without
+        importing it into AVQA's core execution path::
+
+            Backend.register("my_backend", MyBackend)
+            backend = Backend.create("my_backend")
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise BackendError("backend registration name must be a non-empty string")
+        if not callable(factory):
+            raise BackendError(f"backend '{name}' factory must be callable")
+        if name == "torch" and not replace:
+            raise BackendError("backend 'torch' is reserved; pass replace=True to override it")
+        if name in cls._factories and not replace:
+            raise BackendError(f"backend '{name}' is already registered")
+        cls._factories[name] = factory
 
     @classmethod
     def create(cls, name: str = "torch") -> Backend:
@@ -76,8 +115,17 @@ class Backend(ABC):
             BackendError: If ``name`` is unknown or unavailable in this
                 environment.
         """
-        if name == "torch":
+        factory = cls._factories.get(name)
+        if factory is None and name == "torch":
             return TorchBackend()
+        if factory is not None:
+            try:
+                backend = factory()
+            except Exception as exc:
+                raise BackendError(f"backend '{name}' failed during construction") from exc
+            if not isinstance(backend, Backend):
+                raise BackendError(f"backend '{name}' factory did not return a Backend")
+            return backend
         msg = f"backend '{name}' is not a known backend"
         raise BackendError(msg)
 

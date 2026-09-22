@@ -256,6 +256,8 @@ are not shipped capabilities. See
       application startup cannot install duplicate handlers (commit `ef6b520`).
 - [x] TASK-P.014 Make paged KV-cache appends transactional across conversion
       and concatenation failures (commit `e3509d7`).
+- [x] TASK-P.015 Add a validated backend registration seam for external
+      implementations without hard-coded core imports (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 

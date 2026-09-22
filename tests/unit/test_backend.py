@@ -192,6 +192,49 @@ class TestBackendFactory:
         backend = Backend.create()
         assert isinstance(backend, TorchBackend)
 
+    def test_registers_external_backend_factory(self) -> None:
+        """Third-party implementations can participate without core imports."""
+
+        class TestBackend(Backend):
+            name = "test"
+
+            def quantize(
+                self,
+                keys: torch.Tensor,
+                values: torch.Tensor,
+                codebook_parents: torch.Tensor,
+                codebook_children: torch.Tensor,
+            ) -> QuantizationResult:
+                raise NotImplementedError
+
+            def naive_attention(
+                self,
+                query: torch.Tensor,
+                key: torch.Tensor,
+                value: torch.Tensor,
+                mask: torch.Tensor | None = None,
+            ) -> torch.Tensor:
+                raise NotImplementedError
+
+        Backend.register("test_backend", TestBackend)
+        try:
+            assert isinstance(Backend.create("test_backend"), TestBackend)
+        finally:
+            Backend._factories.pop("test_backend", None)
+
+    def test_registration_rejects_conflicts_and_invalid_factories(self) -> None:
+        """Invalid registrations fail before they can poison factory state."""
+        with pytest.raises(BackendError, match="non-empty"):
+            Backend.register("", TorchBackend)
+        with pytest.raises(BackendError, match="callable"):
+            Backend.register("invalid_backend", object())  # type: ignore[arg-type]
+        Backend.register("duplicate_backend", TorchBackend)
+        try:
+            with pytest.raises(BackendError, match="already registered"):
+                Backend.register("duplicate_backend", TorchBackend)
+        finally:
+            Backend._factories.pop("duplicate_backend", None)
+
 
 class TestAbstractInterface:
     """Tests for the abstract Backend interface."""
