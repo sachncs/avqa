@@ -95,6 +95,7 @@ class AVQAttention(nn.Module):
         >>> out = module(q, k, v)
         >>> out.shape
         torch.Size([2, 64, 512])
+
     """
 
     def __init__(self, config: AVQConfig, *, in_proj: bool = True, out_proj: bool = True) -> None:
@@ -255,6 +256,7 @@ class AVQAttention(nn.Module):
 
         Raises:
             NotInitializedError: If called before any forward pass has executed.
+
         """
         if self.last_keys is None or self.last_parent_assignments is None:
             msg = "commitment_loss() requires at least one prior forward pass"
@@ -290,6 +292,7 @@ class AVQAttention(nn.Module):
 
         Returns:
             ``[B, T_q, E]`` attention output.
+
         """
         # ISSUE-0017: wrap in autocast when enabled (spec §3.4).
         autocast_enabled = self.config.precision.autocast
@@ -331,6 +334,7 @@ class AVQAttention(nn.Module):
 
         Returns:
             ``[B, T_q, E]`` attention output.
+
         """
         return run_pipeline(self, query, key, value, mask, kv_cache)
 
@@ -535,6 +539,7 @@ class AVQAttention(nn.Module):
         Returns:
             QuantizationResult with parent/child aggregates, assignments,
             and counts.
+
         """
         # The streaming-VQ path (StreamingVQBuffer) is researcher-driven;
         # the orchestrator always uses the batched backend.quantize here.
@@ -592,6 +597,7 @@ class AVQAttention(nn.Module):
         Returns:
             Tuple of (importance, budget, decision, result).
             ``budget <= 0`` means fall back to naive attention.
+
         """
         importance = compute_importance(parent_attention_probs, result.parent_counts)
         assert self.scheduler is not None

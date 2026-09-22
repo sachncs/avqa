@@ -264,20 +264,21 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Area | Public-alpha baseline |
 |------|------------------------|
-| Python | 3.10–3.15 (3.15 declared; see the wheel/runtime validation note) |
+| Python | 3.10–3.15 (3.15 uses the Python/PyTorch prerelease CI lane) |
 | PyTorch | 2.1+ |
 | Backend | Pure PyTorch reference backend |
 | CUDA/vendor kernels | Not guaranteed by the core distribution |
 | Framework adapters | Not bundled; see `src/avqa/integrations/` |
 | Stability | API and performance may change before v1.0 |
 
-Python 3.10–3.14 are covered by the runtime CI matrix. Python 3.15 is included
-in package metadata, but has not been runtime-tested because compatible PyTorch
-wheels are not yet available. CUDA execution and CUDA/Triton numerical or
-performance validation have not been tested in a CUDA environment.
+Python 3.10–3.15 are covered by the CPU runtime CI matrix. Python 3.15 remains
+a prerelease interpreter, so that lane follows upstream PyTorch prerelease
+wheel availability. CUDA execution and CUDA/Triton numerical or performance
+validation have not been tested in a CUDA environment.
 
 See the [documentation site](https://sachncs.github.io/avqa/docs/) for the
-practical guide, architecture notes, benchmark protocol, and limitations.
+practical guide, architecture notes, benchmark protocol, and limitations. The
+canonical installation and usage walkthrough is [`docs/usage.md`](docs/usage.md).
 
 ## Roadmap
 

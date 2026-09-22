@@ -25,6 +25,7 @@ class AVQAError(Exception):
         ... except AVQAError as exc:
         ...     print(exc.context)
         {'x': 1}
+
     """
 
     def __init__(self, message: str, context: dict[str, object] | None = None) -> None:
@@ -57,6 +58,7 @@ class ConfigurationError(AVQAError):
         ... except ConfigurationError as e:
         ...     e.message
         'refinement_budget must be > 0'
+
     """
 
 
@@ -66,6 +68,7 @@ class BackendError(AVQAError):
     Args:
         message: Description of the backend error.
         backend: Optional backend identifier.
+
     """
 
 
@@ -96,6 +99,7 @@ class ShapeError(AVQAError):
         message: Description of the shape mismatch.
         expected: Expected shape or shape description.
         actual: Actual shape or shape description.
+
     """
 
     def __init__(
@@ -120,6 +124,7 @@ class DtypeError(AVQAError):
         message: Description of the dtype error.
         expected: Expected dtype or set of dtypes.
         actual: Actual dtype.
+
     """
 
     def __init__(
@@ -144,6 +149,7 @@ class DeviceError(AVQAError):
         message: Description of the device error.
         expected: Expected device.
         actual: Actual device.
+
     """
 
     def __init__(

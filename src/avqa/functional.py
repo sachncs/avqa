@@ -61,6 +61,7 @@ def attention(
         >>> out = attention(q, k, v, config)
         >>> out.shape
         torch.Size([2, 8, 512])
+
     """
     module = AVQAttention(config, in_proj=False, out_proj=False)
     out: torch.Tensor = module(query, key, value, mask=mask, kv_cache=kv_cache)

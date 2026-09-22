@@ -85,7 +85,38 @@ grep -rn "from avqa.visualization" src/avqa/*.py     # should be empty
 
 The core library is intentionally self-contained. Optional adapters for
 external systems (Hugging Face Transformers, vLLM, FlashAttention,
-xFormers) are not bundled — re-introduce them as separate distribution
-extras if your deployment needs them. The internal structure makes this
-straightforward: each `Backend` and `Router` subclass is a clean
-extension point that the orchestrator can pick up at construction time.
+xFormers) are not bundled. Keep framework-specific integrations in separate
+packages or optional distributions.
+
+`Backend`, `Router`, `MergeStrategy`, `Scheduler`, and `VectorQuantizer` are
+abstract strategy interfaces. The backend and strategy factories validate
+instances returned by registered factories. Router, merge, and scheduler
+implementations can be added without editing a central `if`/`elif` chain:
+
+```python
+import torch
+
+from avqa.routing import Router, RoutingDecision
+
+
+class ConfidenceRouter(Router):
+    def select(self, importance: torch.Tensor, budget: int) -> RoutingDecision:
+        # Implement the documented [B, H, M] -> [B, H, P] contract.
+        ...
+
+
+Router.register("confidence", ConfidenceRouter)
+router = Router.create("confidence")
+```
+
+Registrations are process-local, thread-safe, and reject duplicate names by
+default. A caller may pass `replace=True` when deliberately replacing a
+registration. Factories must return an instance of the corresponding abstract
+base class. For backend-specific methods not represented by the minimal
+abstract interface, see the capability boundary documented in
+`src/avqa/backend.py`.
+
+Configuration-driven router, merge, and scheduler selection now uses
+polymorphic registries. The quantizer and visualizer factories remain closed
+to runtime registration; add a capability-focused task before extending those
+surfaces.

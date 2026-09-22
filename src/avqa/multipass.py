@@ -55,6 +55,7 @@ def compute_pass_budgets(base: int, passes: int, decay: float) -> list[int]:
     Raises:
         ValueError: If ``decay`` is outside ``(0, 1]`` or ``passes``
             is non-positive.
+
     """
     if decay <= 0.0 or decay > 1.0:
         msg = f"decay must be in (0, 1], got {decay}"
@@ -80,6 +81,7 @@ class MultiPassRefiner:
     The public API is a single ``refine(...)`` method that mimics
     ``avqa.refinement.refine``'s signature, returning the post-pass
     :class:`OnlineSoftmaxState` and the per-pass residual norm.
+
     """
 
     def __init__(self, passes: int = 1, decay: float = 1.0) -> None:
@@ -126,7 +128,16 @@ class MultiPassRefiner:
                 :func:`avqa.refinement.refine`.
             child_aggregates, children_per_parent: As in
                 :func:`avqa.refinement.refine`.
+            children_per_parent: Number of child codewords per parent.
+            parent_logits: Logits from the initial coarse pass.
+            parent_value: Coarse per-parent value contribution.
+            parent_aggregates: Aggregated values for parent codewords.
+            child_aggregates: Aggregated values for child codewords.
             decision: Routing decision for the FIRST pass.
+            attention_probs: Parent attention probabilities.
+            parent_counts: Number of keys assigned to each parent.
+            child_logits: Optional logits for refined children.
+            child_counts: Optional assignment counts for refined children.
             attention_probs, parent_counts, child_logits, child_counts:
                 As in :func:`avqa.refinement.refine`.
             merge_strategy: As in :func:`avqa.refinement.refine`.
@@ -142,6 +153,7 @@ class MultiPassRefiner:
             Tuple ``(final_state, residual_norms)`` where
             ``residual_norms[i]`` is the L2 norm of the residual
             between pass ``i`` and pass ``i+1``'s state.
+
         """
         # Single-pass: paper-equivalent behaviour, residual is zero by
         # construction.

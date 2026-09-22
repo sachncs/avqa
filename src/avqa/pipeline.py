@@ -74,6 +74,7 @@ def parent_logits(
             in ``{2, 4}``.
         NotInitializedError: If ``mask`` is provided without
             ``parent_assignments``.
+
     """
     B, H, _, D = q.shape
     M_0 = codebook_parents.shape[-2]
@@ -124,6 +125,7 @@ def online_softmax(
 
     Returns:
         Tuple of (state, parent_attention_probs).
+
     """
     del head_dim  # accepted for stable call-site; unused mathematically
     B, H, T_q, _ = parent_logits.shape
@@ -167,6 +169,7 @@ def child_logits(
 
     Returns:
         ``[B, H, T, P, C]`` logits.
+
     """
     B, H, _, D = q.shape
     P = selected_indices.shape[-1]
@@ -212,6 +215,7 @@ def apply_hopfield(
     Returns:
         Scaled logits ``[B, H, T, M_0]`` ready for online softmax.
         Returns ``parent_logits`` unchanged when HVAQ is disabled.
+
     """
     if not (state.config.backend.hopfield and state.config.hopfield.adaptive != "none"):
         return parent_logits
@@ -285,6 +289,7 @@ def run_pipeline(
 
     Returns:
         ``[B, T_q, E]`` attention output.
+
     """
     state.validate_inputs(query, key, value)
 

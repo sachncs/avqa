@@ -32,6 +32,8 @@ jobs:
         working-directory: site
       - run: npm run lint
         working-directory: site
+      - run: npm run format:check
+        working-directory: site
       - run: npm run build
         working-directory: site
       - uses: actions/configure-pages@v5

@@ -85,7 +85,7 @@ class Visualizer(ABC):
 
     @classmethod
     def create(cls, backend: str = "json") -> Visualizer:
-        """Factory: resolve ``backend`` to a concrete :class:`Visualizer`.
+        """Create the visualizer registered under ``backend``.
 
         Args:
             backend: ``"json"`` (default) for the JSON-only renderer.
@@ -95,6 +95,7 @@ class Visualizer(ABC):
 
         Raises:
             ConfigurationError: If ``backend`` is unknown.
+
         """
         if backend == "json":
             return JSONVisualizer()

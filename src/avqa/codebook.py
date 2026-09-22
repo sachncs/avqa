@@ -38,6 +38,7 @@ class CodebookStats:
         child_counts: Per-child assignment count. Shape ``[H, M_0, C]``.
         utilization: Fraction of codewords that received at least one
             assignment. Shape ``[H]`` (parents) and ``[H, M_0]`` (children).
+
     """
 
     parent_counts: torch.Tensor
@@ -93,6 +94,7 @@ class HierarchicalCodebook:
         >>> cb.children.shape
         torch.Size([2, 8, 4, 16])
         >>> cb.validate_mean_constraint()
+
     """
 
     def __init__(
@@ -151,6 +153,7 @@ class HierarchicalCodebook:
             perturbation: Optional pre-sampled noise of shape
                 ``[H, M_0, C, D]``. If ``None``, samples Gaussian noise.
             generator: Optional RNG generator for reproducibility.
+
         """
         if perturbation is None:
             perturbation = torch.randn(
@@ -191,6 +194,7 @@ class HierarchicalCodebook:
         Args:
             generator: Optional RNG.
             scale: Standard deviation of the initialization distribution.
+
         """
         self.parents.copy_(
             torch.randn(
@@ -227,6 +231,7 @@ class HierarchicalCodebook:
 
         Raises:
             CodebookError: If ``||parent - mean(children)|| > atol``.
+
         """
         diff = self._mean_constraint_diff(self.parents, self.children)
         if diff > atol:
@@ -257,6 +262,7 @@ class HierarchicalCodebook:
 
         Raises:
             CodebookError: On shape mismatch or invalid decay.
+
         """
         if not 0.0 <= decay <= 1.0:
             msg = f"EMA decay must be in [0, 1], got {decay}"
@@ -313,6 +319,7 @@ class HierarchicalCodebook:
 
         Returns:
             Scalar mean commitment loss.
+
         """
         B, H, N, D = keys.shape
         # Gather assigned codewords: [B, H, N, D].

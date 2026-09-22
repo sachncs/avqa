@@ -36,6 +36,7 @@ Example:
     >>> key = torch.randn(2, 16, 64)
     >>> value = torch.randn(2, 16, 64)
     >>> output = attention(query, key, value)
+
 """
 
 from __future__ import annotations

@@ -22,6 +22,8 @@ import math
 from pathlib import Path
 
 from avqa.exceptions import ConfigurationError
+from avqa.merge import MergeStrategy
+from avqa.routing import Router
 
 # Spec §3.6 / §5.19 — version of the configuration schema.
 SCHEMA_VERSION: str = "1"
@@ -99,6 +101,7 @@ class CodebookConfig:
         >>> cb = CodebookConfig()
         >>> cb.num_codewords
         64
+
     """
 
     num_codewords: int = 64
@@ -142,6 +145,7 @@ class RoutingConfig:
     Example:
         >>> RoutingConfig()
         RoutingConfig(strategy='topp', refinement_budget=8, ...)
+
     """
 
     strategy: str = "topp"
@@ -152,8 +156,8 @@ class RoutingConfig:
         require_integer(self.refinement_budget, "refinement_budget")
         require_positive(self.refinement_budget, "refinement_budget")
         require_positive(self.importance_temperature, "importance_temperature")
-        allowed = {"topp", "threshold", "budget"}
-        if self.strategy not in allowed:
+        if not Router.is_registered(self.strategy):
+            allowed = {"topp", "threshold", "budget"}
             raise ConfigurationError(
                 f"routing.strategy must be one of {sorted(allowed)}, got {self.strategy!r}",
                 {"strategy": self.strategy},
@@ -187,13 +191,14 @@ class MergeConfig:
     Attributes:
         strategy: One of ``"probability"``, ``"weighted"``, ``"logit"``,
             ``"normalized"``.
+
     """
 
     strategy: str = "probability"
 
     def __post_init__(self) -> None:
-        allowed = {"probability", "weighted", "logit", "normalized"}
-        if self.strategy not in allowed:
+        if not MergeStrategy.is_registered(self.strategy):
+            allowed = {"probability", "weighted", "logit", "normalized"}
             msg = f"merge.strategy must be one of {sorted(allowed)}, got {self.strategy!r}"
             raise ConfigurationError(msg, {"strategy": self.strategy})
 
@@ -209,6 +214,7 @@ class BackendConfig:
         hopfield: When ``True`` AVQAttention applies the HVAQ
             temperature schedule (SPEC §16) to the parent attention
             logits. Default ``False`` keeps the paper-exact softmax.
+
     """
 
     name: str = "torch"
@@ -233,6 +239,7 @@ class CacheConfig:
     Attributes:
         enabled: Whether to enable KV caching.
         max_size: Maximum number of cached entries. ``0`` means unbounded.
+
     """
 
     enabled: bool = True
@@ -251,6 +258,7 @@ class PrecisionConfig:
     Attributes:
         dtype: Computation dtype. Must be in :data:`avqa.data.SUPPORTED_DTYPES`.
         autocast: Whether to enable PyTorch autocast for the forward pass.
+
     """
 
     dtype: str = "float32"
@@ -275,6 +283,7 @@ class ExecutionConfig:
         compile_enabled: When ``True`` the AVQAttention forward is
             wrapped in ``torch.compile`` to reduce Python overhead on
             CPU (OPT-0002). Requires stable input shapes.
+
     """
 
     mode: str = "optimized"
@@ -321,6 +330,7 @@ class HopfieldConfig:
             ``alpha`` as an ``nn.Parameter`` (initialized from
             ``alpha``). Overrides the fixed ``alpha`` in entropy
             and linear schedules.
+
     """
 
     enabled: bool = False
@@ -352,6 +362,7 @@ class AttentionShapeConfig:
         embed_dim: Embedding dimension (E).
         num_heads: Number of attention heads (H). Must divide ``embed_dim``.
         head_dim: Per-head dimension (D). Defaults to ``embed_dim // num_heads``.
+
     """
 
     embed_dim: int = 512
@@ -418,6 +429,7 @@ class AVQConfig:
         8
         >>> cfg.precision.dtype
         'float32'
+
     """
 
     attention: AttentionShapeConfig = field(default_factory=AttentionShapeConfig)
@@ -542,6 +554,7 @@ class AVQConfig:
 
         Raises:
             ConfigurationError: If the file cannot be written.
+
         """
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -572,6 +585,7 @@ class AVQConfig:
         Raises:
             ConfigurationError: If the file is missing, unreadable, or
                 carries an incompatible schema version.
+
         """
         source = Path(path)
         try:

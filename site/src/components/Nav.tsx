@@ -45,13 +45,23 @@ export function Nav() {
         }`}
       >
         <a href="#top" className="flex items-center gap-2 pl-2 pr-3 py-1">
-          <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
-          <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
+          <img
+            src="/avqa/avqa-wordmark.svg"
+            alt="AVQA"
+            className="h-9 w-auto"
+          />
         </a>
 
-        <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-1">
+        <nav
+          aria-label="Primary navigation"
+          className="hidden md:flex items-center gap-1"
+        >
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="nav-link rounded-full px-3 py-1.5">
+            <a
+              key={l.href}
+              href={l.href}
+              className="nav-link rounded-full px-3 py-1.5"
+            >
               {l.label}
             </a>
           ))}
@@ -96,7 +106,10 @@ export function Nav() {
             id="mobile-navigation"
             className="absolute top-[78px] w-[92%] rounded-2xl border border-white/10 bg-ink-950/95 p-3 backdrop-blur-xl md:hidden"
           >
-            <nav aria-label="Mobile primary navigation" className="flex flex-col">
+            <nav
+              aria-label="Mobile primary navigation"
+              className="flex flex-col"
+            >
               {links.map((l) => (
                 <a
                   key={l.href}

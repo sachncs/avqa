@@ -40,9 +40,8 @@ validation on the target PyTorch/CUDA environment.
 
 ### Compatibility
 
-- Python 3.10–3.15 (Python 3.15 compatibility declared; PyTorch wheel
-  availability and runtime validation depend on upstream support; AVQA has not
-  been runtime-tested on Python 3.15)
+- Python 3.10–3.15 (the CPU test matrix covers each; Python 3.15 uses the
+  prerelease interpreter/wheel lane while that Python version is prerelease)
 - PyTorch ≥ 2.1
 - Optional: `matplotlib`, `graphviz` (installed via `pip install -e ".[viz]"`).
   Framework integrations are user-supplied — see

@@ -76,6 +76,24 @@ include = [
 path = "src/avqa/version.py"
 pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
+[tool.ruff]
+target-version = "py310"
+line-length = 80
+
+[tool.ruff.lint]
+extend-select = ["D", "E501"]
+ignore = ["D203", "D212"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"src/avqa/**/*.py" = ["D105", "D107"]
+"tests/**/*.py" = ["D"]
+"examples/**/*.py" = ["D"]
+"benchmarks/**/*.py" = ["D"]
+"scripts/**/*.py" = ["D"]
+
 [tool.coverage.run]
 branch = true
 

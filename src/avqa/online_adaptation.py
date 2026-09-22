@@ -20,9 +20,9 @@ products the children with the queries in :func:`avqa.pipeline.child_logits`).
 
 References
 ----------
-
 - AVQ-Attention paper (§8.9): offline EMA training of the codebook.
 - Bottou & Bengio (1994): stochastic K-means convergence rate.
+
 """
 
 from __future__ import annotations
@@ -60,6 +60,7 @@ def online_codebook_adaptation(
         ConfigurationError: If ``decay`` is outside ``[0, 1)``.
         CodebookError: If the codebook shapes are wrong or assignments
             are missing.
+
     """
     if decay < 0.0 or decay >= 1.0:
         msg = f"decay must be in [0, 1), got {decay}"

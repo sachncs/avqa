@@ -79,6 +79,7 @@ class CacheEntry:
             L7: populated on append in PagedKVCache; InMemoryKVCache
             always sets an empty tensor since positions are implicit
             in the contiguous key layout.
+
     """
 
     key: torch.Tensor
@@ -128,6 +129,7 @@ class InMemoryKVCache(KVCache):
         max_size: Maximum cache size (``0`` means unbounded).
         device: Device for the cache tensors.
         dtype: Dtype for the cache tensors.
+
     """
 
     def __init__(
@@ -178,6 +180,7 @@ class InMemoryKVCache(KVCache):
         Args:
             key: ``[B, H, T_new, D_k]`` new keys.
             value: ``[B, H, T_new, D_v]`` new values.
+
         """
         validate_cache_tensors(
             key,
@@ -390,6 +393,7 @@ class PagedKVCache(KVCache):
         head_dim_k: Key head dimension.
         head_dim_v: Value head dimension.
         max_pages: Maximum number of pages (``0`` = unbounded).
+
     """
 
     def __init__(

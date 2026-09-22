@@ -61,6 +61,7 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
     Example:
         >>> seed_everything(42)
         42
+
     """
     if seed < 0:
         msg = f"seed must be non-negative, got {seed}"

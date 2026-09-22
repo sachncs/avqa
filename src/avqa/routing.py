@@ -13,11 +13,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
 import torch
 
 from avqa.exceptions import RoutingError
 from avqa.logging import get_logger
+from avqa.utils.registry import FactoryRegistry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = get_logger("routing")
 
@@ -42,6 +47,7 @@ def compute_importance(
 
     Returns:
         Per-codeword importance. Shape ``[B, H, M_0]``.
+
     """
     if attention_probs.ndim != 4:
         raise RoutingError(
@@ -72,6 +78,7 @@ class RoutingDecision:
         selected_indices: Per-(B, H) selected parent indices. Shape ``[B, H, P]``.
         importance: Per-codeword importance score used for the decision.
             Shape ``[B, H, M_0]``.
+
     """
 
     selected_indices: torch.Tensor
@@ -86,9 +93,27 @@ class RoutingDecision:
 class Router(ABC):
     """Abstract router interface (spec §4.7, §5.10)."""
 
+    _registry: ClassVar[FactoryRegistry[Router]]
+
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[[], Router],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a router implementation for configuration-driven creation."""
+        cls._registry.register(name, factory, replace=replace)
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        """Return whether a router name has a registered factory."""
+        return cls._registry.is_registered(name)
+
     @classmethod
     def create(cls, strategy: str = "topp") -> Router:
-        """Factory: resolve ``strategy`` to a concrete :class:`Router`.
+        """Create the router registered under ``strategy``.
 
         Args:
             strategy: ``"topp"`` (default), ``"threshold"``, or
@@ -99,15 +124,9 @@ class Router(ABC):
 
         Raises:
             RoutingError: If ``strategy`` is unknown.
+
         """
-        if strategy == "topp":
-            return TopPRouter()
-        if strategy == "threshold":
-            return ThresholdRouter()
-        if strategy == "budget":
-            return BudgetRouter()
-        msg = f"unknown routing strategy: {strategy!r}"
-        raise RoutingError(msg)
+        return cls._registry.create(strategy)
 
     @abstractmethod
     def select(
@@ -123,7 +142,11 @@ class Router(ABC):
 
         Returns:
             :class:`RoutingDecision` with indices and the original scores.
+
         """
+
+
+Router._registry = FactoryRegistry(Router, RoutingError, label="routing strategy")
 
 
 class TopPRouter(Router):
@@ -145,6 +168,7 @@ class TopPRouter(Router):
         >>> decision = router.select(importance, budget=2)
         >>> decision.selected_indices
         tensor([[[1, 2]]])
+
     """
 
     def __init__(self, deterministic: bool = True) -> None:
@@ -195,6 +219,7 @@ class ThresholdRouter(Router):
         >>> decision = router.select(importance, budget=2)
         >>> decision.selected_indices
         tensor([[[1, 2]]])
+
     """
 
     def __init__(self, threshold: float = 0.0) -> None:
@@ -241,6 +266,7 @@ class BudgetRouter(Router):
         >>> decision = router.select(importance, budget=2)
         >>> decision.selected_indices
         tensor([[[1, 3]]])
+
     """
 
     def __init__(self, deterministic: bool = True) -> None:
@@ -266,6 +292,11 @@ class BudgetRouter(Router):
             selected_indices=indices[..., :budget],
             importance=importance,
         )
+
+
+Router.register("topp", TopPRouter)
+Router.register("threshold", ThresholdRouter)
+Router.register("budget", BudgetRouter)
 
 
 __all__ = [

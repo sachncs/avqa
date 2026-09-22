@@ -125,6 +125,7 @@ class StreamingVQBuffer:
             (parent_assignments, child_assignments) — both
             ``[B, H]`` int64 tensors representing the new tokens' VQ
             targets.
+
         """
         if keys.dim() != 2 or keys.shape[1] != self.head_dim:
             raise ShapeError(

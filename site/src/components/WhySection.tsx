@@ -11,10 +11,11 @@ export function WhySection() {
             <span className="text-gradient-accent">attention wall.</span>
           </h2>
           <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            Vanilla attention scales with the square of sequence length. At 4k
-            tokens the compute graph dominates every other op. At 32k it's the
-            only thing in your trace. Memory grows the same way — and your
-            GPUs stop being useful long before your model stops being capable.
+            Dense attention evaluates query–key interactions across the input
+            sequence. AVQA explores grouping keys first, then spending extra
+            work on routed groups. That trades compute for approximation error;
+            the result depends on the model, sequence, configuration, and
+            hardware.
           </p>
         </FadeIn>
 
@@ -23,20 +24,20 @@ export function WhySection() {
             {
               label: "Compute",
               k: "O(N²)",
-              title: "Quadratic FLOPs",
-              desc: "Every query attends to every key. Long context isn't just slower — it's mathematically wasteful when most interactions are low-entropy.",
+              title: "Pairwise interactions",
+              desc: "Dense attention computes scores across query and key positions. AVQA's codebook path changes which interactions are evaluated at each refinement stage.",
             },
             {
               label: "Memory",
-              k: "N²",
-              title: "Attention maps dominate",
-              desc: "KV caches and intermediate scores balloon with sequence length. Paged caches help, but the wall-clock cost remains.",
+              k: "Implementation-dependent",
+              title: "Memory depends on the kernel",
+              desc: "A materialized score matrix grows with query and key lengths; memory-efficient kernels can avoid storing it. KV caches grow with stored context length.",
             },
             {
               label: "Entropy",
-              k: "≈ 0",
-              title: "Most attention is noise",
-              desc: "Empirically, only a handful of codewords carry the signal. The rest is precision you pay for and never use.",
+              k: "Research question",
+              title: "Route, then measure error",
+              desc: "The method tests whether coarse grouping and selective refinement can preserve useful attention. Quality and speed must be measured for each workload.",
             },
           ].map((c, i) => (
             <FadeIn key={c.label} delay={i * 0.07}>
@@ -47,8 +48,12 @@ export function WhySection() {
                   </span>
                   <span className="font-mono text-xs text-ink-400">{c.k}</span>
                 </div>
-                <h3 className="mt-10 font-display text-xl font-semibold text-white">{c.title}</h3>
-                <p className="mt-3 text-[15px] leading-relaxed text-ink-300">{c.desc}</p>
+                <h3 className="mt-10 font-display text-xl font-semibold text-white">
+                  {c.title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-ink-300">
+                  {c.desc}
+                </p>
                 <div className="mt-8 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               </div>
             </FadeIn>

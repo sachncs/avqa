@@ -47,14 +47,15 @@ export function CodeSection() {
         <FadeIn className="max-w-3xl">
           <span className="eyebrow">In code</span>
           <h2 className="mt-5 font-display text-[36px] font-semibold leading-[1.05] tracking-tightest text-white sm:text-[52px]">
-            Drop-in.{" "}
+            A reference path.{" "}
             <span className="text-gradient-accent">Pure PyTorch.</span>
           </h2>
           <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            AVQA exposes an <span className="font-mono text-accent-300">nn.Module</span> and a
-            stateless functional API. No new runtime. No exotic backends. The
-            same tensors you already pass around — quantized, routed, and
-            refined.
+            AVQA exposes an{" "}
+            <span className="font-mono text-accent-300">nn.Module</span> and a
+            stateless functional API. Use it for research, ablation, and
+            correctness comparisons; it is not a drop-in replacement for
+            optimized attention kernels.
           </p>
         </FadeIn>
 
@@ -73,7 +74,11 @@ export function CodeSection() {
               </p>
             </div>
             <div>
-              <CodeBlock code={HVAQ} filename="hopfield.py" showLineNumbers={false} />
+              <CodeBlock
+                code={HVAQ}
+                filename="hopfield.py"
+                showLineNumbers={false}
+              />
               <p className="mt-3 text-[13px] text-ink-500">
                 HVAQ — per-query temperature, learnable.
               </p>

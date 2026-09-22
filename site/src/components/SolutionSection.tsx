@@ -13,13 +13,14 @@ export function SolutionSection() {
               <span className="text-gradient-accent">through a codebook.</span>
             </h2>
             <p className="mt-6 text-[17px] leading-relaxed text-ink-300">
-              Quantize keys into a hierarchical codebook. Compute attention at
-              the codebook level first. Then refine — only the most-attended
-              codewords, only the children that actually matter.
+              Quantize keys into a hierarchical codebook, compute coarse parent
+              attention, route selected parents, then recompute those regions
+              with child-level keys.
             </p>
             <p className="mt-4 text-[17px] leading-relaxed text-ink-300">
-              You stop paying for the long tail of low-entropy interactions
-              and start paying for signal.
+              This is an approximation strategy, not a guarantee of lower
+              latency or memory. Refinement budget, sequence length, numerical
+              quality, and hardware all affect the outcome.
             </p>
           </FadeIn>
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 64" role="img" aria-labelledby="title">
+  <title id="title">Monochrome AVQA wordmark for light surfaces</title>
+  <image href="/avqa/avqa-mark-mono-light.svg" x="0" y="0" width="64" height="64"/>
+  <text x="78" y="31" fill="#0C0F1C" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="2">AVQA</text>
+  <text x="80" y="48" fill="#0C0F1C" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="600" letter-spacing="1.2">ADAPTIVE ATTENTION</text>
+</svg>

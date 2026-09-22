@@ -14,9 +14,9 @@ export function CitationSection() {
               AVQ-Attention: Adaptive Vector-Quantized Attention
             </h3>
             <p className="mt-4 text-[14px] leading-relaxed text-ink-300">
-              van den Dool, Winfried · Forré, Patrick · Habibian, Amir ·
-              Asano, Yuki M. · Welling, Max. European Conference on Computer
-              Vision (ECCV), 2026. arXiv:2607.12789.
+              van den Dool, Winfried · Forré, Patrick · Habibian, Amir · Asano,
+              Yuki M. · Welling, Max. European Conference on Computer Vision
+              (ECCV), 2026. arXiv:2607.12789.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <a

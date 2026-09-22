@@ -89,6 +89,7 @@ class Backend(ABC):
 
             Backend.register("my_backend", MyBackend)
             backend = Backend.create("my_backend")
+
         """
         if not isinstance(name, str) or not name.strip():
             raise BackendError("backend registration name must be a non-empty string")
@@ -102,7 +103,7 @@ class Backend(ABC):
 
     @classmethod
     def create(cls, name: str = "torch") -> Backend:
-        """Factory: resolve ``name`` to a concrete backend.
+        """Create the backend registered under ``name``.
 
         Args:
             name: ``"torch"`` (default).
@@ -114,6 +115,7 @@ class Backend(ABC):
         Raises:
             BackendError: If ``name`` is unknown or unavailable in this
                 environment.
+
         """
         factory = cls._factories.get(name)
         if factory is None and name == "torch":
@@ -265,7 +267,7 @@ class TorchBackend(Backend):
         block_size: int = 64,
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Method shim that delegates to the module-level helper."""
+        """Delegate to the module-level online-softmax helper."""
         return online_softmax_attention(query, key, value, block_size=block_size, mask=mask)
 
     def quantize(
@@ -304,7 +306,7 @@ class TorchBackend(Backend):
         tile_denom: torch.Tensor,
         tile_num: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Method shim that delegates to the module-level helper."""
+        """Delegate to the module-level correction helper."""
         return correction(state_max, state_denom, state_num, tile_max, tile_denom, tile_num)
 
     def reduction(
@@ -312,7 +314,7 @@ class TorchBackend(Backend):
         state_num: torch.Tensor,
         state_denom: torch.Tensor,
     ) -> torch.Tensor:
-        """Final output: ``num / clamp_min(denom)`` (with epsilon for empty states)."""
+        """Return ``num / clamp_min(denom)`` with epsilon for empty states."""
         return state_num / state_denom.clamp_min(EPS).unsqueeze(-1)
 
 

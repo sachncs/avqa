@@ -57,6 +57,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
         >>> child = get_logger("attention.module")
         >>> isinstance(child, logging.Logger)
         True
+
     """
     if name is None:
         return logging.getLogger(AVQA_LOGGER_NAME)
@@ -91,6 +92,7 @@ def configure_logger(
         >>> logger = configure_logger(level=logging.DEBUG)
         >>> logger.getEffectiveLevel() == logging.DEBUG
         True
+
     """
     logger = get_logger()
     # Protect the check-and-install sequence so concurrent application
@@ -120,6 +122,7 @@ def is_configured() -> bool:
         >>> _ = configure_logger()
         >>> is_configured()
         True
+
     """
     return is_internal_configured()
 

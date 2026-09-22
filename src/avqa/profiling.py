@@ -50,6 +50,7 @@ class ProfilerReport:
         total_flops: M7 — total FLOPs consumed by the pipeline (spec §3.17).
             Estimated from sequence lengths, codebook sizes, and refinement
             budget; not an exact hardware FLOP counter.
+
     """
 
     stage_timers: list[StageTimer] = field(default_factory=list)
@@ -96,10 +97,11 @@ class Profiler:
 
     @classmethod
     def create(cls, name: str = "default") -> Profiler:
-        """Factory: resolve ``name`` to a :class:`Profiler` instance.
+        """Create the profiler registered under ``name``.
 
         Args:
             name: ``"default"`` (the only profiler shipped).
+
         """
         if name == "default":
             return cls()
@@ -216,6 +218,7 @@ class Profiler:
 
         Args:
             path: File path or open file handle.
+
         """
         with self._lock:
             data = json.dumps(self.report.to_dict(), indent=2)

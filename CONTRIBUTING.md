@@ -35,43 +35,50 @@ Open a GitHub issue describing:
 3. **Implement** following the existing patterns; keep the diff small and
    focused on one issue.
 4. **Test** with `make test`, `make lint`, and `make typecheck`.
-5. **Document** with Google-style docstrings and Google-style type
-   annotations.
+5. **Document** public and nontrivial Python APIs with Google-style docstrings.
 6. **Commit** with a Conventional Commit message.
 7. **Open** the PR with a description referencing the issue.
 
 ## Code style
 
-- PEP 8 (enforced via `ruff format`).
-- Strict mypy on `src/avqa/` (enforced via `mypy`).
-- Google-style docstrings on all public objects.
-- Type annotations on every function signature.
+- Follow the [AVQA coding-style guide](docs/coding-style.md), based on Google's
+  Python, TypeScript, and Markdown guides.
+- Run `make lint`, `ruff format --check src/ tests/ examples/ benchmarks/ scripts/`,
+  and `make typecheck` before opening a pull request.
+- Google-convention Python docstrings, strict mypy checks, and TypeScript
+  restrictions for `any`, unsafe TypeScript suppression comments, and type-only
+  imports are enforced in CI.
+- Add type annotations to public Python functions and methods. Document
+  arguments, return values, raised errors, side effects, and tensor shapes when
+  they are not obvious from the signature.
+- Test behavior and extension interfaces. Preserve source-file cohesion; avoid
+  broad reformatting unrelated to the change.
 
 ## Adding new components
 
-New components plug in via the `create()` factory pattern on the
-existing abstract base class. To add a new quantizer, subclass
-`VectorQuantizer` and register it inside `VectorQuantizer.create()`
-in `src/avqa/quantizer.py`:
+Strategies use abstract base classes and named factories. Routers, merge
+strategies, and schedulers support runtime registration:
 
 ```python
-from avqa.quantizer import VectorQuantizer
+import torch
 
-class MyQuantizer(VectorQuantizer):
-    name = "my_quantizer"
+from avqa.routing import Router, RoutingDecision
 
-    def quantize(self, keys, values, codebook):
+
+class MyRouter(Router):
+    def select(self, importance: torch.Tensor, budget: int) -> RoutingDecision:
         ...
 
-# Register in VectorQuantizer.create():
-VectorQuantizer.create("my_quantizer")  # -> MyQuantizer()
+
+Router.register("my_router", MyRouter)
+router = Router.create("my_router")
 ```
 
-The same pattern applies to `Backend.create`, `Router.create`,
-`MergeStrategy.create`, and `Scheduler.create` — add a `name`
-attribute to the subclass and dispatch on it inside `create()`. New
-components do not require modifying the abstract base class beyond
-the dispatch line.
+Do not edit the factory dispatch to add an implementation. See
+[`docs/architecture.md`](docs/architecture.md) for extension boundaries.
+Backends use `Backend.register`; quantizers and visualizers currently have a
+closed built-in set. Do not claim an extension is supported until its public
+contract and tests are in place.
 
 ## License
 
