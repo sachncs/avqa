@@ -314,6 +314,8 @@ are not shipped capabilities. See
       (commit `3416919`).
 - [x] TASK-P.043 Remove stale current-suite test-count wording from readiness docs
       (commit `cf0ed99`).
+- [ ] TASK-P.044 Enforce the supported Python range in CI and release verification
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
