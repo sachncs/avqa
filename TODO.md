@@ -263,9 +263,9 @@ are not shipped capabilities. See
 - [x] TASK-P.017 Validate online-softmax tile sizes at the public backend
       boundary (commit `021d0ac`).
 - [x] TASK-P.018 Declare pytest-benchmark in the development environment so
-      the documented full test target can collect performance tests (commit `pending`).
+      the documented full test target can collect performance tests (commit `7927fe9`).
 - [x] TASK-P.019 Mark the performance module as benchmark-only so standard
-      correctness tests exclude exploratory timing/quality assertions (commit `pending`).
+      correctness tests exclude exploratory timing/quality assertions (commit `7927fe9`).
 
 ### Cleanup pass (2026-07-21)
 
