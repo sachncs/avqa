@@ -324,8 +324,8 @@ are not shipped capabilities. See
       (commit `4b3e551`).
 - [x] TASK-P.048 Add a docs navigation route contract gate
       (commit `f992b44`).
-- [ ] TASK-P.049 Verify deterministic execution wiring through AVQAttention
-      (implementation pending).
+- [x] TASK-P.049 Verify deterministic execution wiring through AVQAttention
+      (commit `a47078d`).
 
 ### Cleanup pass (2026-07-21)
 
