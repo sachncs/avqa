@@ -290,8 +290,8 @@ are not shipped capabilities. See
       (commit `e757ae3`).
 - [x] TASK-P.031 Make codebook checkpoint restores failure-atomic
       (commit `258e26d`).
-- [ ] TASK-P.032 Reject non-finite codebook checkpoint tensors before restore
-      (implementation pending).
+- [x] TASK-P.032 Reject non-finite codebook checkpoint tensors before restore
+      (commit `45c1a6f`).
 
 ### Cleanup pass (2026-07-21)
 
