@@ -228,10 +228,15 @@ class HierarchicalCodebook:
         Raises:
             CodebookError: If ``||parent - mean(children)|| > atol``.
         """
-        diff = (self.parents - self.children.mean(dim=2)).abs().max().item()
+        diff = self._mean_constraint_diff(self.parents, self.children)
         if diff > atol:
             msg = f"mean constraint violated: max |parent - mean(child)| = {diff}"
             raise CodebookError(msg, {"max_diff": diff})
+
+    @staticmethod
+    def _mean_constraint_diff(parents: torch.Tensor, children: torch.Tensor) -> float:
+        """Return the maximum parent/child-mean absolute difference."""
+        return float((parents - children.mean(dim=2)).abs().max().item())
 
     # ------------------------------------------------------------------
     # EMA training (spec §8.9)
@@ -333,9 +338,14 @@ class HierarchicalCodebook:
             raise CodebookError(f"parents shape {tuple(parents.shape)} != {expected_parent_shape}")
         if tuple(children.shape) != expected_child_shape:
             raise CodebookError(f"children shape {tuple(children.shape)} != {expected_child_shape}")
-        self.parents.copy_(parents.to(self.parents.device, self.parents.dtype))
-        self.children.copy_(children.to(self.children.device, self.children.dtype))
-        self.validate_mean_constraint()
+        restored_parents = parents.to(self.parents.device, self.parents.dtype)
+        restored_children = children.to(self.children.device, self.children.dtype)
+        diff = self._mean_constraint_diff(restored_parents, restored_children)
+        if diff > 1e-5:
+            msg = f"mean constraint violated: max |parent - mean(child)| = {diff}"
+            raise CodebookError(msg, {"max_diff": diff})
+        self.parents.copy_(restored_parents)
+        self.children.copy_(restored_children)
 
     def __repr__(self) -> str:
         return (

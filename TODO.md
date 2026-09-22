@@ -288,6 +288,8 @@ are not shipped capabilities. See
       (commit `ff9edea`).
 - [x] TASK-P.030 Reject non-finite attention inputs before pipeline mutation
       (commit `e757ae3`).
+- [ ] TASK-P.031 Make codebook checkpoint restores failure-atomic
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
