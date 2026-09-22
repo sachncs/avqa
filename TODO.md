@@ -238,7 +238,7 @@ are not shipped capabilities. See
 - [x] TASK-P.004 Validate paged-cache checkpoint sequence and batch invariants
       during restore (commit `664e53c`).
 - [x] TASK-P.005 Reject non-integral paged-cache position metadata instead of
-      silently coercing it (commit pending).
+      silently coercing it (commit `365a9f1`).
 
 ### Cleanup pass (2026-07-21)
 
