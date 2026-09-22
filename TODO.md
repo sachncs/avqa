@@ -342,6 +342,8 @@ are not shipped capabilities. See
       matrix (commit `a93865a`).
 - [x] TASK-P.057 Reconcile benchmark protocol paths with tracked evidence and
       test required experiment artifacts (commit `57828b4`).
+- [x] TASK-P.058 Expand profiler contract coverage for export and failure
+      paths (commit `a10a076`).
 
 ### Cleanup pass (2026-07-21)
 
