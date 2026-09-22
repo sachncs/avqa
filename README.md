@@ -208,7 +208,8 @@ mypy src/avqa
 # Tests
 pytest tests/unit -q
 pytest tests/reference -q
-pytest tests/performance -q
+make test
+make bench
 
 # With coverage
 pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
@@ -239,7 +240,8 @@ test: add hand-computed reference tests
 ## Testing
 
 ```bash
-pytest                                          # full suite
+make test                                       # correctness + integration suite
+make bench                                      # pytest-benchmark suite
 pytest --cov=avqa tests/unit tests/reference    # with coverage
 ```
 

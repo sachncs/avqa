@@ -268,6 +268,8 @@ are not shipped capabilities. See
       correctness tests exclude exploratory timing/quality assertions (commit `7927fe9`).
 - [x] TASK-P.020 Execute the documented repository test target in CI on Python
       3.12 to prevent environment and scope drift (commit `b78347d`).
+- [x] TASK-P.021 Reconcile README test commands with the benchmark-only
+      performance boundary (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 
