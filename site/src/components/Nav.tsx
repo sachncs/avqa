@@ -66,7 +66,9 @@ export function Nav() {
         </div>
 
         <button
-          aria-label="Toggle menu"
+          aria-label={open ? "Close navigation" : "Open navigation"}
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
           onClick={() => setOpen((s) => !s)}
           className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5"
         >
@@ -81,6 +83,7 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.25 }}
+            id="mobile-navigation"
             className="absolute top-[78px] w-[92%] rounded-2xl border border-white/10 bg-ink-950/95 p-3 backdrop-blur-xl md:hidden"
           >
             <div className="flex flex-col">

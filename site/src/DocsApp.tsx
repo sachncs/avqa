@@ -36,7 +36,7 @@ export default function DocsApp() {
             <a href="/avqa/" className="nav-link inline-flex items-center gap-2"><ArrowLeft className="h-4 w-4" /> Product</a>
             <a href={GITHUB_URL} className="nav-link inline-flex items-center gap-2" target="_blank" rel="noreferrer"><Github className="h-4 w-4" /> GitHub</a>
           </nav>
-          <button className="btn-ghost px-3 py-2 md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="Toggle documentation navigation"><Menu className="h-4 w-4" /></button>
+          <button className="btn-ghost px-3 py-2 md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label={menuOpen ? "Close documentation navigation" : "Open documentation navigation"}><Menu className="h-4 w-4" /></button>
         </div>
       </header>
       <div className="border-b border-accent-300/15 bg-accent-400/[0.06]">
@@ -46,14 +46,14 @@ export default function DocsApp() {
         </div>
       </div>
       <div className="container-edge grid gap-10 py-10 lg:grid-cols-[220px_minmax(0,760px)] lg:gap-16">
-        <aside className={`${menuOpen ? "block" : "hidden"} lg:block`}>
+        <aside id="docs-navigation" className={`${menuOpen ? "block" : "hidden"} lg:block`}>
           <div className="sticky top-24 space-y-7">
             {(["Build with AVQA", "Understand AVQA"] as const).map((group) => (
               <div key={group}>
                 <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-ink-500">{group}</div>
                 <div className="space-y-1">
                   {PAGES.filter((item) => item.group === group).map((item) => (
-                    <button key={item.id} onClick={() => selectPage(item.id)} className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${page === item.id ? "bg-accent-400/10 text-white" : "text-ink-400 hover:bg-white/[0.04] hover:text-white"}`}>{item.label}</button>
+                    <button key={item.id} onClick={() => selectPage(item.id)} aria-current={page === item.id ? "page" : undefined} className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${page === item.id ? "bg-accent-400/10 text-white" : "text-ink-400 hover:bg-white/[0.04] hover:text-white"}`}>{item.label}</button>
                   ))}
                 </div>
               </div>
