@@ -302,6 +302,8 @@ are not shipped capabilities. See
       (commit `a7d3d99`).
 - [x] TASK-P.037 Make shared profiler recording and export concurrency-safe
       (commit `7c334bb`).
+- [ ] TASK-P.038 Apply ExecutionConfig.seed during module initialization without
+      mutating caller RNG state (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

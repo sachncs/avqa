@@ -14,6 +14,7 @@ from avqa.config import (
     AttentionShapeConfig,
     AVQConfig,
     CodebookConfig,
+    ExecutionConfig,
     RefinementConfig,
     RoutingConfig,
 )
@@ -64,6 +65,28 @@ class TestConstruction:
         """in_proj=False replaces linears with Identity."""
         module = AVQAttention(AVQConfig(), in_proj=False, out_proj=False)
         assert isinstance(module.q_proj, torch.nn.Identity)
+
+    def test_execution_seed_repeats_module_initialization(self) -> None:
+        """The configured seed makes construction reproducible."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(seed=17))
+        first = AVQAttention(config)
+        second = AVQAttention(config)
+
+        for name, tensor in first.state_dict().items():
+            assert torch.equal(tensor, second.state_dict()[name]), name
+        assert torch.equal(first.codebook.children, second.codebook.children)
+
+    def test_execution_seed_preserves_caller_rng_state(self) -> None:
+        """Constructing a module does not consume the caller RNG stream."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(seed=23))
+        torch.manual_seed(91)
+        expected = torch.get_rng_state()
+        reference = torch.rand(5)
+        torch.set_rng_state(expected)
+
+        AVQAttention(config)
+        observed = torch.rand(5)
+        assert torch.equal(observed, reference)
 
     def test_state_dict_contains_codebook_and_round_trips(self) -> None:
         """Model checkpoints must include hierarchical codebook state."""

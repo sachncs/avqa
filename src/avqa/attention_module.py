@@ -97,6 +97,14 @@ class AVQAttention(nn.Module):
     """
 
     def __init__(self, config: AVQConfig, *, in_proj: bool = True, out_proj: bool = True) -> None:
+        """Construct a module using a reproducible, isolated RNG scope."""
+        with torch.random.fork_rng():
+            torch.manual_seed(config.execution.seed)
+            self._initialize_impl(config, in_proj=in_proj, out_proj=out_proj)
+
+    def _initialize_impl(
+        self, config: AVQConfig, *, in_proj: bool, out_proj: bool
+    ) -> None:
         super().__init__()
         self.config = config
         self.backend = Backend.create(config.backend.name)
@@ -144,8 +152,6 @@ class AVQAttention(nn.Module):
             device="cpu",
             dtype=torch.float32,
         )
-        # Initialize children near parents so the mean constraint holds.
-        self.codebook.initialize_children_around_parents()
         # HierarchicalCodebook intentionally keeps its established lightweight
         # API (its public child tensor is named ``children``). Mirror its
         # tensors as module buffers so AVQAttention checkpoints persist and
@@ -154,6 +160,7 @@ class AVQAttention(nn.Module):
         self.codebook_children: torch.Tensor
         self.register_buffer("codebook_parents", self.codebook.parents)
         self.register_buffer("codebook_children", self.codebook.children)
+        self.codebook.initialize_children_around_parents()
 
         # Resolve the configured router via the classmethod factory.
         self.router = Router.create(config.routing.strategy)
