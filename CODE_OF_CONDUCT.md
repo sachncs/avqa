@@ -38,6 +38,10 @@ be reported to the community leaders responsible for enforcement at
 the issue tracker. All complaints will be reviewed and investigated
 promptly and fairly.
 
+To report an enforcement concern, contact the project maintainer through the
+private contact method listed in the repository profile. Do not post sensitive
+details publicly.
+
 ## Attribution
 
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],

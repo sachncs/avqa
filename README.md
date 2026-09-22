@@ -10,14 +10,18 @@
   </p>
 </p>
 
+> **Status:** AVQA is a public alpha. The shipped implementation is a pure
+> PyTorch reference backend; validate quality and performance on your workload.
+>
 > **Live site:** [sachncs.github.io/avqa](https://sachncs.github.io/avqa/) —
 > product page, deep dives, and benchmarks. Source lives under
 > [`site/`](site/) and is deployed automatically by
 > [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 
-**AVQA** is a production-grade Python library implementing Adaptive Vector
-Quantized Attention (AVQ-Attention) as a drop-in attention backend for
-PyTorch-based Transformer architectures.
+**AVQA** is an open-source Python reference implementation of Adaptive Vector
+Quantized Attention (AVQ-Attention) for PyTorch-based Transformer experiments
+and long-context research. It is not yet a stable v1 API or a vendor-optimized
+serving kernel.
 
 ## Why AVQA?
 
@@ -57,7 +61,8 @@ implementation tracker is [TODO.md](TODO.md).
 
 ## Installation
 
-> **Note:** AVQA is not yet published on PyPI. Install from source.
+> **Note:** AVQA is not yet published on PyPI. Install from source and pin a
+> commit or release tag for reproducible environments.
 
 ### From source
 
@@ -244,11 +249,25 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 ---
 
+## Support and compatibility
+
+| Area | Public-alpha baseline |
+|------|------------------------|
+| Python | 3.10, 3.11, 3.12 |
+| PyTorch | 2.1+ |
+| Backend | Pure PyTorch reference backend |
+| CUDA/vendor kernels | Not guaranteed by the core distribution |
+| Framework adapters | Not bundled; see `src/avqa/integrations/` |
+| Stability | API and performance may change before v1.0 |
+
+See the [documentation site](https://sachncs.github.io/avqa/docs/) for the
+practical guide, architecture notes, benchmark protocol, and limitations.
+
 ## Roadmap
 
-- **v0.1.0** — Current: reference implementation, 461 tests, ≥90% coverage
+- **v0.1.0** — Current: public-alpha reference implementation, CI coverage gate
 - **v0.2.0** — BCAR + HVAQ + multi-pass refinements (algorithmic contributions)
-- **v1.0.0** — Stable API, PyPI release, full spec compliance
+- **v1.0.0** — Stable API, PyPI release, validated compatibility matrix
 
 ---
 

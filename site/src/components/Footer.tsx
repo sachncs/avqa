@@ -1,5 +1,5 @@
 import { Github } from "lucide-react";
-import { GITHUB_URL } from "../lib/links";
+import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "../lib/links";
 
 const COLS = [
   {
@@ -14,6 +14,7 @@ const COLS = [
   {
     title: "Resources",
     links: [
+      { label: "Documentation", href: DOCS_URL },
       { label: "GitHub repo", href: GITHUB_URL },
       { label: "arXiv paper", href: "https://arxiv.org/abs/2607.12789" },
       { label: "Benchmark protocol", href: `${GITHUB_URL}/blob/main/BENCHMARKS.md` },
@@ -38,10 +39,8 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <a href="#top" className="inline-flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-300 to-accent-600 shadow-[0_0_24px_-4px_rgba(124,140,255,0.6)]">
-                <span className="block h-2.5 w-2.5 rounded-sm bg-white" />
-              </span>
-              <span className="text-sm font-semibold tracking-tight text-white">AVQA</span>
+              <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
+              <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
             </a>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-ink-400">
               Adaptive Vector Quantized Attention for PyTorch. Production-grade
@@ -57,7 +56,7 @@ export function Footer() {
                 <Github className="h-4 w-4" />
               </a>
               <span className="font-mono text-[11px] uppercase tracking-widest text-ink-500">
-                v0.2 · alpha
+                {RELEASE_LABEL}
               </span>
             </div>
           </div>

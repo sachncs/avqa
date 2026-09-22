@@ -96,22 +96,22 @@ export function BenchmarksSection() {
                   BCAR — online adaptation
                 </div>
                 <p className="mt-3 text-[15px] leading-relaxed text-ink-300">
-                  Mean residual reduction against a static codebook on a
-                  4k-step toy problem with <span className="font-mono text-accent-300">num_codewords=4</span>,
+                  Mean residual reduction against a static codebook in the
+                  repository's CPU experiment with <span className="font-mono text-accent-300">num_codewords=4</span>,
                   <span className="font-mono text-accent-300"> children_per_codeword=2</span>.
                 </p>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-white/[0.06] bg-ink-950/40 p-4">
-                  <div className="font-display text-3xl font-semibold text-white">61.8%</div>
+                  <div className="font-display text-3xl font-semibold text-white">60.7%</div>
                   <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-500">
-                    at step 1
+                    after 1,024 updates
                   </div>
                 </div>
                 <div className="rounded-xl border border-accent-300/20 bg-accent-400/[0.05] p-4">
-                  <div className="font-display text-3xl font-semibold text-white">69.2%</div>
+                  <div className="font-display text-3xl font-semibold text-white">CPU</div>
                   <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-400">
-                    steady state
+                    experiment only
                   </div>
                 </div>
               </div>

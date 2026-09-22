@@ -1,5 +1,10 @@
 # Release Notes
 
+AVQA is currently a public alpha. A release is suitable for experimentation
+and review, not an unconditional production deployment. The core distribution
+ships a pure-PyTorch reference backend; framework adapters and vendor kernels
+are outside the supported alpha surface.
+
 ## v0.1.0 (Initial Public Release)
 
 This release marks the first public cut of AVQA, an independent

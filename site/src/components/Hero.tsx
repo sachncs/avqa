@@ -1,7 +1,7 @@
 import { ArrowRight, Github, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { HeroVisual } from "./visuals/HeroVisual";
-import { GITHUB_URL } from "../lib/links";
+import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "../lib/links";
 
 export function Hero() {
   return (
@@ -19,7 +19,7 @@ export function Hero() {
               className="eyebrow"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-accent-300 animate-pulse-soft" />
-              v0.2 · Drop-in PyTorch backend
+              {RELEASE_LABEL} · PyTorch reference backend
             </motion.div>
 
             <motion.h1
@@ -38,7 +38,7 @@ export function Hero() {
               transition={{ duration: 0.8, delay: 0.25 }}
               className="mt-7 max-w-xl text-[17px] leading-relaxed text-ink-300 sm:text-[19px]"
             >
-              AVQA is a production-grade attention backend for PyTorch. It
+              AVQA is an open-source alpha attention backend for PyTorch. It
                 turns the O(N²) wall that long-context Transformers hit into a
                 hierarchical, codebook-routed flow — preserving precision where
                 it matters, and skipping what doesn't.
@@ -51,10 +51,10 @@ export function Hero() {
               className="mt-10 flex flex-wrap items-center gap-3"
             >
               <a
-                href={`${GITHUB_URL}#installation`}
+                href={DOCS_URL}
                 className="btn-primary"
               >
-                Install now <ArrowRight className="h-4 w-4" />
+                Read the docs <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href={GITHUB_URL}
@@ -102,9 +102,9 @@ export function Hero() {
             </div>
             <div className="mt-6 grid grid-cols-3 gap-3 text-center">
               {[
-                { k: "O(N·log N)", v: "algorithmic", sub: "hierarchical" },
-                { k: "461", v: "tests", sub: "pytest suite" },
-                { k: "≥90%", v: "coverage", sub: "core path" },
+                { k: "O(N·K·D)", v: "routed", sub: "fixed budget" },
+                { k: "0.1.0", v: "release", sub: "public alpha" },
+                { k: "90%", v: "coverage gate", sub: "CI enforced" },
               ].map((m) => (
                 <div key={m.v} className="surface rounded-xl p-3">
                   <div className="font-display text-lg font-semibold text-white sm:text-xl">{m.k}</div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Github, BookOpen, Command, Menu, X } from "lucide-react";
-import { GITHUB_URL } from "../lib/links";
+import { DOCS_URL, GITHUB_URL } from "../lib/links";
 
 const links = [
   { href: "#why", label: "Why AVQA" },
@@ -26,7 +26,7 @@ export function Nav() {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed inset-x-0 top-0 z-50 flex justify-center pt-4"
+      className="fixed inset-x-0 top-10 z-50 flex justify-center pt-4 sm:top-11"
     >
       <div
         className={`pointer-events-auto flex w-[min(96%,1100px)] items-center justify-between rounded-full px-3 py-2 transition-all duration-500 ${
@@ -36,10 +36,8 @@ export function Nav() {
         }`}
       >
         <a href="#top" className="flex items-center gap-2 pl-2 pr-3 py-1">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-300 to-accent-600 shadow-[0_0_24px_-4px_rgba(124,140,255,0.6)]">
-            <span className="block h-2.5 w-2.5 rounded-sm bg-white" />
-          </span>
-          <span className="text-sm font-semibold tracking-tight text-white">AVQA</span>
+          <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
+          <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
         </a>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -52,10 +50,10 @@ export function Nav() {
 
         <div className="hidden md:flex items-center gap-2">
           <a
-            href={`${GITHUB_URL}#installation`}
+            href={DOCS_URL}
             className="nav-link rounded-full px-3 py-1.5 inline-flex items-center gap-1.5"
           >
-            <BookOpen className="h-3.5 w-3.5" /> Install
+            <BookOpen className="h-3.5 w-3.5" /> Docs
           </a>
           <a
             href={GITHUB_URL}
@@ -98,11 +96,11 @@ export function Nav() {
               ))}
               <div className="my-2 h-px bg-white/5" />
               <a
-                href={`${GITHUB_URL}#installation`}
+                href={DOCS_URL}
                 onClick={() => setOpen(false)}
                 className="rounded-lg px-3 py-2 text-sm text-ink-200 hover:bg-white/5 inline-flex items-center gap-2"
               >
-                <Command className="h-4 w-4" /> Install
+                <Command className="h-4 w-4" /> Docs
               </a>
               <a
                 href={GITHUB_URL}

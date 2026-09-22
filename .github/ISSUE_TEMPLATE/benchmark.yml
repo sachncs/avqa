@@ -1,0 +1,26 @@
+name: Benchmark or compatibility report
+description: Share reproducible performance, correctness, or environment evidence
+title: "[benchmark] "
+labels: ["benchmark"]
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include AVQA revision, Python, PyTorch, OS, CPU/GPU, CUDA, and optional dependencies.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Workload configuration
+      description: Include batch size, sequence lengths, heads, head dimension, precision, codebook, and routing budget.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results and reproduction steps
+    validations:
+      required: true

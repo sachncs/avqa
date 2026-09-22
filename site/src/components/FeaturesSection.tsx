@@ -48,7 +48,7 @@ const FEATURES = [
     icon: BookOpen,
     eyebrow: "Engineering",
     title: "Strict typing · full coverage",
-    desc: "mypy clean across the core package. 461 tests. ≥90% coverage. Production discipline from day one.",
+    desc: "Strict typing, a CI coverage gate, reproducible tests, and explicit alpha limitations for the core package.",
     accent: "from-glow/10",
   },
 ];

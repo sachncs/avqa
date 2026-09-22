@@ -3,13 +3,13 @@
 help:
 	@echo "AVQA development targets:"
 	@echo "  make install      - install package + dev deps"
-	@echo "  make dev          - install with all extras"
+	@echo "  make dev          - install with dev and visualization extras"
 	@echo "  make test         - run unit + integration tests"
 	@echo "  make lint         - ruff check"
 	@echo "  make format       - ruff format apply"
 	@echo "  make typecheck    - mypy strict on src/avqa/"
 	@echo "  make bench        - run benchmark suite"
-	@echo "  make coverage     - run tests with coverage gate (>=85%)"
+	@echo "  make coverage     - run tests with coverage gate (>=90%)"
 	@echo "  make clean        - remove build/cache artifacts"
 
 install:
@@ -17,7 +17,7 @@ install:
 	python -m pip install pytest pytest-cov pytest-benchmark ruff mypy
 
 dev:
-	python -m pip install -e ".[all]" --no-deps
+	python -m pip install -e ".[dev,viz]" --no-deps
 
 test:
 	PYTHONPATH=src pytest tests/ -q -m "not benchmark"

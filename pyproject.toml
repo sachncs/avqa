@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "avqa"
 dynamic = ["version"]
-description = "Adaptive Vector Quantized Attention — production-grade attention infrastructure for PyTorch"
+description = "Adaptive Vector Quantized Attention — an open-source PyTorch reference backend"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
@@ -74,6 +74,12 @@ pattern = "__version__ = \"(?P<version>[^\"]+)\""
 
 [tool.coverage.run]
 branch = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/avqa"]
+follow_imports = "skip"
 
 [tool.coverage.report]
 exclude_lines = [

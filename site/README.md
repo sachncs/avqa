@@ -1,6 +1,10 @@
 name: AVQA Product Site
 
-Premium product page for **AVQA — Adaptive Vector Quantized Attention**.
+Product site and documentation experience for **AVQA — Adaptive Vector Quantized Attention**.
+
+The deployed alpha site is available at `/avqa/`; the documentation experience
+is available at `/avqa/docs/`. Both are built from the same Vite application so
+links and release messaging stay synchronized.
 
 ## Stack
 
@@ -35,7 +39,8 @@ Live URL: https://sachncs.github.io/avqa/
 
 ```
 src/
-├── App.tsx                   # section composition
+├── App.tsx                   # product landing page
+├── DocsApp.tsx               # documentation experience at /avqa/docs/
 ├── main.tsx                  # bootstrap
 ├── components/
 │   ├── Nav.tsx
@@ -61,8 +66,9 @@ src/
 └── lib/
     └── links.ts
 public/
+├── avqa-mark.svg
+├── avqa-wordmark.svg
 ├── favicon.svg
-├── logo.svg
 └── .nojekyll
 ```
 

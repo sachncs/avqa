@@ -1,6 +1,6 @@
 import { ArrowRight, Github, Terminal } from "lucide-react";
 import { FadeIn } from "./FadeIn";
-import { GITHUB_URL } from "../lib/links";
+import { DOCS_URL, GITHUB_URL } from "../lib/links";
 
 export function CtaSection() {
   return (
@@ -19,8 +19,9 @@ export function CtaSection() {
                   <span className="text-gradient-accent">any PyTorch backend.</span>
                 </h2>
                 <p className="mt-6 max-w-xl text-[16px] leading-relaxed text-ink-300">
-                  Clone the repo, install from source, and you're two lines of
-                  code away from hierarchical attention. Apache 2.0.
+                  Start with the docs, install from source, and run the reference
+                  path locally. AVQA is Apache 2.0 and currently distributed as a
+                  public alpha.
                 </p>
               </div>
 
@@ -43,7 +44,7 @@ export function CtaSection() {
                   </pre>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <a href={`${GITHUB_URL}#installation`} className="btn-primary">
+                  <a href={DOCS_URL} className="btn-primary">
                     Read the docs <ArrowRight className="h-4 w-4" />
                   </a>
                   <a

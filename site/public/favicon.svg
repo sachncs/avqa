@@ -10,18 +10,8 @@
       <stop offset="1" stop-color="#9AA8FF"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#0C0F1C"/>
-  <g opacity="0.9">
-    <circle cx="14" cy="14" r="3.5" fill="url(#g)"/>
-    <circle cx="32" cy="14" r="3.5" fill="url(#g)"/>
-    <circle cx="50" cy="14" r="3.5" fill="url(#g)"/>
-    <circle cx="14" cy="32" r="3.5" fill="url(#g)"/>
-    <circle cx="32" cy="32" r="5" fill="url(#g2)"/>
-    <circle cx="50" cy="32" r="3.5" fill="url(#g)"/>
-    <circle cx="14" cy="50" r="3.5" fill="url(#g)"/>
-    <circle cx="32" cy="50" r="3.5" fill="url(#g)"/>
-    <circle cx="50" cy="50" r="3.5" fill="url(#g)"/>
-  </g>
-  <path d="M22 50 L32 18 L42 50 M26 40 L38 40"
-        stroke="url(#g2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect width="64" height="64" rx="16" fill="#06080F" stroke="#26304F" stroke-width="2"/>
+  <path d="M32 13v10M18 29l14-6 14 6M18 29v12M32 23v18M46 29v12" fill="none" stroke="#6877E9" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="32" cy="13" r="3" fill="#fff"/><circle cx="18" cy="29" r="3" fill="#9AA8FF"/><circle cx="32" cy="23" r="3" fill="#9AA8FF"/><circle cx="46" cy="29" r="3" fill="#9AA8FF"/>
+  <path d="M20 50 32 28l12 22M25 42h14" stroke="url(#g2)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

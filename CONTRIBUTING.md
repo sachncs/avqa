@@ -1,7 +1,10 @@
 # Contributing
 
 Thank you for your interest in AVQA. This project is an **independent,
-community-driven** implementation of the AVQ-Attention algorithm.
+community-driven** public-alpha implementation of the AVQ-Attention algorithm.
+
+Before opening a pull request, read the [architecture guide](docs/architecture.md),
+the [benchmark protocol](BENCHMARKS.md), and the [release boundaries](RELEASE.md).
 
 ## Code of Conduct
 
@@ -31,7 +34,7 @@ Open a GitHub issue describing:
 2. **Pick** an issue (or open one for new ideas).
 3. **Implement** following the existing patterns; keep the diff small and
    focused on one issue.
-4. **Test** with `make test` (all 402 tests must pass) and `make lint`.
+4. **Test** with `make test`, `make lint`, and `make typecheck`.
 5. **Document** with Google-style docstrings and Google-style type
    annotations.
 6. **Commit** with a Conventional Commit message.
