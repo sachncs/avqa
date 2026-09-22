@@ -1,7 +1,7 @@
 import { ArrowRight, Github, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { HeroVisual } from "./visuals/HeroVisual";
-import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "../lib/links";
+import { DOCS_URL, GITHUB_URL, RELEASE_LABEL, RELEASE_VERSION } from "../lib/links";
 
 export function Hero() {
   return (
@@ -103,7 +103,7 @@ export function Hero() {
             <div className="mt-6 grid grid-cols-3 gap-3 text-center">
               {[
                 { k: "K × D", v: "routed work", sub: "fixed budget" },
-                { k: "0.1.0", v: "release", sub: "public alpha" },
+                { k: `v${RELEASE_VERSION}`, v: "release", sub: "public alpha" },
                 { k: "90%", v: "coverage gate", sub: "CI enforced" },
               ].map((m) => (
                 <div key={m.v} className="surface rounded-xl p-3">

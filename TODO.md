@@ -282,6 +282,9 @@ are not shipped capabilities. See
       failures (commit `9870aba`).
 - [x] TASK-P.027 Validate and normalize resolved KV-cache tensors at the
       attention pipeline boundary (commit `38381d7`).
+- [ ] TASK-P.028 Inject the canonical Python release version into the frontend
+      build and remove duplicated public version literals (implementation
+      pending).
 
 ### Cleanup pass (2026-07-21)
 
