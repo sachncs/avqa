@@ -254,6 +254,8 @@ are not shipped capabilities. See
       3.10–3.12 support range (commit `62e0527`).
 - [x] TASK-P.013 Make first-time logger configuration thread-safe so concurrent
       application startup cannot install duplicate handlers (commit `ef6b520`).
+- [x] TASK-P.014 Make paged KV-cache appends transactional across conversion
+      and concatenation failures (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 

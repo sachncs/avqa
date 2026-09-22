@@ -412,10 +412,49 @@ class PagedKVCache(KVCache):
                     f"paged KV cache is full ({self.max_pages} pages); "
                     f"append requires {required_pages} pages"
                 )
+
+        # Stage page wrappers locally and publish them only after every
+        # conversion and concatenation succeeds. Existing tensors are shared
+        # until a staged page is replaced, so a failed append cannot mutate
+        # the live cache or expose a partially written page.
+        staged_pages = [CacheEntry(page.key, page.value, page.positions) for page in self.pages]
+
+        def allocate_staged_page() -> None:
+            """Allocate a page in the transaction-local page list."""
+            if self.max_pages > 0 and len(staged_pages) >= self.max_pages:
+                raise NotInitializedError(f"paged KV cache is full ({self.max_pages} pages)")
+            staged_pages.append(
+                CacheEntry(
+                    key=torch.zeros(
+                        int(key.shape[0]),
+                        self.num_heads,
+                        0,
+                        self.head_dim_k,
+                        dtype=self.dtype,
+                        device=self.device,
+                    ),
+                    value=torch.zeros(
+                        int(key.shape[0]),
+                        self.num_heads,
+                        0,
+                        self.head_dim_v,
+                        dtype=self.dtype,
+                        device=self.device,
+                    ),
+                    positions=torch.zeros(0, dtype=torch.long, device=self.device),
+                )
+            )
+
+        def current_staged_page() -> CacheEntry:
+            """Return the current staged page, allocating when necessary."""
+            if not staged_pages or staged_pages[-1].key.shape[-2] == self.page_size:
+                allocate_staged_page()
+            return staged_pages[-1]
+
         cursor = 0
         position_start = self.size
         while cursor < T:
-            current_page = self.current_page(batch_size=int(key.shape[0]))
+            current_page = current_staged_page()
             free = self.page_size - current_page.key.shape[-2]
             take = min(free, T - cursor)
             k_chunk = key[..., cursor : cursor + take, :]
@@ -435,7 +474,8 @@ class PagedKVCache(KVCache):
             )
             cursor += take
             if current_page.key.shape[-2] == self.page_size and cursor < T:
-                self.allocate_page(batch_size=int(key.shape[0]))
+                allocate_staged_page()
+        self.pages = staged_pages
 
     def current_page(self, batch_size: int = 1) -> CacheEntry:
         """Return the most recent page, allocating one if none exists."""

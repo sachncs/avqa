@@ -255,6 +255,25 @@ class TestPagedKVCache:
         assert cache.size == 0
         assert cache.num_pages == 0
 
+    def test_conversion_failure_is_atomic(self) -> None:
+        """A tensor conversion failure cannot partially append a page."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.randn(1, 1, 2, 4)
+        original_value = torch.randn(1, 1, 2, 4)
+        cache.append(original_key, original_value)
+
+        with pytest.raises((NotImplementedError, RuntimeError)):
+            cache.append(
+                torch.ones(1, 1, 1, 4),
+                torch.ones(1, 1, 1, 4, device="meta"),
+            )
+
+        actual_key, actual_value = cache.lookup()
+        assert cache.size == 2
+        assert cache.num_pages == 1
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
+
     def test_reset(self) -> None:
         """reset() drops all pages."""
         cache = PagedKVCache(page_size=4, num_heads=1, head_dim_k=4, head_dim_v=4)
