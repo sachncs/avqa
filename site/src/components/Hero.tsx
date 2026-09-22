@@ -78,7 +78,7 @@ export function Hero() {
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="h-1 w-1 rounded-full bg-ink-400" />
-                Python 3.10–3.12
+                Python 3.10–3.15*
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="h-1 w-1 rounded-full bg-ink-400" />

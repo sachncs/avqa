@@ -350,6 +350,17 @@ are not shipped capabilities. See
       (commit `10315a4`).
 - [x] TASK-P.061 Restore formatter compliance for the expanded CI lint scope
       (commit `9f7300b`).
+- [~] TASK-P.062 Expand package Python metadata and user-facing support
+      boundaries through Python 3.15, keeping unvalidated runtime caveats
+      explicit until compatible PyTorch wheels are available.
+- [ ] TASK-P.063 Enforce Google Python/TypeScript style conventions and
+      complete public API documentation with automated CI checks.
+- [ ] TASK-P.064 Replace conditional component factory ladders with tested
+      registry-backed polymorphic extension points.
+- [ ] TASK-P.065 Redesign the product landing page with a coherent brand,
+      practical first-success path, and evidence-led product hierarchy.
+- [ ] TASK-P.066 Expand practitioner and researcher docs with support,
+      architecture, API, limitation, and reproducibility guidance.
 
 ### Cleanup pass (2026-07-21)
 

@@ -31,6 +31,8 @@ def supported_python_range() -> tuple[tuple[int, int], tuple[int, int]]:
     upper = (int(range_match.group(3)), int(range_match.group(4)))
     if lower >= upper:
         raise ValueError("project.requires-python has an empty supported range")
+    if upper[1] == 0:
+        raise ValueError("project.requires-python upper bound must be a later minor version")
     return lower, upper
 
 

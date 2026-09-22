@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Adaptive Vector Quantized Attention — an open-source PyTorch reference backend"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.16"
 authors = [
   { name = "sachin", email = "sachncs@gmail.com" },
 ]
@@ -29,6 +29,9 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -77,7 +80,7 @@ pattern = "__version__ = \"(?P<version>[^\"]+)\""
 branch = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 strict = true
 files = ["src/avqa"]
 follow_imports = "skip"

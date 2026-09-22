@@ -2,7 +2,7 @@
   <h1 align="center">AVQA</h1>
   <p align="center">Adaptive Vector Quantized Attention for PyTorch.</p>
   <p align="center">
-    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python"></a>
+    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10--3.15-blue" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
     <a href="https://github.com/sachncs/avqa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/avqa/ci.yml?branch=main" alt="CI"></a>
     <a href="https://github.com/sachncs/avqa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/avqa" alt="Stars"></a>
@@ -251,7 +251,7 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Category | Technology |
 |----------|------------|
-| Language | Python 3.10–3.12 |
+| Language | Python 3.10–3.15 |
 | Framework | [PyTorch](https://pytorch.org/) 2.1+ |
 | Build | [Hatchling](https://hatch.pypa.io/) |
 | Lint/Format | [ruff](https://docs.astral.sh/ruff/) |
@@ -264,12 +264,17 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Area | Public-alpha baseline |
 |------|------------------------|
-| Python | 3.10, 3.11, 3.12 |
+| Python | 3.10–3.15 (3.15 declared; see the wheel/runtime validation note) |
 | PyTorch | 2.1+ |
 | Backend | Pure PyTorch reference backend |
 | CUDA/vendor kernels | Not guaranteed by the core distribution |
 | Framework adapters | Not bundled; see `src/avqa/integrations/` |
 | Stability | API and performance may change before v1.0 |
+
+Python 3.10–3.14 are covered by the runtime CI matrix. Python 3.15 is included
+in package metadata, but has not been runtime-tested because compatible PyTorch
+wheels are not yet available. CUDA execution and CUDA/Triton numerical or
+performance validation have not been tested in a CUDA environment.
 
 See the [documentation site](https://sachncs.github.io/avqa/docs/) for the
 practical guide, architecture notes, benchmark protocol, and limitations.
