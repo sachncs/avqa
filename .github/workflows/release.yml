@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the verified artifacts to PyPI using trusted publishing"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -48,7 +55,9 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
     permissions:
+      contents: read
       id-token: write
     runs-on: ubuntu-latest
     environment:
@@ -61,7 +70,7 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist/
 
   github-release:
     name: GitHub Release

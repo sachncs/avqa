@@ -20,6 +20,9 @@ All notable changes to AVQA are documented here. Versions follow
   landmarks, labels, focus behavior, and Escape dismissal; the Code of
   Conduct names a confidential reporting path; and historical compliance
   coverage is labeled as historical evidence rather than current coverage.
+- **PyPI release safety** — version tags verify and build artifacts without
+  publishing by default; PyPI publication requires an explicit manual
+  dispatch, the protected `pypi` environment, and OIDC trusted publishing.
 - **Paged KV-cache restart safety** — page tensors and token positions now
   survive `state_dict` round trips, with validation for malformed checkpoints,
   batch changes, and invalid cache dimensions.
