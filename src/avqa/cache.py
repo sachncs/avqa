@@ -129,6 +129,16 @@ class InMemoryKVCache(KVCache):
         device: str | torch.device = "cpu",
         dtype: torch.dtype = torch.float32,
     ) -> None:
+        if num_heads <= 0 or head_dim_k <= 0 or head_dim_v <= 0 or max_size < 0:
+            raise ConfigurationError(
+                "cache dimensions must be positive and max_size must be non-negative",
+                {
+                    "num_heads": num_heads,
+                    "head_dim_k": head_dim_k,
+                    "head_dim_v": head_dim_v,
+                    "max_size": max_size,
+                },
+            )
         self.num_heads = num_heads
         self.head_dim_k = head_dim_k
         self.head_dim_v = head_dim_v
@@ -317,10 +327,16 @@ class PagedKVCache(KVCache):
         device: str | torch.device = "cpu",
         dtype: torch.dtype = torch.float32,
     ) -> None:
-        if page_size <= 0:
+        if page_size <= 0 or num_heads <= 0 or head_dim_k <= 0 or head_dim_v <= 0 or max_pages < 0:
             raise ConfigurationError(
-                f"page_size must be > 0, got {page_size}",
-                {"page_size": page_size},
+                "page size and dimensions must be positive; max_pages must be non-negative",
+                {
+                    "page_size": page_size,
+                    "num_heads": num_heads,
+                    "head_dim_k": head_dim_k,
+                    "head_dim_v": head_dim_v,
+                    "max_pages": max_pages,
+                },
             )
         self.page_size = page_size
         self.num_heads = num_heads
@@ -344,6 +360,7 @@ class PagedKVCache(KVCache):
         value = value.to(device=self.device, dtype=self.dtype)
         T = key.shape[-2]
         cursor = 0
+        position_start = self.size
         while cursor < T:
             current_page = self.current_page(batch_size=int(key.shape[0]))
             if current_page.key.shape[0] != key.shape[0]:
@@ -358,6 +375,17 @@ class PagedKVCache(KVCache):
             v_chunk = value[..., cursor : cursor + take, :]
             current_page.key = torch.cat([current_page.key, k_chunk], dim=-2)
             current_page.value = torch.cat([current_page.value, v_chunk], dim=-2)
+            current_page.positions = torch.cat(
+                [
+                    current_page.positions,
+                    torch.arange(
+                        position_start + cursor,
+                        position_start + cursor + take,
+                        device=self.device,
+                        dtype=torch.long,
+                    ),
+                ]
+            )
             cursor += take
             if current_page.key.shape[-2] == self.page_size and cursor < T:
                 self.allocate_page(batch_size=int(key.shape[0]))
@@ -414,23 +442,71 @@ class PagedKVCache(KVCache):
         self.pages = []
 
     def state_dict(self) -> dict[str, torch.Tensor]:
-        """Serialize page table only (data lives on GPU in production)."""
-        return {
+        """Serialize page metadata and tensor contents for restart safety."""
+        state: dict[str, torch.Tensor] = {
             "schema_version": torch.tensor(1, dtype=torch.int32),
             "page_size": torch.tensor(self.page_size, dtype=torch.int32),
             "num_pages": torch.tensor(len(self.pages), dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
         }
+        for index, page in enumerate(self.pages):
+            state[f"page_{index}_key"] = page.key.detach().clone()
+            state[f"page_{index}_value"] = page.value.detach().clone()
+            state[f"page_{index}_positions"] = page.positions.detach().clone()
+        return state
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
-        """Restore metadata from a state dict (data not persisted)."""
+        """Restore page metadata and tensor contents from a checkpoint."""
         if "page_size" in state and int(state["page_size"]) != self.page_size:
             raise ShapeError(
                 "page_size mismatch",
                 expected=self.page_size,
                 actual=int(state["page_size"]),
             )
-        self.reset()
+        num_pages = int(state.get("num_pages", torch.tensor(0)))
+        if num_pages < 0:
+            raise ShapeError("num_pages must be non-negative", expected=">= 0", actual=num_pages)
+        restored: list[CacheEntry] = []
+        for index in range(num_pages):
+            key = state.get(f"page_{index}_key")
+            value = state.get(f"page_{index}_value")
+            positions = state.get(f"page_{index}_positions")
+            if key is None or value is None:
+                raise ShapeError(
+                    "paged cache checkpoint is missing page tensors",
+                    expected=f"page_{index}_key/page_{index}_value",
+                    actual="missing",
+                )
+            validate_cache_tensors(
+                key,
+                value,
+                num_heads=self.num_heads,
+                head_dim_k=self.head_dim_k,
+                head_dim_v=self.head_dim_v,
+                name=f"serialized page {index}",
+            )
+            if key.shape[-2] > self.page_size:
+                raise ShapeError(
+                    "serialized page exceeds page_size",
+                    expected=f"<= {self.page_size}",
+                    actual=int(key.shape[-2]),
+                )
+            if positions is None:
+                positions = torch.arange(key.shape[-2], device=self.device, dtype=torch.long)
+            if positions.ndim != 1 or positions.shape[0] != key.shape[-2]:
+                raise ShapeError(
+                    "serialized page positions must match token count",
+                    expected=int(key.shape[-2]),
+                    actual=tuple(positions.shape),
+                )
+            restored.append(
+                CacheEntry(
+                    key=key.to(device=self.device, dtype=self.dtype),
+                    value=value.to(device=self.device, dtype=self.dtype),
+                    positions=positions.to(device=self.device, dtype=torch.long),
+                )
+            )
+        self.pages = restored
 
     @property
     def size(self) -> int:

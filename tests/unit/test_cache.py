@@ -22,6 +22,20 @@ class TestInMemoryKVCache:
         cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
         assert cache.size == 0
 
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"num_heads": 0},
+            {"head_dim_k": 0},
+            {"head_dim_v": 0},
+            {"max_size": -1},
+        ],
+    )
+    def test_rejects_invalid_configuration(self, kwargs: dict[str, int]) -> None:
+        """Invalid cache capacities fail at construction time."""
+        with pytest.raises(ConfigurationError):
+            InMemoryKVCache(**kwargs)
+
     def test_append_grows(self) -> None:
         """Append increases cache size."""
         cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
@@ -73,6 +87,25 @@ class TestInMemoryKVCache:
         cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
         with pytest.raises(ShapeError, match="num_heads"):
             cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
+
+    @pytest.mark.parametrize("field", ["head_dim_k", "head_dim_v"])
+    def test_load_state_dict_rejects_dimension_mismatch(self, field: str) -> None:
+        """Checkpoint dimensions are part of the cache contract."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=6)
+        with pytest.raises(ShapeError, match=field):
+            cache.load_state_dict({field: torch.tensor(99, dtype=torch.int32)})
+
+    def test_load_state_dict_restores_tensor_contents(self) -> None:
+        """Contiguous cache contents survive a checkpoint round trip."""
+        source = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=6)
+        key = torch.randn(2, 1, 3, 4)
+        value = torch.randn(2, 1, 3, 6)
+        source.append(key, value)
+        restored = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=6)
+        restored.load_state_dict(source.state_dict())
+        actual_key, actual_value = restored.lookup()
+        assert torch.equal(actual_key, key)
+        assert torch.equal(actual_value, value)
 
     def test_load_state_dict_mismatch_is_avqaerror(self) -> None:
         """All cache raises are AVQAError subclasses."""
@@ -190,20 +223,48 @@ class TestPagedKVCache:
         assert torch.equal(actual_key, key)
         assert torch.equal(actual_value, value)
 
+    def test_rejects_batch_change_on_existing_page(self) -> None:
+        """Appending another stream cannot reuse an existing page."""
+        cache = PagedKVCache(page_size=4, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+        with pytest.raises(ShapeError, match="batch size"):
+            cache.append(torch.randn(2, 1, 1, 4), torch.randn(2, 1, 1, 4))
+
+    def test_rejects_invalid_configuration(self) -> None:
+        """Paged cache validates dimensions and capacity."""
+        with pytest.raises(ConfigurationError):
+            PagedKVCache(num_heads=0)
+        with pytest.raises(ConfigurationError):
+            PagedKVCache(max_pages=-1)
+
+    def test_load_state_dict_rejects_missing_page(self) -> None:
+        """Partial page checkpoints fail clearly."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="missing page"):
+            cache.load_state_dict({"num_pages": torch.tensor(1)})
+
     def test_rejects_wrong_value_dimension(self) -> None:
         """Paged cache validates value dimensions before allocation."""
         cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=6)
         with pytest.raises(ShapeError, match="head dimension"):
             cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
 
-    def test_state_dict_round_trip_resets_pages(self) -> None:
-        """Paged metadata can be loaded without leaving stale pages."""
+    def test_state_dict_round_trip_restores_pages(self) -> None:
+        """Paged tensor contents survive a checkpoint round trip."""
         cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
-        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        key = torch.randn(1, 1, 3, 4)
+        value = torch.randn(1, 1, 3, 4)
+        cache.append(key, value)
         state = cache.state_dict()
-        cache.load_state_dict(state)
-        assert cache.size == 0
-        assert cache.num_pages == 0
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        restored.load_state_dict(state)
+        actual_key, actual_value = restored.lookup()
+        assert restored.size == 3
+        assert restored.num_pages == 2
+        assert torch.equal(actual_key, key)
+        assert torch.equal(actual_value, value)
+        assert torch.equal(restored.pages[0].positions, torch.tensor([0, 1]))
+        assert torch.equal(restored.pages[1].positions, torch.tensor([2]))
 
 
 class TestKVCacheInterface:
