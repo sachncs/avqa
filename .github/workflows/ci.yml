@@ -87,6 +87,9 @@ jobs:
             --cov-fail-under=90 -q
       - name: Integration tests
         run: pytest tests/integration -q
+      - name: Execute public examples
+        if: matrix.python-version == '3.12'
+        run: bash scripts/check_examples.sh
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7

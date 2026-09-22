@@ -219,6 +219,11 @@ remain blocked on the CUDA-matrix CI runner. See
 `PUBLICATION.md` "Outstanding Gaps Before Publication" and `OPTIMIZATIONS.md`
 "Optimization Backlog" for the cross-referenced gates.
 
+### Public-alpha reliability follow-ups
+
+- [ ] TASK-P.001 Execute every checked-in example in CI and compile examples in
+      the test suite so public API walkthroughs cannot silently drift.
+
 ### Cleanup pass (2026-07-21)
 
 The following catch-up items are owned by the sweep (verified by the
