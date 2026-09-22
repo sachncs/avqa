@@ -304,8 +304,8 @@ are not shipped capabilities. See
       (commit `7c334bb`).
 - [x] TASK-P.038 Apply ExecutionConfig.seed during module initialization without
       mutating caller RNG state (commit `149f6d7`).
-- [ ] TASK-P.039 Make KV-cache state transitions and snapshots thread-safe
-      (implementation pending).
+- [x] TASK-P.039 Make KV-cache state transitions and snapshots thread-safe
+      (commit `a4083cb`).
 
 ### Cleanup pass (2026-07-21)
 
