@@ -27,7 +27,7 @@
 | Benchmarks Reproduced | 6 (EXP-0001 through EXP-0006) |
 | GPU Benchmarks Pending CUDA Runner | 4 (OPT-0001 GPU, OPT-0003 multi-seed, OPT-0005 multi-seed, OPT-0005 downstream quality) |
 
-The project has crossed from "production-grade implementation" into
+The project has crossed from a release-oriented reference implementation into
 the first two algorithmic contributions beyond paper reproduction
 (BCAR/OPT-0003 codebook side, HVAQ/OPT-0005 attention side). Two
 publication candidates (PUB-0001 BCAR, PUB-0002 HVAQ) are staged
@@ -240,7 +240,7 @@ validation and at least one downstream quality ablation.
 | Question | Answer |
 |----------|--------|
 | Has this idea already been published? | The algorithm is the paper's contribution; AVQA is an independent implementation. |
-| How does AVQA differ from the reference implementation? | A production-grade Python package with a Triton backend; published reference artifacts are paper-level pseudocode. |
+| How does AVQA differ from the reference implementation? | A public-alpha Python reference package; Triton acceleration and framework adapters are not shipped. |
 | Is the contribution algorithmic, systems, or engineering? | Mostly engineering; one systems contribution (Triton kernels) currently Proposed. |
 | Is the improvement incremental or fundamental? | Incremental engineering so far. |
 | Would the contribution remain valuable without benchmark gains? | Yes — the package itself, the integration layer, the harness, and the SPEC repopulation are valuable artifacts beyond benchmark wins. |

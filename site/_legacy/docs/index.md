@@ -5,7 +5,7 @@ title: AVQA
 
 # AVQA — Adaptive Vector Quantized Attention
 
-AVQA is a production-grade Python library implementing Adaptive Vector
+AVQA is a public-alpha Python reference implementation of Adaptive Vector
 Quantized Attention (AVQ-Attention) as a drop-in attention backend for
 PyTorch-based Transformer architectures.
 

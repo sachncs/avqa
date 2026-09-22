@@ -43,7 +43,7 @@ export function Footer() {
               <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
             </a>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-ink-400">
-              Adaptive Vector Quantized Attention for PyTorch. Production-grade
+              Adaptive Vector Quantized Attention for PyTorch. Public-alpha
               reference implementation, Apache 2.0.
             </p>
             <div className="mt-6 flex items-center gap-2">

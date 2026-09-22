@@ -70,7 +70,8 @@ class CodebookConfig:
             Set to ``0.0`` to disable.
         max_depth: Maximum hierarchy depth. Currently only ``2`` (parent +
             child) is supported. Depths > 2 will raise at construction
-            time. Arbitrary depth is planned for v0.2.0 (spec §2.7, §3.8).
+            time. Arbitrary depth is deferred beyond the public-alpha release
+            (spec §2.7, §3.8).
         bcar_enabled: When ``True`` the AVQAttention forward pass applies
             an inference-time EMA update (BCAR, OPT-0003) to the
             hierarchical codebook. Defaults to ``False`` so the
@@ -105,7 +106,7 @@ class CodebookConfig:
             msg = (
                 f"max_depth={self.max_depth} is not yet supported; "
                 f"only max_depth=2 (parent + child) is implemented. "
-                f"Arbitrary tree depth is planned for v0.2.0."
+                "Arbitrary tree depth is deferred beyond the public-alpha release."
             )
             raise ConfigurationError(msg, {"max_depth": self.max_depth})
 

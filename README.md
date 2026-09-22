@@ -53,7 +53,8 @@ implementation tracker is [TODO.md](TODO.md).
   residual norms, budget decay).
 - **HVAQ (Hopfield-VQ-Attention)** with per-query temperature schedules
   (entropy, linear) and learnable parameters.
-- **torch.compile** opt-in for reduced Python overhead (CPU and GPU).
+- **torch.compile** opt-in for reduced Python overhead where supported by the
+  installed PyTorch build.
 - **Strict typing, zero-warning lint, ≥90% test coverage** on the
   core package.
 

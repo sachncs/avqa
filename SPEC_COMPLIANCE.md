@@ -5,6 +5,11 @@
 > **Purpose:** Requirements Traceability Matrix (RTM)
 >
 > This document is the authoritative mapping between the engineering specification (`SPEC.md`) and the implementation.
+
+> **Release boundary:** `SPEC.md` is forward-looking. This matrix records only
+> the public-alpha implementation that is actually shipped. Triton kernels and
+> external framework adapters are deferred and are not part of this release's
+> support contract.
 >
 > Every normative requirement defined in `SPEC.md` SHALL be traceable to:
 >
@@ -32,14 +37,14 @@ Evidence consists of source code, tests, benchmarks, documentation, and review h
 The requirement index below maps each tracked requirement to its
 evidence in the repository. IDs follow the v2 ledger: `REQ-<chapter>.<section>.<n>`.
 
-## Implementation Coverage Summary (commit `e7c818d`)
+## Implementation Coverage Summary (public alpha v0.1.0)
 
 | Metric | Value |
 |--------|-------|
-| Source modules (`src/avqa/`) | 24 (incl. `triton/`) |
-| Tracked Triton kernel modules | 4 (vq, parent_attention, child_attention, correction) |
-| Public pytest tests | 461 |
-| Skipped tests (optional deps only) | 9 |
+| Source modules (`src/avqa/`) | Pure-PyTorch package; no Triton package shipped |
+| Tracked Triton kernel modules | None in this release; optimization remains proposed |
+| Public pytest tests | Maintained by CI collection and coverage gates |
+| Skipped tests | Optional/device-specific cases are reported by CI |
 | Tracked SHALL statements fulfilled | (in-progress, see table below) |
 | Coverage gate | 90% |
 
@@ -56,7 +61,7 @@ evidence in the repository. IDs follow the v2 ledger: `REQ-<chapter>.<section>.<
 | REQ-3.9.001 | Adaptive refinement with selectable policies | `src/avqa/refinement.py:1-320` | `tests/unit/test_refinement.py` | Verified (M7 / `e37d70c`) |
 | REQ-3.10.001 | Routing subsystem (TopP, Threshold, Budget) | `src/avqa/routing.py:1-160` | `tests/unit/test_routing.py` | Verified (M5 / `c203ee2`) |
 | REQ-3.11.001 | Merge strategies (probability, weighted, logit, normalized) | `src/avqa/merge.py` | `tests/unit/test_merge.py` | Verified (M6 / `de51f00`) |
-| REQ-3.12.001 | Multiple execution backends (Torch + Triton, TritonBackend delegates to kernels when available) | `src/avqa/backend.py:32-326` | `tests/unit/test_backend.py` | Verified (TorchBackend only; Triton package removed in 0.1.0 — see CHANGELOG `[0.1.0] Removed`) |
+| REQ-3.12.001 | Backend abstraction with the shipped Torch backend | `src/avqa/backend.py` | `tests/unit/test_backend.py` | Verified for TorchBackend; Triton is deferred |
 | REQ-3.13.001 | Autoregressive decoding cache (InMemory + Paged) | `src/avqa/cache.py:1-320` | `tests/unit/test_cache.py` | Verified |
 | REQ-3.14.001 | Hugging Face integration | (removed — see CHANGELOG `[0.1.0] Removed`) | n/a — `tests/integration/test_integrations.py` removed | Deferred; users supply their own adapters via `src/avqa/integrations/` placeholder |
 | REQ-3.15.001 | vLLM paged-attention adapter | (removed — see CHANGELOG `[0.1.0] Removed`) | n/a — `tests/unit/test_vllm_adapter.py` removed | Deferred; users supply their own paged-attention adapter |

@@ -2,7 +2,7 @@
 
 ## 1. Vision
 
-AVQA (Adaptive Vector Quantized Attention) is an open-source, production-grade Python library implementing **Adaptive Vector Quantized Attention (AVQ-Attention)** as described in the paper:
+AVQA (Adaptive Vector Quantized Attention) is an open-source, release-oriented Python reference library implementing **Adaptive Vector Quantized Attention (AVQ-Attention)** as described in the paper:
 
 **Adaptive Vector Quantized Attention (AVQ-Attention)**
 https://arxiv.org/html/2607.12789v1
@@ -4641,4 +4641,3 @@ identical to the paper's for any positive ε.
 ---
 
 This chapter closes the v0.3.1 specification set.
-
