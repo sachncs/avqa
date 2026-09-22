@@ -271,7 +271,7 @@ are not shipped capabilities. See
 - [x] TASK-P.021 Reconcile README test commands with the benchmark-only
       performance boundary (commit `1dff96a`).
 - [x] TASK-P.022 Run the repository test target in tagged-release verification
-      to keep release and CI support boundaries aligned (commit `pending`).
+      to keep release and CI support boundaries aligned (commit `52e76f2`).
 
 ### Cleanup pass (2026-07-21)
 
