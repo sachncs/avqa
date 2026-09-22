@@ -275,7 +275,7 @@ are not shipped capabilities. See
 - [x] TASK-P.023 Fail closed when distribution smoke tests see ambiguous wheel
       or sdist artifacts (commit `1585fe1`).
 - [x] TASK-P.024 Validate public attention masks before pipeline execution,
-      including KV-cache-resolved lengths (commit `pending`).
+      including KV-cache-resolved lengths (commit `291aeee`).
 
 ### Cleanup pass (2026-07-21)
 
