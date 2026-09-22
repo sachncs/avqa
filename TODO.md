@@ -306,8 +306,8 @@ are not shipped capabilities. See
       mutating caller RNG state (commit `149f6d7`).
 - [x] TASK-P.039 Make KV-cache state transitions and snapshots thread-safe
       (commit `a4083cb`).
-- [ ] TASK-P.040 Restore CI formatter compliance after initialization refactor
-      (implementation pending).
+- [x] TASK-P.040 Restore CI formatter compliance after initialization refactor
+      (commit `fb1794b`).
 
 ### Cleanup pass (2026-07-21)
 
