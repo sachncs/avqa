@@ -1,5 +1,5 @@
 import { ArrowLeft, BookOpen, Github, Menu, Network, Sigma } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "./lib/links";
 
@@ -19,6 +19,9 @@ const PAGES: { id: Page; label: string; group: string }[] = [
 export default function DocsApp() {
   const [page, setPage] = useState<Page>(pageFromPath());
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    document.title = `AVQA docs · ${PAGES.find((item) => item.id === page)?.label ?? "Overview"}`;
+  }, [page]);
   const selectPage = (next: Page) => {
     setPage(next);
     setMenuOpen(false);
