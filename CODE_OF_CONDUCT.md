@@ -34,13 +34,11 @@ Examples of unacceptable behavior include:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may
-be reported to the community leaders responsible for enforcement at
-the issue tracker. All complaints will be reviewed and investigated
-promptly and fairly.
-
-To report an enforcement concern, contact the project maintainer through the
-private contact method listed in the repository profile. Do not post sensitive
-details publicly.
+be reported privately to the project maintainer,
+[sachncs](https://github.com/sachncs), through a private contact method. Do
+not post sensitive details in a public issue.
+Reports will be reviewed and investigated promptly and fairly; retaliation
+against a reporter is not acceptable.
 
 ## Attribution
 

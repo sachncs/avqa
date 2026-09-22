@@ -7,6 +7,15 @@ All notable changes to AVQA are documented here. Versions follow
 
 ### Fixed
 
+- **Paged KV-cache restart safety** — page tensors and token positions now
+  survive `state_dict` round trips, with validation for malformed checkpoints,
+  batch changes, and invalid cache dimensions.
+- **Release and CI gates** — wheel/sdist installation smoke tests, strict
+  mypy, frontend lint/typecheck/build, metadata synchronization, and security
+  auditing now run as explicit release checks.
+- **Public-alpha documentation drift** — removed stale production claims,
+  corrected the compliance ledger for removed Triton/adapters, and aligned the
+  compatibility matrix with the CPU-validated support contract.
 - **Visualizer import** (`from avqa import Visualizer`): the class was
   listed in `__all__` but never imported in `__init__.py`. Now exposed.
 - **Integration tests collection**: `tests/integration/test_avqa_end_to_end.py`

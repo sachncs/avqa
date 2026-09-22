@@ -48,10 +48,9 @@ validation on the target PyTorch/CUDA environment.
 
 ### Known Limitations
 
-- Spec chapters 11-15 are not implemented in detail; the public API
-  surfaces are honored, but kernel-internals, profiling-internals,
-  visualization-rendering, and serialization-schema internals are
-  left to vendor libraries.
+- Optimized vendor-kernel internals described in spec chapters 11-15 are not
+  shipped. Profiling, visualization, and serialization are available as
+  reference features, but are not production-serving guarantees.
 - Speculative decoding, FAISS, FP8/INT8 quantization, and per-batch
   dead-code resampling are deferred to future releases.
 - Hugging Face, vLLM, FlashAttention, and xFormers adapters were

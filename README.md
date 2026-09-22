@@ -273,9 +273,11 @@ practical guide, architecture notes, benchmark protocol, and limitations.
 
 ## Roadmap
 
-- **v0.1.0** — Current: public-alpha reference implementation, CI coverage gate
-- **v0.2.0** — BCAR + HVAQ + multi-pass refinements (algorithmic contributions)
-- **v1.0.0** — Stable API, PyPI release, validated compatibility matrix
+- **v0.1.0** — Current: public-alpha reference implementation with BCAR,
+  HVAQ, multi-pass refinement, release gates, and reproducibility guidance
+- **Next minor** — Prioritized improvements will be selected from validated
+  benchmark evidence; optimized kernels and framework adapters are not promised
+- **v1.0.0** — Stable API, PyPI release, and a validated compatibility matrix
 
 ---
 

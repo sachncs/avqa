@@ -4,7 +4,8 @@ If you discover a security vulnerability in AVQA, do **not** open a public
 issue. Use GitHub's private **Security Advisories** flow:
 [Report a vulnerability privately](https://github.com/sachncs/avqa/security/advisories/new).
 If that channel is unavailable, contact the maintainer listed in the GitHub
-repository profile and include the minimum reproducible details.
+repository profile through a private contact method and include the minimum
+reproducible details. Do not include secrets in an issue.
 
 We aim to acknowledge reports within 72 hours and to publish a fix or
 mitigation within 30 days for high-severity issues.

@@ -18,4 +18,7 @@ See [`SECURITY.md`](./SECURITY.md).
 
 ## Maintainer availability
 
-This is a personal project maintained on a best-effort basis.
+This is a personal project maintained on a best-effort basis by
+[sachncs](https://github.com/sachncs). Public issues are triaged as time
+allows; a reproducible bug report is the fastest route to an actionable reply.
+For private security reports, use the channel documented in `SECURITY.md`.
