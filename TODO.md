@@ -300,8 +300,8 @@ are not shipped capabilities. See
       (commit `ee0d2c0`).
 - [x] TASK-P.036 Reject non-finite inputs in StreamingVQBuffer before mutation
       (commit `a7d3d99`).
-- [ ] TASK-P.037 Make shared profiler recording and export concurrency-safe
-      (implementation pending).
+- [x] TASK-P.037 Make shared profiler recording and export concurrency-safe
+      (commit `7c334bb`).
 
 ### Cleanup pass (2026-07-21)
 
