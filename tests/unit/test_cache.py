@@ -307,6 +307,27 @@ class TestPagedKVCache:
         with pytest.raises(ShapeError, match="size metadata"):
             restored.load_state_dict(payload)
 
+    def test_load_state_dict_rejects_noncontiguous_positions(self) -> None:
+        """A checkpoint cannot silently skip or reorder cached tokens."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        payload = cache.state_dict()
+        payload["page_1_positions"] = torch.tensor([7])
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="contiguous"):
+            restored.load_state_dict(payload)
+
+    def test_load_state_dict_rejects_page_batch_drift(self) -> None:
+        """A checkpoint cannot combine pages from different request batches."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        payload = cache.state_dict()
+        payload["page_1_key"] = torch.randn(2, 1, 1, 4)
+        payload["page_1_value"] = torch.randn(2, 1, 1, 4)
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="one batch size"):
+            restored.load_state_dict(payload)
+
 
 class TestKVCacheInterface:
     """Tests for the KVCache abstract base."""

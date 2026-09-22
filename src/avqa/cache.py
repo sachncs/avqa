@@ -521,6 +521,8 @@ class PagedKVCache(KVCache):
                 actual=num_pages,
             )
         restored: list[CacheEntry] = []
+        expected_position = 0
+        expected_batch: int | None = None
         for index in range(num_pages):
             key = state.get(f"page_{index}_key")
             value = state.get(f"page_{index}_value")
@@ -553,6 +555,27 @@ class PagedKVCache(KVCache):
                     expected=int(key.shape[-2]),
                     actual=tuple(positions.shape),
                 )
+            batch_size = int(key.shape[0])
+            if expected_batch is None:
+                expected_batch = batch_size
+            elif batch_size != expected_batch:
+                raise ShapeError(
+                    "serialized pages must use one batch size",
+                    expected=expected_batch,
+                    actual=batch_size,
+                )
+            expected_positions = torch.arange(
+                expected_position,
+                expected_position + key.shape[-2],
+                device=positions.device,
+                dtype=torch.long,
+            )
+            if not torch.equal(positions.to(dtype=torch.long), expected_positions):
+                raise ShapeError(
+                    "serialized page positions must be contiguous",
+                    expected=f"{expected_position}:{expected_position + key.shape[-2]}",
+                    actual=positions.detach().cpu().tolist(),
+                )
             restored.append(
                 CacheEntry(
                     key=key.to(device=self.device, dtype=self.dtype),
@@ -560,6 +583,7 @@ class PagedKVCache(KVCache):
                     positions=positions.to(device=self.device, dtype=torch.long),
                 )
             )
+            expected_position += int(key.shape[-2])
         serialized_size = int(
             state.get("size", torch.tensor(sum(int(p.key.shape[-2]) for p in restored)))
         )
