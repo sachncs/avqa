@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_COPY = [ROOT / "README.md", ROOT / "site" / "src", ROOT / "docs"]

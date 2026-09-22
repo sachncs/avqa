@@ -32,6 +32,7 @@ jobs:
           python-version: "3.12"
       - run: python scripts/check_metadata.py
       - run: python scripts/check_claims.py
+      - run: python scripts/check_docs_links.py
 
   frontend:
     name: Frontend build
