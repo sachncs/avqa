@@ -393,16 +393,23 @@ class PagedKVCache(KVCache):
         key = key.to(device=self.device, dtype=self.dtype)
         value = value.to(device=self.device, dtype=self.dtype)
         T = key.shape[-2]
+        if self.pages and int(self.pages[-1].key.shape[0]) != int(key.shape[0]):
+            raise ShapeError(
+                "paged cache batch size mismatch",
+                expected=int(self.pages[-1].key.shape[0]),
+                actual=int(key.shape[0]),
+            )
+        if self.max_pages > 0:
+            required_pages = (self.size + T + self.page_size - 1) // self.page_size
+            if required_pages > self.max_pages:
+                raise NotInitializedError(
+                    f"paged KV cache is full ({self.max_pages} pages); "
+                    f"append requires {required_pages} pages"
+                )
         cursor = 0
         position_start = self.size
         while cursor < T:
             current_page = self.current_page(batch_size=int(key.shape[0]))
-            if current_page.key.shape[0] != key.shape[0]:
-                raise ShapeError(
-                    "paged cache batch size mismatch",
-                    expected=int(current_page.key.shape[0]),
-                    actual=int(key.shape[0]),
-                )
             free = self.page_size - current_page.key.shape[-2]
             take = min(free, T - cursor)
             k_chunk = key[..., cursor : cursor + take, :]

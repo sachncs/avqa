@@ -221,6 +221,14 @@ class TestPagedKVCache:
         with pytest.raises(NotInitializedError, match="full"):
             cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
 
+    def test_capacity_failure_is_atomic(self) -> None:
+        """An over-capacity append cannot leave partially written pages."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4, max_pages=2)
+        with pytest.raises(NotInitializedError, match="requires 3 pages"):
+            cache.append(torch.randn(1, 1, 5, 4), torch.randn(1, 1, 5, 4))
+        assert cache.size == 0
+        assert cache.num_pages == 0
+
     def test_reset(self) -> None:
         """reset() drops all pages."""
         cache = PagedKVCache(page_size=4, num_heads=1, head_dim_k=4, head_dim_v=4)
