@@ -322,6 +322,8 @@ are not shipped capabilities. See
       (commit `f707f78`).
 - [x] TASK-P.047 Make mobile navigation dismissible with Escape
       (commit `4b3e551`).
+- [ ] TASK-P.048 Add a docs navigation route contract gate
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

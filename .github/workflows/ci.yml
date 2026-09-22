@@ -52,6 +52,8 @@ jobs:
         working-directory: site
       - run: npm run typecheck
         working-directory: site
+      - run: npm run check:routes
+        working-directory: site
       - run: npm run lint
         working-directory: site
       - run: npm run build
