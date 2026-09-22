@@ -330,6 +330,8 @@ are not shipped capabilities. See
       (commit `2bd9b5c`).
 - [x] TASK-P.051 Audit locked frontend dependencies in CI
       (commit `d965c9f`).
+- [ ] TASK-P.052 Document a concrete confidential Code of Conduct reporting path
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

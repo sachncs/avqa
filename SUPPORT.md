@@ -16,6 +16,12 @@ Open a [bug report](https://github.com/sachncs/avqa/issues/new?template=bug.yml)
 
 See [`SECURITY.md`](./SECURITY.md).
 
+## Code of Conduct reports
+
+For a confidential conduct report, use the private channel documented in
+[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Do not use a public issue or
+discussion for sensitive details.
+
 ## Maintainer availability
 
 This is a personal project maintained on a best-effort basis by
