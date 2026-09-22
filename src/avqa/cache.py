@@ -261,6 +261,13 @@ class InMemoryKVCache(KVCache):
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore cache from :meth:`state_dict` output."""
+        schema_version = state.get("schema_version")
+        if schema_version is not None and int(schema_version) != 1:
+            raise ShapeError(
+                "unsupported cache schema_version",
+                expected=1,
+                actual=int(schema_version),
+            )
         if "num_heads" in state and int(state["num_heads"]) != self.num_heads:
             raise ShapeError(
                 "num_heads mismatch", expected=self.num_heads, actual=int(state["num_heads"])
@@ -279,7 +286,13 @@ class InMemoryKVCache(KVCache):
             )
         cache_key = state.get("cache_key")
         cache_value = state.get("cache_value")
-        if cache_key is not None and cache_value is not None and cache_key.numel() > 0:
+        if (cache_key is None) != (cache_value is None):
+            raise ShapeError(
+                "serialized cache must contain both cache_key and cache_value",
+                expected="both tensors",
+                actual="one tensor",
+            )
+        if cache_key is not None and cache_value is not None:
             validate_cache_tensors(
                 cache_key,
                 cache_value,
@@ -288,9 +301,30 @@ class InMemoryKVCache(KVCache):
                 head_dim_v=self.head_dim_v,
                 name="serialized cache",
             )
+            serialized_size = int(state.get("size", torch.tensor(cache_key.shape[-2])))
+            serialized_batch = int(state.get("batch_size", torch.tensor(cache_key.shape[0])))
+            if serialized_size != int(cache_key.shape[-2]):
+                raise ShapeError(
+                    "serialized cache size metadata mismatch",
+                    expected=int(cache_key.shape[-2]),
+                    actual=serialized_size,
+                )
+            expected_batch = int(cache_key.shape[0]) if cache_key.numel() > 0 else 0
+            if serialized_batch != expected_batch:
+                raise ShapeError(
+                    "serialized cache batch metadata mismatch",
+                    expected=expected_batch,
+                    actual=serialized_batch,
+                )
+            if self.max_size > 0 and serialized_size > self.max_size:
+                raise ShapeError(
+                    "serialized cache exceeds max_size",
+                    expected=f"<= {self.max_size}",
+                    actual=serialized_size,
+                )
             self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
             self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
-            self.batch_size = int(cache_key.shape[0])
+            self.batch_size = serialized_batch or None
         else:
             self.reset()
 
@@ -457,6 +491,13 @@ class PagedKVCache(KVCache):
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore page metadata and tensor contents from a checkpoint."""
+        schema_version = state.get("schema_version")
+        if schema_version is not None and int(schema_version) != 1:
+            raise ShapeError(
+                "unsupported cache schema_version",
+                expected=1,
+                actual=int(schema_version),
+            )
         if "page_size" in state and int(state["page_size"]) != self.page_size:
             raise ShapeError(
                 "page_size mismatch",
@@ -466,6 +507,12 @@ class PagedKVCache(KVCache):
         num_pages = int(state.get("num_pages", torch.tensor(0)))
         if num_pages < 0:
             raise ShapeError("num_pages must be non-negative", expected=">= 0", actual=num_pages)
+        if self.max_pages > 0 and num_pages > self.max_pages:
+            raise ShapeError(
+                "serialized cache exceeds max_pages",
+                expected=f"<= {self.max_pages}",
+                actual=num_pages,
+            )
         restored: list[CacheEntry] = []
         for index in range(num_pages):
             key = state.get(f"page_{index}_key")
@@ -505,6 +552,16 @@ class PagedKVCache(KVCache):
                     value=value.to(device=self.device, dtype=self.dtype),
                     positions=positions.to(device=self.device, dtype=torch.long),
                 )
+            )
+        serialized_size = int(
+            state.get("size", torch.tensor(sum(int(p.key.shape[-2]) for p in restored)))
+        )
+        restored_size = sum(int(page.key.shape[-2]) for page in restored)
+        if serialized_size != restored_size:
+            raise ShapeError(
+                "serialized paged cache size metadata mismatch",
+                expected=restored_size,
+                actual=serialized_size,
             )
         self.pages = restored
 

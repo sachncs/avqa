@@ -113,6 +113,29 @@ class TestInMemoryKVCache:
         with pytest.raises(AVQAError, match="num_heads"):
             cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
 
+    def test_load_state_dict_rejects_partial_payload(self) -> None:
+        """A checkpoint cannot silently reset when one tensor is missing."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="both cache_key"):
+            cache.load_state_dict({"cache_key": torch.empty(0, 1, 0, 4)})
+
+    def test_load_state_dict_rejects_metadata_drift(self) -> None:
+        """Serialized size and schema metadata are part of the contract."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.randn(1, 1, 2, 4)
+        value = torch.randn(1, 1, 2, 4)
+        state = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        state.append(key, value)
+        payload = state.state_dict()
+        payload["size"] = torch.tensor(99)
+        with pytest.raises(ShapeError, match="size metadata"):
+            cache.load_state_dict(payload)
+
+        payload = state.state_dict()
+        payload["schema_version"] = torch.tensor(2)
+        with pytest.raises(ShapeError, match="schema_version"):
+            cache.load_state_dict(payload)
+
     @pytest.mark.parametrize(
         ("key_shape", "value_shape", "message"),
         [
@@ -265,6 +288,16 @@ class TestPagedKVCache:
         assert torch.equal(actual_value, value)
         assert torch.equal(restored.pages[0].positions, torch.tensor([0, 1]))
         assert torch.equal(restored.pages[1].positions, torch.tensor([2]))
+
+    def test_load_state_dict_rejects_page_size_metadata_drift(self) -> None:
+        """Paged checkpoints cannot claim a different token count."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 2, 4))
+        payload = cache.state_dict()
+        payload["size"] = torch.tensor(99)
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="size metadata"):
+            restored.load_state_dict(payload)
 
 
 class TestKVCacheInterface:
