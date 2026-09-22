@@ -14,6 +14,7 @@ The module exposes:
 from __future__ import annotations
 
 import logging
+from threading import RLock
 from typing import Final
 
 AVQA_LOGGER_NAME: Final[str] = "avqa"
@@ -28,6 +29,7 @@ LogLevel = int
 """Standard Python logging level (e.g., ``logging.DEBUG``, ``logging.INFO``)."""
 
 CONFIGURED: list[bool] = [False]
+_CONFIG_LOCK = RLock()
 
 
 def set_configured(value: bool) -> None:
@@ -91,20 +93,23 @@ def configure_logger(
         True
     """
     logger = get_logger()
-    if is_internal_configured() and not force:
-        return logger
+    # Protect the check-and-install sequence so concurrent application
+    # startup cannot attach duplicate handlers to the shared AVQA logger.
+    with _CONFIG_LOCK:
+        if is_internal_configured() and not force:
+            return logger
 
-    if force:
-        for handler in list(logger.handlers):
-            logger.removeHandler(handler)
+        if force:
+            for handler in list(logger.handlers):
+                logger.removeHandler(handler)
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
-    handler.setLevel(level)
-    logger.addHandler(handler)
-    logger.setLevel(level)
-    logger.propagate = False
-    set_configured(True)
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
+        handler.setLevel(level)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+        logger.propagate = False
+        set_configured(True)
     return logger
 
 
