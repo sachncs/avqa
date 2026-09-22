@@ -348,6 +348,8 @@ are not shipped capabilities. See
       API forward smoke test (commit `eff2f52`).
 - [x] TASK-P.060 Align CI lint scope with the repository lint target
       (commit `10315a4`).
+- [ ] TASK-P.061 Restore formatter compliance for the expanded CI lint scope
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
