@@ -296,8 +296,8 @@ are not shipped capabilities. See
       (commit `5fa24c1`).
 - [x] TASK-P.034 Reject non-finite tensors at the KV-cache storage boundary
       (commit `a109e29`).
-- [ ] TASK-P.035 Make BCAR online adaptation finite and failure-atomic
-      (implementation pending).
+- [x] TASK-P.035 Make BCAR online adaptation finite and failure-atomic
+      (commit `ee0d2c0`).
 
 ### Cleanup pass (2026-07-21)
 
