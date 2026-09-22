@@ -245,7 +245,7 @@ are not shipped capabilities. See
       (commit `f7f0be0`).
 - [x] TASK-P.008 Validate boolean configuration fields before runtime use
       (commit `f423a96`).
-- [x] TASK-P.009 Check repository Markdown links in CI (commit pending).
+- [x] TASK-P.009 Check repository Markdown links in CI (commit `78ac108`).
 
 ### Cleanup pass (2026-07-21)
 
