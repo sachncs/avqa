@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -190,6 +191,31 @@ class TestAttentionShapeConfig:
     def test_non_finite_shape_values_are_rejected(self) -> None:
         with pytest.raises(ConfigurationError):
             AttentionShapeConfig(embed_dim=float("nan"))
+
+
+class TestIntegerConfigurationValidation:
+    """Tests for integer-only configuration boundaries."""
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda: AttentionShapeConfig(embed_dim=32.0),
+            lambda: CodebookConfig(num_codewords=8.5),
+            lambda: RoutingConfig(refinement_budget=2.5),
+            lambda: RefinementConfig(passes=1.5),
+            lambda: CacheConfig(max_size=2.5),
+            lambda: ExecutionConfig(seed=1.5),
+        ],
+    )
+    def test_rejects_fractional_integer_fields(self, factory: Callable[[], object]) -> None:
+        """Integer-only fields reject fractional values at construction."""
+        with pytest.raises(ConfigurationError, match="integer"):
+            factory()
+
+    def test_rejects_boolean_integer_fields(self) -> None:
+        """Booleans must not be accepted as dimensions or capacities."""
+        with pytest.raises(ConfigurationError, match="integer"):
+            AttentionShapeConfig(embed_dim=True)  # type: ignore[arg-type]
 
 
 class TestAVQConfig:

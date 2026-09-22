@@ -37,6 +37,13 @@ def require_positive(value: float, field_name: str) -> None:
         raise ConfigurationError(msg, {field_name: value})
 
 
+def require_integer(value: object, field_name: str) -> None:
+    """Raise ``ConfigurationError`` when ``value`` is not an integer."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        msg = f"{field_name} must be an integer, got {value!r}"
+        raise ConfigurationError(msg, {field_name: value})
+
+
 def require_non_negative(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is negative."""
     if not math.isfinite(value) or value < 0:
@@ -97,6 +104,9 @@ class CodebookConfig:
     bcar_decay: float = 0.99
 
     def __post_init__(self) -> None:
+        require_integer(self.num_codewords, "num_codewords")
+        require_integer(self.children_per_codeword, "children_per_codeword")
+        require_integer(self.max_depth, "max_depth")
         require_positive(self.num_codewords, "num_codewords")
         require_positive(self.children_per_codeword, "children_per_codeword")
         require_positive(self.perturbation_scale, "perturbation_scale")
@@ -131,6 +141,7 @@ class RoutingConfig:
     importance_temperature: float = 1.0
 
     def __post_init__(self) -> None:
+        require_integer(self.refinement_budget, "refinement_budget")
         require_positive(self.refinement_budget, "refinement_budget")
         require_positive(self.importance_temperature, "importance_temperature")
         allowed = {"topp", "threshold", "budget"}
@@ -152,6 +163,7 @@ class RefinementConfig:
     pass_decay: float = 1.0
 
     def __post_init__(self) -> None:
+        require_integer(self.passes, "passes")
         require_in_range(self.threshold, 0.0, 1.0, "threshold")
         require_positive(self.passes, "passes")
         require_in_range(self.pass_decay, 0.0, 1.0, "pass_decay")
@@ -214,6 +226,7 @@ class CacheConfig:
     max_size: int = 0  # 0 means unbounded
 
     def __post_init__(self) -> None:
+        require_integer(self.max_size, "cache.max_size")
         require_non_negative(self.max_size, "cache.max_size")
 
 
@@ -260,6 +273,7 @@ class ExecutionConfig:
         if self.mode not in allowed:
             msg = f"execution.mode must be one of {sorted(allowed)}, got {self.mode!r}"
             raise ConfigurationError(msg, {"execution.mode": self.mode})
+        require_integer(self.seed, "execution.seed")
         require_non_negative(self.seed, "execution.seed")
 
 
@@ -324,6 +338,9 @@ class AttentionShapeConfig:
     head_dim: int = 0  # 0 -> auto-derive as embed_dim // num_heads
 
     def __post_init__(self) -> None:
+        require_integer(self.embed_dim, "embed_dim")
+        require_integer(self.num_heads, "num_heads")
+        require_integer(self.head_dim, "head_dim")
         require_positive(self.embed_dim, "embed_dim")
         require_positive(self.num_heads, "num_heads")
         if self.embed_dim % self.num_heads != 0:
@@ -574,6 +591,7 @@ __all__ = [
     "RefinementConfig",
     "RoutingConfig",
     "require_in_range",
+    "require_integer",
     "require_non_negative",
     "require_positive",
     "to_primitive",
