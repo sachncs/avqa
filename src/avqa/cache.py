@@ -249,7 +249,10 @@ class InMemoryKVCache(KVCache):
             )
             return empty_k, empty_v
         self.hit_count += 1
-        return self.cache_key, self.cache_value
+        # Do not expose the live storage tensors. Callers may perform
+        # in-place attention transforms after lookup; returning clones keeps
+        # those operations from corrupting the persistent cache state.
+        return self.cache_key.detach().clone(), self.cache_value.detach().clone()
 
     def cache_stats(self) -> dict[str, int]:
         """Return eviction/hit/miss counters for observability."""

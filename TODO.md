@@ -310,6 +310,8 @@ are not shipped capabilities. See
       (commit `fb1794b`).
 - [x] TASK-P.041 Cancel superseded CI and Pages runs on the main branch
       (commit `071d5c4`).
+- [ ] TASK-P.042 Return isolated KV-cache lookup snapshots
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

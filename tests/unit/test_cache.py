@@ -72,6 +72,21 @@ class TestInMemoryKVCache:
         assert torch.equal(k_full[..., :3, :], k1)
         assert torch.equal(k_full[..., 3:, :], k2)
 
+    def test_lookup_returns_isolated_snapshot(self) -> None:
+        """Mutating lookup results cannot corrupt persistent cache storage."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 2, 4)
+        value = torch.ones(1, 1, 2, 4)
+        cache.append(key, value)
+
+        cached_key, cached_value = cache.lookup()
+        cached_key.zero_()
+        cached_value.zero_()
+
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, key)
+        assert torch.equal(actual_value, value)
+
     def test_max_size_evicts_oldest(self) -> None:
         """max_size evicts the oldest tokens when exceeded."""
         cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4, max_size=4)
