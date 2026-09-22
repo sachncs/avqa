@@ -11,7 +11,7 @@ import pytest
 import torch
 
 from avqa.exceptions import AVQAError, ConfigurationError
-from avqa.utils.seed import seed_everything
+from avqa.utils.seed import deterministic_algorithms, seed_everything
 
 
 class TestSeedEverything:
@@ -103,3 +103,20 @@ class TestDeterministicReproducibility:
         seed_everything(2)
         second = torch.randn(3, 3)
         assert not torch.equal(first, second)
+
+    def test_deterministic_context_restores_torch_state(self) -> None:
+        """Scoped deterministic mode does not leak into the caller."""
+        torch.use_deterministic_algorithms(False, warn_only=True)
+        with deterministic_algorithms(True):
+            assert torch.are_deterministic_algorithms_enabled()
+            assert not torch.is_deterministic_algorithms_warn_only_enabled()
+        assert not torch.are_deterministic_algorithms_enabled()
+        assert torch.is_deterministic_algorithms_warn_only_enabled()
+
+    def test_deterministic_context_restores_state_after_exception(self) -> None:
+        """Deterministic mode is restored when the block fails."""
+        torch.use_deterministic_algorithms(False, warn_only=False)
+        with pytest.raises(RuntimeError, match="failure"), deterministic_algorithms(True):
+            raise RuntimeError("failure")
+        assert not torch.are_deterministic_algorithms_enabled()
+        assert not torch.is_deterministic_algorithms_warn_only_enabled()

@@ -37,6 +37,7 @@ from avqa.pipeline import run_pipeline
 from avqa.refinement import refine as refine_step
 from avqa.routing import Router, compute_importance
 from avqa.scheduler import Scheduler
+from avqa.utils.seed import deterministic_algorithms
 from avqa.utils.validation import (
     validate_device_match,
     validate_dtype,
@@ -296,10 +297,13 @@ class AVQAttention(nn.Module):
         # OPT-0002: when torch.compile is enabled we route through the
         # compiled forward; otherwise we keep the eager path identical
         # to the prior behaviour.
-        with torch.autocast(
-            device_type=query.device.type,
-            enabled=autocast_enabled,
-            dtype=autocast_dtype,
+        with (
+            deterministic_algorithms(self.config.execution.deterministic),
+            torch.autocast(
+                device_type=query.device.type,
+                enabled=autocast_enabled,
+                dtype=autocast_dtype,
+            ),
         ):
             if self.forward_compiled is not None:
                 return self.forward_compiled(query, key, value, mask, kv_cache)
