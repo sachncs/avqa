@@ -236,7 +236,7 @@ are not shipped capabilities. See
 - [x] TASK-P.003 Reconcile historical integration entries with the current
       public-alpha support contract (commit `1868991`).
 - [x] TASK-P.004 Validate paged-cache checkpoint sequence and batch invariants
-      during restore (commit pending).
+      during restore (commit `664e53c`).
 
 ### Cleanup pass (2026-07-21)
 
