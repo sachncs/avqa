@@ -22,6 +22,14 @@ export default function DocsApp() {
   useEffect(() => {
     document.title = `AVQA docs · ${PAGES.find((item) => item.id === page)?.label ?? "Overview"}`;
   }, [page]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
   const selectPage = (next: Page) => {
     setPage(next);
     setMenuOpen(false);
@@ -41,7 +49,7 @@ export default function DocsApp() {
             <a href="/avqa/" className="nav-link inline-flex items-center gap-2"><ArrowLeft className="h-4 w-4" /> Product</a>
             <a href={GITHUB_URL} className="nav-link inline-flex items-center gap-2" target="_blank" rel="noreferrer"><Github className="h-4 w-4" /> GitHub</a>
           </nav>
-          <button className="btn-ghost px-3 py-2 md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label={menuOpen ? "Close documentation navigation" : "Open documentation navigation"}><Menu className="h-4 w-4" /></button>
+          <button type="button" className="btn-ghost px-3 py-2 md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label={menuOpen ? "Close documentation navigation" : "Open documentation navigation"}><Menu className="h-4 w-4" /></button>
         </div>
       </header>
       <div className="border-b border-accent-300/15 bg-accent-400/[0.06]">
