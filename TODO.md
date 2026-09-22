@@ -292,8 +292,8 @@ are not shipped capabilities. See
       (commit `258e26d`).
 - [x] TASK-P.032 Reject non-finite codebook checkpoint tensors before restore
       (commit `45c1a6f`).
-- [ ] TASK-P.033 Make EMA codebook updates finite and failure-atomic
-      (implementation pending).
+- [x] TASK-P.033 Make EMA codebook updates finite and failure-atomic
+      (commit `5fa24c1`).
 
 ### Cleanup pass (2026-07-21)
 
