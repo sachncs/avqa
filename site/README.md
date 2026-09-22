@@ -8,7 +8,7 @@ links and release messaging stay synchronized.
 
 ## Stack
 
-- **Vite 5** — build tool
+- **Vite 8** — build tool
 - **React 18 + TypeScript** — UI
 - **Tailwind CSS 3** — design system
 - **Framer Motion** — motion
@@ -17,7 +17,7 @@ links and release messaging stay synchronized.
 ## Develop
 
 ```bash
-npm install
+npm ci
 npm run dev      # http://localhost:5173/avqa/
 ```
 
