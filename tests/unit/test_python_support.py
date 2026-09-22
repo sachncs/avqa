@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
-from scripts.check_python_support import is_supported_python, supported_python_range
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+
+_SCRIPT = Path(__file__).parents[2] / "scripts" / "check_python_support.py"
+_SPEC = spec_from_file_location("avqa_check_python_support", _SCRIPT)
+assert _SPEC is not None
+assert _SPEC.loader is not None
+_MODULE = module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_MODULE)
+
+is_supported_python = _MODULE.is_supported_python
+supported_python_range = _MODULE.supported_python_range
 
 
 def test_supported_python_range_matches_package_metadata() -> None:
