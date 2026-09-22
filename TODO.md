@@ -277,7 +277,7 @@ are not shipped capabilities. See
 - [x] TASK-P.024 Validate public attention masks before pipeline execution,
       including KV-cache-resolved lengths (commit `291aeee`).
 - [x] TASK-P.025 Validate user masks before mutating KV caches so rejected
-      requests remain failure-atomic (commit `pending`).
+      requests remain failure-atomic (commit `a82a41d`).
 
 ### Cleanup pass (2026-07-21)
 
