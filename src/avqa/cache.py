@@ -18,6 +18,7 @@ import torch
 
 from avqa.exceptions import ConfigurationError, NotInitializedError, ShapeError
 from avqa.logging import get_logger
+from avqa.utils.validation import NonFiniteTensorError
 
 logger = get_logger("cache")
 
@@ -56,6 +57,14 @@ def validate_cache_tensors(
             expected=f"key={head_dim_k}, value={head_dim_v}",
             actual=f"key={key.shape[-1]}, value={value.shape[-1]}",
         )
+    # Meta tensors are used by callers probing allocation paths and cannot be
+    # inspected for finite values until materialized.
+    if (
+        key.device.type != "meta"
+        and value.device.type != "meta"
+        and (not torch.isfinite(key).all() or not torch.isfinite(value).all())
+    ):
+        raise NonFiniteTensorError(f"{name} contains non-finite values")
 
 
 @dataclass

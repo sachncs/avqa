@@ -294,6 +294,8 @@ are not shipped capabilities. See
       (commit `45c1a6f`).
 - [x] TASK-P.033 Make EMA codebook updates finite and failure-atomic
       (commit `5fa24c1`).
+- [ ] TASK-P.034 Reject non-finite tensors at the KV-cache storage boundary
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

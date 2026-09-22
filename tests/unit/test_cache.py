@@ -12,6 +12,7 @@ from avqa.exceptions import (
     NotInitializedError,
     ShapeError,
 )
+from avqa.utils.validation import NonFiniteTensorError
 
 
 class TestInMemoryKVCache:
@@ -43,6 +44,16 @@ class TestInMemoryKVCache:
         assert cache.size == 3
         cache.append(torch.randn(1, 2, 2, 8), torch.randn(1, 2, 2, 8))
         assert cache.size == 5
+
+    def test_append_rejects_non_finite_values(self) -> None:
+        """NaN/Inf values cannot enter persistent cache state."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.zeros(1, 1, 1, 4)
+        value = torch.zeros(1, 1, 1, 4)
+        value[0, 0, 0, 0] = float("nan")
+        with pytest.raises(NonFiniteTensorError, match="non-finite"):
+            cache.append(key, value)
+        assert cache.size == 0
 
     def test_lookup_returns_concatenated(self) -> None:
         """lookup() concatenates appended chunks."""
@@ -190,6 +201,20 @@ class TestInMemoryKVCache:
         payload["cache_value"] = torch.empty(1, 1, 1, 4, device="meta")
         with pytest.raises(NotImplementedError, match="meta"):
             cache.load_state_dict(payload)
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
+
+    def test_restore_rejects_non_finite_values(self) -> None:
+        """Corrupted serialized tensors cannot replace valid cache state."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.zeros(1, 1, 1, 4)
+        original_value = torch.zeros(1, 1, 1, 4)
+        cache.append(original_key, original_value)
+        state = cache.state_dict()
+        state["cache_key"][0, 0, 0, 0] = float("inf")
+        with pytest.raises(NonFiniteTensorError, match="non-finite"):
+            cache.load_state_dict(state)
         actual_key, actual_value = cache.lookup()
         assert torch.equal(actual_key, original_key)
         assert torch.equal(actual_value, original_value)
