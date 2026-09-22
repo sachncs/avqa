@@ -340,6 +340,11 @@ class HierarchicalCodebook:
             raise CodebookError(f"children shape {tuple(children.shape)} != {expected_child_shape}")
         restored_parents = parents.to(self.parents.device, self.parents.dtype)
         restored_children = children.to(self.children.device, self.children.dtype)
+        if (
+            not torch.isfinite(restored_parents).all()
+            or not torch.isfinite(restored_children).all()
+        ):
+            raise CodebookError("codebook checkpoint contains non-finite values")
         diff = self._mean_constraint_diff(restored_parents, restored_children)
         if diff > 1e-5:
             msg = f"mean constraint violated: max |parent - mean(child)| = {diff}"

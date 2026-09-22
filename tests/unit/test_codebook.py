@@ -257,6 +257,18 @@ class TestCodebookSerialization:
         assert torch.equal(cb.parents, original_parents)
         assert torch.equal(cb.children, original_children)
 
+    def test_load_rejects_non_finite_checkpoint_without_mutation(self) -> None:
+        """NaN checkpoint tensors cannot poison a live codebook."""
+        cb = HierarchicalCodebook(num_heads=1, num_parents=2, children_per_parent=2, head_dim=4)
+        original_parents = cb.parents.clone()
+        original_children = cb.children.clone()
+        state = cb.state_dict()
+        state["parents"][0, 0, 0] = float("nan")
+        with pytest.raises(CodebookError, match="non-finite"):
+            cb.load_state_dict(state)
+        assert torch.equal(cb.parents, original_parents)
+        assert torch.equal(cb.children, original_children)
+
     def test_load_rejects_missing_keys(self) -> None:
         """load_state_dict requires both parents and children."""
         cb = HierarchicalCodebook()
