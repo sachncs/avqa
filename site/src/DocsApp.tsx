@@ -3,12 +3,14 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "./lib/links";
 
-type Page = "overview" | "quickstart" | "api" | "architecture" | "research" | "reproducibility";
+type Page = "overview" | "quickstart" | "api" | "cache" | "troubleshooting" | "architecture" | "research" | "reproducibility";
 
 const PAGES: { id: Page; label: string; group: string }[] = [
   { id: "overview", label: "Overview", group: "Build with AVQA" },
   { id: "quickstart", label: "Quick start", group: "Build with AVQA" },
   { id: "api", label: "API and configuration", group: "Build with AVQA" },
+  { id: "cache", label: "KV cache and decoding", group: "Build with AVQA" },
+  { id: "troubleshooting", label: "Troubleshooting", group: "Build with AVQA" },
   { id: "architecture", label: "Architecture", group: "Understand AVQA" },
   { id: "research", label: "Math and research", group: "Understand AVQA" },
   { id: "reproducibility", label: "Benchmarks and reproducibility", group: "Understand AVQA" },
@@ -69,6 +71,8 @@ export default function DocsApp() {
 function DocsPage({ page }: { page: Page }) {
   if (page === "quickstart") return <QuickStart />;
   if (page === "api") return <ApiPage />;
+  if (page === "cache") return <CachePage />;
+  if (page === "troubleshooting") return <TroubleshootingPage />;
   if (page === "architecture") return <ArchitecturePage />;
   if (page === "research") return <ResearchPage />;
   if (page === "reproducibility") return <ReproducibilityPage />;
@@ -102,5 +106,9 @@ function ArchitecturePage() { return <><PageHeader eyebrow="Understand AVQA" tit
 function ResearchPage() { return <><PageHeader eyebrow="Understand AVQA" title="Research context without overstating evidence.">AVQA is an independent implementation of the AVQ-Attention ideas described in the linked paper. The repository distinguishes reference behavior, extensions, experiments, and unsupported integrations.</PageHeader><Section title="Core ideas"><p>Hierarchical vector quantization reduces the number of key representatives considered initially. Adaptive refinement spends additional work where parent attention indicates signal. BCAR updates codebooks online, while HVAQ changes temperature based on routed attention entropy.</p></Section><Section title="Limitations"><p>The pure-PyTorch reference path may be slower than optimized vendor kernels for short sequences. Performance is workload-dependent, and the alpha release does not promise drop-in compatibility with external serving frameworks.</p></Section><Section title="Read the equations"><p><a className="text-accent-200 hover:text-white" href="https://github.com/sachncs/avqa/blob/main/docs/math.md" target="_blank" rel="noreferrer">Mathematical formulation</a>, <a className="text-accent-200 hover:text-white" href="https://arxiv.org/abs/2607.12789" target="_blank" rel="noreferrer">reference paper</a>, and <a className="text-accent-200 hover:text-white" href="https://github.com/sachncs/avqa/blob/main/SPEC_COMPLIANCE.md" target="_blank" rel="noreferrer">compliance matrix</a>.</p></Section></>; }
 
 function ReproducibilityPage() { return <><PageHeader eyebrow="Understand AVQA" title="Treat benchmarks as evidence, not decoration.">Every reported result should include the implementation revision, environment, tensor shape, precision, seed, warm-up policy, repetitions, raw output, and interpretation.</PageHeader><Section title="Minimum benchmark record"><ul className="list-disc space-y-2 pl-5"><li>Python, PyTorch, OS, CPU/GPU, CUDA, and optional dependency versions.</li><li>Batch size, sequence lengths, heads, head dimension, codebook size, routing budget, and precision.</li><li>Correctness comparison against the selected baseline before timing.</li><li>Raw JSON plus a human-readable summary checked into the benchmark record.</li></ul></Section><Section title="Repository protocol"><p>Use <a className="text-accent-200 hover:text-white" href="https://github.com/sachncs/avqa/blob/main/BENCHMARKS.md" target="_blank" rel="noreferrer">BENCHMARKS.md</a> as the canonical protocol. Existing numbers are historical reference results, not universal performance guarantees.</p></Section></>; }
+
+function CachePage() { return <><PageHeader eyebrow="Build with AVQA" title="Incremental decoding with explicit cache state.">KV caches are mutable runtime objects. Use an in-memory cache for a simple bounded sequence or a paged cache when you need page-sized growth and checkpointable state.</PageHeader><Section title="Operational rules"><ul className="list-disc space-y-2 pl-5"><li>Append tensors are rank-4 `[B, H, T, D]` and must keep batch, heads, dtype, and device consistent.</li><li>Persist `state_dict()` with the model checkpoint when resuming autoregressive decoding.</li><li>Do not share a mutable cache between independent sequences; create or reset one per sequence.</li><li>The functional API mutates a supplied cache in place.</li></ul></Section><Section title="Minimal shape contract"><p>Use `PagedKVCache(page_size=4, num_heads=4, head_dim_k=16, head_dim_v=16)`, then append tensors shaped `[1, 4, 4, 16]`. Restore into a cache with the same structural dimensions and validate the restored length before decoding.</p></Section></>; }
+
+function TroubleshootingPage() { return <><PageHeader eyebrow="Build with AVQA" title="Make failures actionable before tuning performance.">Most integration failures are contract mismatches. Start with the smallest CPU example, capture configuration and tensor metadata, and only then investigate routing or performance.</PageHeader><Section title="Shape and dtype errors"><p>Use rank-3 `[B, T, E]` tensors for the public attention API. Confirm that `E` matches `AttentionShapeConfig.embed_dim`, key and value lengths match, and all inputs share a supported dtype and device.</p></Section><Section title="Unexpected output or instability"><p>Compare against the reference tests with the same seed and configuration. Reduce refinement budget and codebook size, disable optional adaptation, and verify that inputs are finite before changing numerical tolerances.</p></Section><Section title="Slow execution"><p>The shipped path is a correctness-oriented pure-PyTorch implementation. Record shapes, dtype, backend, warm-up count, and revision before comparing timings. CUDA performance is not validated by the alpha CI matrix.</p></Section><Section title="Report a reproducible issue"><p>Include the AVQA revision, Python and PyTorch versions, operating system, device, dtype, tensor shapes, serialized configuration, traceback, and a minimal script. Do not include secrets or private model data in a public issue.</p></Section></>; }
 
 function pageFromPath(): Page { const hash = window.location.hash.slice(1) as Page; return PAGES.some((page) => page.id === hash) ? hash : "overview"; }

@@ -82,6 +82,7 @@ from avqa.exceptions import (
     RoutingError,
     ShapeError,
 )
+from avqa.functional import attention
 from avqa.hopfield import (
     AdaptiveSchedule,
     hopfield_logits,
@@ -157,6 +158,7 @@ __all__ = [
     "AVQAError",
     "AVQAttention",
     "AVQConfig",
+    "attention",
     "AdaptiveRefinement",
     "AdaptiveSchedule",
     "AdaptiveScheduler",
