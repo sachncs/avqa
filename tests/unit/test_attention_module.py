@@ -185,6 +185,24 @@ class TestForwardNaive:
             )
         assert cache.size == 1
 
+    def test_failed_forward_does_not_mutate_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Downstream failures cannot append K/V to the mutable cache."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+
+        def fail(*args: object, **kwargs: object) -> torch.Tensor:
+            raise RuntimeError("sentinel backend failure")
+
+        monkeypatch.setattr(module.backend, "naive_attention", fail)
+        q = torch.randn(1, 1, 32)
+        with pytest.raises(RuntimeError, match="sentinel backend failure"):
+            module(q, q, q, kv_cache=cache)
+        assert cache.size == 0
+
     def test_rejects_mask_device_mismatch(self) -> None:
         """Masks must share the query device."""
         if not torch.backends.mps.is_available() and not torch.cuda.is_available():

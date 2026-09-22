@@ -420,7 +420,12 @@ class AVQAttention(nn.Module):
         v: torch.Tensor,
         kv_cache: KVCache | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Look up cached K/V and concatenate with current K/V (M4)."""
+        """Look up cached K/V and concatenate with current K/V (M4).
+
+        This method is intentionally read-only. The pipeline commits the
+        current K/V only after the complete forward pass succeeds, keeping
+        caller-owned cache state failure-atomic.
+        """
         if kv_cache is not None:
             cached_k, cached_v = kv_cache.lookup()
             if cached_k.shape[-2] > 0:
@@ -428,10 +433,19 @@ class AVQAttention(nn.Module):
                 v_full = torch.cat([cached_v, v], dim=-2)
             else:
                 k_full, v_full = k, v
-            kv_cache.append(k, v)
         else:
             k_full, v_full = k, v
         return k_full, v_full
+
+    @staticmethod
+    def commit_kv_cache(
+        k: torch.Tensor,
+        v: torch.Tensor,
+        kv_cache: KVCache | None,
+    ) -> None:
+        """Append current K/V after a successful forward pass."""
+        if kv_cache is not None:
+            kv_cache.append(k, v)
 
     def resolve_mask(
         self,

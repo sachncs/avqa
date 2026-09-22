@@ -306,7 +306,9 @@ def run_pipeline(
 
     use_naive = state.scheduler is None or state.config.execution.mode == "reference"
     if use_naive:
-        return naive_fallback(state, q, k_full, v_full, mask)
+        out = naive_fallback(state, q, k_full, v_full, mask)
+        state.commit_kv_cache(k, v, kv_cache)
+        return out
 
     _, _, _, D = q.shape
     D_v = v_full.shape[-1]
@@ -351,7 +353,9 @@ def run_pipeline(
     else:
         budget = min(raw_budget, int(num_valid_per_bh.min().item()))
     if budget <= 0:
-        return naive_fallback(state, q, k, v, mask)
+        out = naive_fallback(state, q, k_full, v_full, mask)
+        state.commit_kv_cache(k, v, kv_cache)
+        return out
     decision = state.router.select(importance, budget)
     assert decision is not None
 
@@ -405,6 +409,7 @@ def run_pipeline(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
+    state.commit_kv_cache(k, v, kv_cache)
     return out
 
 

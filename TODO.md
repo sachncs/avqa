@@ -278,6 +278,8 @@ are not shipped capabilities. See
       including KV-cache-resolved lengths (commit `291aeee`).
 - [x] TASK-P.025 Validate user masks before mutating KV caches so rejected
       requests remain failure-atomic (commit `a82a41d`).
+- [ ] TASK-P.026 Keep KV-cache appends transactional across downstream forward
+      failures (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
