@@ -312,8 +312,8 @@ are not shipped capabilities. See
       (commit `071d5c4`).
 - [x] TASK-P.042 Return isolated KV-cache lookup snapshots
       (commit `3416919`).
-- [ ] TASK-P.043 Remove stale current-suite test-count wording from readiness docs
-      (implementation pending).
+- [x] TASK-P.043 Remove stale current-suite test-count wording from readiness docs
+      (commit `cf0ed99`).
 
 ### Cleanup pass (2026-07-21)
 
