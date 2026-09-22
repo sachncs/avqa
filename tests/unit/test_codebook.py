@@ -219,6 +219,18 @@ class TestEMAUpdate:
                 decay=-0.1,
             )
 
+    def test_ema_rejects_non_finite_update_without_mutation(self) -> None:
+        """A non-finite EMA batch cannot poison live codebook tensors."""
+        cb = HierarchicalCodebook(num_heads=1, num_parents=2, children_per_parent=2, head_dim=4)
+        original_parents = cb.parents.clone()
+        original_children = cb.children.clone()
+        new_children = cb.children.clone()
+        new_children[0, 0, 0, 0] = float("inf")
+        with pytest.raises(CodebookError, match="non-finite"):
+            cb.ema_update(new_parents=cb.parents.clone(), new_children=new_children, decay=0.9)
+        assert torch.equal(cb.parents, original_parents)
+        assert torch.equal(cb.children, original_children)
+
 
 class TestCodebookSerialization:
     """Tests for codebook state_dict round-trip (spec §3.20)."""

@@ -274,9 +274,23 @@ class HierarchicalCodebook:
         if tuple(new_children.shape) != expected_child_shape:
             msg = f"new_children shape {tuple(new_children.shape)} != {expected_child_shape}"
             raise CodebookError(msg)
-        self.parents.mul_(decay).add_(new_parents, alpha=1.0 - decay)
-        self.children.mul_(decay).add_(new_children, alpha=1.0 - decay)
-        self.reproject_parents()
+        restored_parents = new_parents.to(self.parents.device, self.parents.dtype)
+        restored_children = new_children.to(self.children.device, self.children.dtype)
+        if (
+            not torch.isfinite(restored_parents).all()
+            or not torch.isfinite(restored_children).all()
+        ):
+            raise CodebookError("EMA update contains non-finite values")
+
+        # Stage both tensors before publishing either one. Parent values are
+        # reprojected from the staged children, preserving the mean constraint
+        # without exposing a partially updated codebook.
+        next_children = self.children * decay + restored_children * (1.0 - decay)
+        next_parents = next_children.mean(dim=2)
+        if not torch.isfinite(next_parents).all() or not torch.isfinite(next_children).all():
+            raise CodebookError("EMA update produced non-finite values")
+        self.parents.copy_(next_parents)
+        self.children.copy_(next_children)
 
     # ------------------------------------------------------------------
     # Commitment loss (spec §8.9)
