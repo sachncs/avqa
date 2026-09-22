@@ -247,7 +247,7 @@ are not shipped capabilities. See
       (commit `f423a96`).
 - [x] TASK-P.009 Check repository Markdown links in CI (commit `78ac108`).
 - [x] TASK-P.010 Reconcile benchmark protocol and historical experiment
-      boundaries with the public-alpha support contract (commit pending).
+      boundaries with the public-alpha support contract (commit `14253e4`).
 
 ### Cleanup pass (2026-07-21)
 
