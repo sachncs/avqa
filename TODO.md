@@ -221,8 +221,9 @@ remain blocked on the CUDA-matrix CI runner. See
 
 ### Public-alpha reliability follow-ups
 
-- [ ] TASK-P.001 Execute every checked-in example in CI and compile examples in
-      the test suite so public API walkthroughs cannot silently drift.
+- [x] TASK-P.001 Execute every checked-in example in CI and compile examples in
+      the test suite so public API walkthroughs cannot silently drift (commit
+      `9e642e6`).
 
 ### Cleanup pass (2026-07-21)
 
