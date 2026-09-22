@@ -328,6 +328,8 @@ are not shipped capabilities. See
       (commit `a47078d`).
 - [x] TASK-P.050 Execute a public-API forward pass in wheel and sdist smoke envs
       (commit `2bd9b5c`).
+- [ ] TASK-P.051 Audit locked frontend dependencies in CI
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 

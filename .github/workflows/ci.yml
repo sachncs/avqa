@@ -50,6 +50,8 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - run: npm ci
         working-directory: site
+      - run: npm audit --audit-level=high
+        working-directory: site
       - run: npm run typecheck
         working-directory: site
       - run: npm run check:routes
