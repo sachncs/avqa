@@ -266,6 +266,8 @@ are not shipped capabilities. See
       the documented full test target can collect performance tests (commit `7927fe9`).
 - [x] TASK-P.019 Mark the performance module as benchmark-only so standard
       correctness tests exclude exploratory timing/quality assertions (commit `7927fe9`).
+- [x] TASK-P.020 Execute the documented repository test target in CI on Python
+      3.12 to prevent environment and scope drift (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 

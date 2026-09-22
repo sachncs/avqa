@@ -79,6 +79,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,viz]"
+      - name: Repository test target
+        if: matrix.python-version == '3.12'
+        run: make test
       - name: Unit + reference tests with coverage
         run: |
           pytest tests/unit tests/reference \
