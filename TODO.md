@@ -312,11 +312,14 @@ are not shipped capabilities. See
       (commit `071d5c4`).
 - [x] TASK-P.042 Return isolated KV-cache lookup snapshots
       (commit `3416919`).
+- [ ] TASK-P.043 Remove stale current-suite test-count wording from readiness docs
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
 The following catch-up items are owned by the sweep (verified by the
-461-test suite + ruff/mypy clean + 90.5% coverage). Each corresponds
+then-current test suite + ruff/mypy clean + 90.5% coverage). The suite
+has since grown; run `make test` for current evidence. Each corresponds
 to the deep-review findings reported in CHANGELOG "Unreleased Fixed".
 
 - [x] TASK-A.001 Visualizer public-API restore
