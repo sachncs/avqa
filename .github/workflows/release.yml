@@ -21,6 +21,8 @@ jobs:
       - run: python scripts/check_tag_version.py "${GITHUB_REF_NAME}"
       - run: python scripts/check_metadata.py
       - run: python scripts/check_claims.py
+      - name: Repository test target
+        run: make test
       - run: pytest tests/unit tests/reference -q --cov=avqa --cov-fail-under=90
       - run: mypy src/avqa
 

@@ -270,6 +270,8 @@ are not shipped capabilities. See
       3.12 to prevent environment and scope drift (commit `b78347d`).
 - [x] TASK-P.021 Reconcile README test commands with the benchmark-only
       performance boundary (commit `1dff96a`).
+- [x] TASK-P.022 Run the repository test target in tagged-release verification
+      to keep release and CI support boundaries aligned (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 
