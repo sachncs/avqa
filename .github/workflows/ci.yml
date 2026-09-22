@@ -101,21 +101,7 @@ jobs:
           python-version: "3.12"
       - run: pip install build twine
       - run: python -m build
-      - run: twine check dist/*
-      - name: Wheel installation smoke test
-        run: |
-          python -m venv /tmp/avqa-wheel-smoke
-          /tmp/avqa-wheel-smoke/bin/python -m pip install --upgrade pip
-          /tmp/avqa-wheel-smoke/bin/python -m pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
-          /tmp/avqa-wheel-smoke/bin/python -m pip install dist/*.whl
-          /tmp/avqa-wheel-smoke/bin/python -c "import avqa; print(avqa.__version__)"
-      - name: Source installation smoke test
-        run: |
-          python -m venv /tmp/avqa-sdist-smoke
-          /tmp/avqa-sdist-smoke/bin/python -m pip install --upgrade pip
-          /tmp/avqa-sdist-smoke/bin/python -m pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
-          /tmp/avqa-sdist-smoke/bin/python -m pip install dist/*.tar.gz
-          /tmp/avqa-sdist-smoke/bin/python -c "import avqa; print(avqa.__version__)"
+      - run: ./scripts/check_dist.sh
 
   audit:
     name: Security audit

@@ -1,4 +1,4 @@
-.PHONY: help setup install dev test lint format typecheck metadata bench coverage clean
+.PHONY: help setup install dev test lint format typecheck metadata dist-check bench coverage clean
 
 help:
 	@echo "AVQA development targets:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make format       - ruff format apply"
 	@echo "  make typecheck    - mypy strict on src/avqa/"
 	@echo "  make metadata     - validate synchronized release metadata"
+	@echo "  make dist-check   - validate and smoke-test built artifacts"
 	@echo "  make bench        - run benchmark suite"
 	@echo "  make coverage     - run tests with coverage gate (>=90%)"
 	@echo "  make clean        - remove build/cache artifacts"
@@ -37,6 +38,9 @@ typecheck:
 
 metadata:
 	python scripts/check_metadata.py
+
+dist-check:
+	./scripts/check_dist.sh
 
 bench:
 	PYTHONPATH=src pytest tests/performance/ --benchmark-only --benchmark-min-rounds=2
