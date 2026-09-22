@@ -7,6 +7,19 @@ All notable changes to AVQA are documented here. Versions follow
 
 ### Fixed
 
+- **Runtime resilience and determinism** — seeded module initialization now
+  isolates caller RNG state; deterministic forwards restore the prior Torch
+  state; finite-input validation and transactional cache updates prevent
+  partial mutations; shared cache and profiler state is synchronized; and
+  cache lookups return isolated snapshots.
+- **Public-alpha release evidence** — the supported Python range is enforced
+  in CI and release checks; wheel and sdist smoke environments execute a real
+  public-API forward pass; frontend dependencies are audited; docs navigation
+  is route-tested; and superseded CI/Pages runs are cancelled automatically.
+- **Accessibility and governance** — frontend navigation now has complete
+  landmarks, labels, focus behavior, and Escape dismissal; the Code of
+  Conduct names a confidential reporting path; and historical compliance
+  coverage is labeled as historical evidence rather than current coverage.
 - **Paged KV-cache restart safety** — page tensors and token positions now
   survive `state_dict` round trips, with validation for malformed checkpoints,
   batch changes, and invalid cache dimensions.
