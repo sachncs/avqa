@@ -217,6 +217,21 @@ class TestIntegerConfigurationValidation:
         with pytest.raises(ConfigurationError, match="integer"):
             AttentionShapeConfig(embed_dim=True)  # type: ignore[arg-type]
 
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda: AVQConfig(causal=1),
+            lambda: CacheConfig(enabled=1),
+            lambda: ExecutionConfig(compile_enabled=1),
+            lambda: PrecisionConfig(autocast=1),
+            lambda: CodebookConfig(bcar_enabled=1),
+        ],
+    )
+    def test_rejects_non_boolean_fields(self, factory: Callable[[], object]) -> None:
+        """Boolean options reject integer truthy/falsy substitutes."""
+        with pytest.raises(ConfigurationError, match="boolean"):
+            factory()
+
 
 class TestAVQConfig:
     """Tests for the top-level AVQConfig."""

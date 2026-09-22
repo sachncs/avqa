@@ -58,6 +58,7 @@ from avqa.config import (
     PrecisionConfig,
     RefinementConfig,
     RoutingConfig,
+    require_boolean,
     require_integer,
 )
 from avqa.data import (
@@ -235,6 +236,7 @@ __all__ = [
     "paper_beta",
     "per_query_beta",
     "refine",
+    "require_boolean",
     "require_integer",
     "seed_everything",
     "shape_to_string",

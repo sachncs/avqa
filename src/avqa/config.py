@@ -44,6 +44,13 @@ def require_integer(value: object, field_name: str) -> None:
         raise ConfigurationError(msg, {field_name: value})
 
 
+def require_boolean(value: object, field_name: str) -> None:
+    """Raise ``ConfigurationError`` when ``value`` is not a boolean."""
+    if not isinstance(value, bool):
+        msg = f"{field_name} must be a boolean, got {value!r}"
+        raise ConfigurationError(msg, {field_name: value})
+
+
 def require_non_negative(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is negative."""
     if not math.isfinite(value) or value < 0:
@@ -104,6 +111,7 @@ class CodebookConfig:
     bcar_decay: float = 0.99
 
     def __post_init__(self) -> None:
+        require_boolean(self.bcar_enabled, "bcar_enabled")
         require_integer(self.num_codewords, "num_codewords")
         require_integer(self.children_per_codeword, "children_per_codeword")
         require_integer(self.max_depth, "max_depth")
@@ -163,6 +171,8 @@ class RefinementConfig:
     pass_decay: float = 1.0
 
     def __post_init__(self) -> None:
+        require_boolean(self.enabled, "refinement.enabled")
+        require_boolean(self.adaptive_budget, "refinement.adaptive_budget")
         require_integer(self.passes, "passes")
         require_in_range(self.threshold, 0.0, 1.0, "threshold")
         require_positive(self.passes, "passes")
@@ -207,6 +217,9 @@ class BackendConfig:
     hopfield: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.enable_autotune, "backend.enable_autotune")
+        require_boolean(self.skip_validation, "backend.skip_validation")
+        require_boolean(self.hopfield, "backend.hopfield")
         allowed = {"torch"}
         if self.name not in allowed:
             msg = f"backend.name must be one of {sorted(allowed)}, got {self.name!r}"
@@ -226,6 +239,7 @@ class CacheConfig:
     max_size: int = 0  # 0 means unbounded
 
     def __post_init__(self) -> None:
+        require_boolean(self.enabled, "cache.enabled")
         require_integer(self.max_size, "cache.max_size")
         require_non_negative(self.max_size, "cache.max_size")
 
@@ -243,6 +257,7 @@ class PrecisionConfig:
     autocast: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.autocast, "precision.autocast")
         allowed = {"float32", "float16", "bfloat16"}
         if self.dtype not in allowed:
             msg = f"precision.dtype must be one of {sorted(allowed)}, got {self.dtype!r}"
@@ -269,6 +284,9 @@ class ExecutionConfig:
     causal_incremental: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.deterministic, "execution.deterministic")
+        require_boolean(self.compile_enabled, "execution.compile_enabled")
+        require_boolean(self.causal_incremental, "execution.causal_incremental")
         allowed = {"reference", "optimized", "research"}
         if self.mode not in allowed:
             msg = f"execution.mode must be one of {sorted(allowed)}, got {self.mode!r}"
@@ -313,6 +331,9 @@ class HopfieldConfig:
     learnable_alpha: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.enabled, "hopfield.enabled")
+        require_boolean(self.learnable_parent_beta, "hopfield.learnable_parent_beta")
+        require_boolean(self.learnable_alpha, "hopfield.learnable_alpha")
         require_non_negative(self.beta_init, "hopfield.beta_init")
         require_non_negative(self.alpha, "hopfield.alpha")
         allowed = {"none", "entropy", "linear"}
@@ -415,6 +436,7 @@ class AVQConfig:
     tolerance_rtol: float = 1e-5
 
     def __post_init__(self) -> None:
+        require_boolean(self.causal, "causal")
         require_in_range(self.dropout, 0.0, 1.0, "dropout")
         require_positive(self.tolerance_atol, "tolerance_atol")
         require_positive(self.tolerance_rtol, "tolerance_rtol")
@@ -590,6 +612,7 @@ __all__ = [
     "PrecisionConfig",
     "RefinementConfig",
     "RoutingConfig",
+    "require_boolean",
     "require_in_range",
     "require_integer",
     "require_non_negative",

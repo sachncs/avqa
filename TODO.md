@@ -243,6 +243,8 @@ are not shipped capabilities. See
       tensor conversion failures (commit `21ced43`).
 - [x] TASK-P.007 Validate integer-only configuration fields before runtime use
       (commit `f7f0be0`).
+- [x] TASK-P.008 Validate boolean configuration fields before runtime use
+      (commit pending).
 
 ### Cleanup pass (2026-07-21)
 
