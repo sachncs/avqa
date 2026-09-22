@@ -261,7 +261,7 @@ are not shipped capabilities. See
 - [x] TASK-P.016 Normalize nested configuration deserialization failures to
       the public ConfigurationError contract (commit `b5782e2`).
 - [x] TASK-P.017 Validate online-softmax tile sizes at the public backend
-      boundary (commit `pending`).
+      boundary (commit `021d0ac`).
 
 ### Cleanup pass (2026-07-21)
 
