@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from avqa.backend import Backend, TorchBackend
-from avqa.exceptions import AVQAError, BackendError
+from avqa.exceptions import AVQAError, BackendError, ConfigurationError
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.quantizer import QuantizationResult
 from avqa.utils.numerics import online_softmax_step
@@ -83,6 +83,15 @@ class TestOnlineSoftmaxAttention:
         out_online = backend.online_softmax_attention(Q, K, V, block_size=10)
         out_naive = backend.naive_attention(Q, K, V)
         assert torch.allclose(out_online, out_naive, atol=1e-5)
+
+    @pytest.mark.parametrize("block_size", [0, -1, 1.5, True])
+    def test_invalid_block_size_uses_public_error(self, block_size: object) -> None:
+        """Invalid tile sizes fail before Python's range() raises raw errors."""
+        Q = torch.randn(1, 1, 2, 4)
+        K = torch.randn(1, 1, 3, 4)
+        V = torch.randn(1, 1, 3, 4)
+        with pytest.raises(ConfigurationError, match="positive integer"):
+            TorchBackend().online_softmax_attention(Q, K, V, block_size=block_size)  # type: ignore[arg-type]
 
     def test_with_mask(self) -> None:
         """Masked online-softmax attention matches naive masked attention."""

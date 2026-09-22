@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 import torch
 
 from avqa.codebook import HierarchicalCodebook
-from avqa.exceptions import BackendError
+from avqa.exceptions import BackendError, ConfigurationError
 from avqa.logging import get_logger
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.quantizer import EuclideanHierarchicalQuantizer, QuantizationResult
@@ -163,6 +163,11 @@ def online_softmax_attention(
     shim that delegates here so existing callers continue to work;
     orchestrator code does not depend on it.
     """
+    if isinstance(block_size, bool) or not isinstance(block_size, int) or block_size <= 0:
+        raise ConfigurationError(
+            "block_size must be a positive integer",
+            {"block_size": block_size},
+        )
     B, H, T, D_k = query.shape
     _, _, N, D_v = value.shape
     scale = scale_for(D_k)
