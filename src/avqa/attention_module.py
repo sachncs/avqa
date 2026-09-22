@@ -428,6 +428,41 @@ class AVQAttention(nn.Module):
         """
         if kv_cache is not None:
             cached_k, cached_v = kv_cache.lookup()
+            if cached_k.device != k.device or cached_v.device != v.device:
+                raise DeviceError(
+                    "KV cache device must match projected key/value tensors",
+                    expected=k.device,
+                    actual=f"key={cached_k.device}, value={cached_v.device}",
+                )
+            if cached_k.ndim != 4 or cached_v.ndim != 4:
+                raise ShapeError(
+                    "KV cache lookup must return rank-4 key/value tensors",
+                    expected="rank=4",
+                    actual=f"key_rank={cached_k.ndim}, value_rank={cached_v.ndim}",
+                )
+            if cached_k.shape[0] != k.shape[0] or cached_v.shape[0] != v.shape[0]:
+                raise ShapeError(
+                    "KV cache batch size must match the current request",
+                    expected=f"batch={k.shape[0]}",
+                    actual=f"key_batch={cached_k.shape[0]}, value_batch={cached_v.shape[0]}",
+                )
+            if cached_k.shape[1] != k.shape[1] or cached_v.shape[1] != v.shape[1]:
+                raise ShapeError(
+                    "KV cache head count must match the current request",
+                    expected=f"heads={k.shape[1]}",
+                    actual=f"key_heads={cached_k.shape[1]}, value_heads={cached_v.shape[1]}",
+                )
+            if cached_k.shape[-1] != k.shape[-1] or cached_v.shape[-1] != v.shape[-1]:
+                raise ShapeError(
+                    "KV cache head dimensions must match the current request",
+                    expected=f"key_dim={k.shape[-1]}, value_dim={v.shape[-1]}",
+                    actual=f"key_dim={cached_k.shape[-1]}, value_dim={cached_v.shape[-1]}",
+                )
+            # Cache storage dtype is configurable; normalize it at the
+            # attention boundary so the query/key/value computation remains
+            # dtype-consistent without rewriting the stored checkpoint.
+            cached_k = cached_k.to(dtype=k.dtype)
+            cached_v = cached_v.to(dtype=v.dtype)
             if cached_k.shape[-2] > 0:
                 k_full = torch.cat([cached_k, k], dim=-2)
                 v_full = torch.cat([cached_v, v], dim=-2)

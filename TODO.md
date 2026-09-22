@@ -280,6 +280,8 @@ are not shipped capabilities. See
       requests remain failure-atomic (commit `a82a41d`).
 - [x] TASK-P.026 Keep KV-cache appends transactional across downstream forward
       failures (commit `9870aba`).
+- [ ] TASK-P.027 Validate and normalize resolved KV-cache tensors at the
+      attention pipeline boundary (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
