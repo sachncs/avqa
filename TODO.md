@@ -344,6 +344,8 @@ are not shipped capabilities. See
       test required experiment artifacts (commit `57828b4`).
 - [x] TASK-P.058 Expand profiler contract coverage for export and failure
       paths (commit `a10a076`).
+- [x] TASK-P.059 Verify the bootstrapped environment with an import and public
+      API forward smoke test (commit `eff2f52`).
 
 ### Cleanup pass (2026-07-21)
 
