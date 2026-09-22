@@ -56,7 +56,8 @@ implementation tracker is [TODO.md](TODO.md).
 - **torch.compile** opt-in for reduced Python overhead where supported by the
   installed PyTorch build.
 - **Strict typing, zero-warning lint, ≥90% test coverage** on the
-  core package.
+  core package. The wheel ships a PEP 561 `py.typed` marker for downstream
+  type checkers.
 
 ---
 

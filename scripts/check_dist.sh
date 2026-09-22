@@ -24,6 +24,6 @@ for artifact in wheel sdist; do
 done
 
 "$SMOKE_ROOT/wheel/bin/python" -m pip install "$WHEEL"
-"$SMOKE_ROOT/wheel/bin/python" -c "import avqa; print(avqa.__version__)"
+"$SMOKE_ROOT/wheel/bin/python" -c "import importlib.resources as r; import avqa; assert r.files('avqa').joinpath('py.typed').is_file(); print(avqa.__version__)"
 "$SMOKE_ROOT/sdist/bin/python" -m pip install "$SDIST"
-"$SMOKE_ROOT/sdist/bin/python" -c "import avqa; print(avqa.__version__)"
+"$SMOKE_ROOT/sdist/bin/python" -c "import importlib.resources as r; import avqa; assert r.files('avqa').joinpath('py.typed').is_file(); print(avqa.__version__)"
