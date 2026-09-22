@@ -161,6 +161,29 @@ class TestBCARRobustness:
         moved = (cb.parents[0, 0] - original_parent[0, 0]).abs().max().item()
         assert moved > 0, "parent 0 should have moved toward the EMA centroid"
 
+    def test_non_finite_keys_do_not_mutate_codebook(self) -> None:
+        """A corrupt adaptation batch cannot publish partial codebook state."""
+        cb = codebook_from(
+            torch.randn(1, 4, 8),
+            torch.randn(1, 4, 2, 8),
+            perturb=0.0,
+        )
+        original_parent = cb.parents.clone()
+        original_children = cb.children.clone()
+        keys = torch.zeros(1, 1, 1, 8)
+        keys[0, 0, 0, 0] = float("nan")
+        with pytest.raises(AVQAError, match="non-finite"):
+            online_codebook_adaptation(
+                keys,
+                parents=cb.parents,
+                children=cb.children,
+                parent_assignments=torch.zeros(1, 1, 1, dtype=torch.long),
+                child_assignments=torch.zeros(1, 1, 1, dtype=torch.long),
+                decay=0.5,
+            )
+        assert torch.equal(cb.parents, original_parent)
+        assert torch.equal(cb.children, original_children)
+
 
 class TestBCAREndToEnd:
     """BCAR is wired through AVQAttention: ``bcar_enabled=True`` must
