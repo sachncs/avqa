@@ -17,7 +17,7 @@ from avqa.config import (
     RefinementConfig,
     RoutingConfig,
 )
-from avqa.exceptions import AVQAError
+from avqa.exceptions import AVQAError, DeviceError, DtypeError, ShapeError
 
 
 class _ConfigOverrides(TypedDict, total=False):
@@ -110,6 +110,70 @@ class TestForwardNaive:
         # No exception means the causal mask path ran cleanly.
         out = module(q, k, v)
         assert out.shape == (1, 4, 32)
+
+    def test_rejects_mask_rank(self) -> None:
+        """Malformed mask ranks fail with ShapeError before pipeline math."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(ShapeError, match=r"rank 2|rank 4"):
+            module(q, q, q, mask=torch.ones(1, 1, 4))
+
+    def test_rejects_non_boolean_mask(self) -> None:
+        """Mask contracts require boolean tensors."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(DtypeError, match="mask dtype"):
+            module(q, q, q, mask=torch.ones(4, 4))
+
+    def test_rejects_mask_length_mismatch(self) -> None:
+        """Mask lengths must match resolved query and key sequences."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(ShapeError, match="resolved query/key"):
+            module(q, q, q, mask=torch.ones(3, 4, dtype=torch.bool))
+
+    def test_accepts_broadcastable_rank4_mask(self) -> None:
+        """Rank-4 masks may broadcast batch and head dimensions."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        mask = torch.ones(1, 1, 4, 4, dtype=torch.bool)
+        out = module(q, q, q, mask=mask)
+        assert out.shape == q.shape
+
+    def test_validates_mask_against_cached_key_length(self) -> None:
+        """Cached decoding validates against the resolved, longer K/V span."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        first = torch.randn(1, 1, 32)
+        module(first, first, first, kv_cache=cache)
+        next_token = torch.randn(1, 1, 32)
+        out = module(
+            next_token,
+            next_token,
+            next_token,
+            mask=torch.ones(1, 2, dtype=torch.bool),
+            kv_cache=cache,
+        )
+        assert out.shape == next_token.shape
+
+    def test_rejects_mask_device_mismatch(self) -> None:
+        """Masks must share the query device."""
+        if not torch.backends.mps.is_available() and not torch.cuda.is_available():
+            pytest.skip("requires a second device")
+        device = torch.device("mps" if torch.backends.mps.is_available() else "cuda")
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        mask = torch.ones(4, 4, dtype=torch.bool, device=device)
+        with pytest.raises(DeviceError, match="mask device"):
+            module(q, q, q, mask=mask)
 
 
 class TestForwardAVQ:

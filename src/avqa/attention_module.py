@@ -29,7 +29,7 @@ from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
-from avqa.exceptions import NotInitializedError
+from avqa.exceptions import DeviceError, DtypeError, NotInitializedError, ShapeError
 from avqa.logging import get_logger
 from avqa.multipass import MultiPassRefiner
 from avqa.online_adaptation import online_codebook_adaptation
@@ -350,6 +350,61 @@ class AVQAttention(nn.Module):
             validate_shape(key, query.shape, name="key")
         if key.shape != value.shape:
             validate_shape(value, key.shape, name="value")
+
+    def validate_mask(
+        self,
+        mask: torch.Tensor | None,
+        query: torch.Tensor,
+        key: torch.Tensor,
+    ) -> None:
+        """Validate a user mask against resolved query/key dimensions."""
+        if mask is None or self.config.backend.skip_validation:
+            return
+        if mask.ndim not in (2, 4):
+            raise ShapeError(
+                "mask must be rank 2 [T_q, T_k] or rank 4 [B, H, T_q, T_k]",
+                expected="rank=2 or rank=4",
+                actual=f"rank={mask.ndim}",
+            )
+        if mask.dtype is not torch.bool:
+            raise DtypeError(
+                "mask dtype mismatch: expected torch.bool",
+                expected=torch.bool,
+                actual=mask.dtype,
+            )
+        if mask.device != query.device:
+            raise DeviceError(
+                "mask device mismatch",
+                expected=query.device,
+                actual=mask.device,
+            )
+
+        expected_query = int(query.shape[-2])
+        expected_key = int(key.shape[-2])
+        if mask.ndim == 2:
+            expected_shape = (expected_query, expected_key)
+            if tuple(mask.shape) != expected_shape:
+                raise ShapeError(
+                    "mask shape must match resolved query/key lengths",
+                    expected=expected_shape,
+                    actual=tuple(mask.shape),
+                )
+            return
+
+        batch, heads = int(query.shape[0]), int(query.shape[1])
+        if mask.shape[0] not in (1, batch) or mask.shape[1] not in (1, heads):
+            raise ShapeError(
+                "rank-4 mask batch/head dimensions must be broadcastable",
+                expected=f"batch in (1, {batch}), heads in (1, {heads})",
+                actual=tuple(mask.shape[:2]),
+            )
+        expected_tail = (expected_query, expected_key)
+        if tuple(mask.shape[-2:]) != expected_tail:
+            raise ShapeError(
+                "mask shape must match resolved query/key lengths",
+                expected=f"[..., {expected_query}, {expected_key}]",
+                actual=tuple(mask.shape),
+            )
 
     def sync_codebook_device(self, q: torch.Tensor) -> None:
         """Move codebook to match input device and dtype (M5)."""

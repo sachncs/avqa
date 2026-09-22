@@ -297,6 +297,7 @@ def run_pipeline(
     state.sync_codebook_device(q)
     k_full, v_full = state.resolve_kv_cache(k, v, kv_cache)
     mask = state.resolve_mask(mask, q, kv=k_full)
+    state.validate_mask(mask, q, k_full)
 
     use_naive = state.scheduler is None or state.config.execution.mode == "reference"
     if use_naive:
