@@ -334,8 +334,8 @@ are not shipped capabilities. See
       (commit `9a0a53d`).
 - [x] TASK-P.053 Label historical compliance coverage snapshots explicitly
       (commit `54f99c9`).
-- [ ] TASK-P.054 Reconcile Unreleased changelog with current readiness work
-      (implementation pending).
+- [x] TASK-P.054 Reconcile Unreleased changelog with current readiness work
+      (commit `854e12b`).
 
 ### Cleanup pass (2026-07-21)
 
