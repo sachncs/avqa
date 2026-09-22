@@ -88,6 +88,26 @@ class TestConstruction:
         observed = torch.rand(5)
         assert torch.equal(observed, reference)
 
+    def test_deterministic_execution_restores_torch_state(self) -> None:
+        """AVQAttention applies deterministic mode only for its forward."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(deterministic=True))
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        query = torch.randn(1, 2, 32)
+
+        previous_enabled = torch.are_deterministic_algorithms_enabled()
+        previous_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        try:
+            torch.use_deterministic_algorithms(False, warn_only=False)
+            output = module(query, query, query)
+            assert output.shape == query.shape
+            assert not torch.are_deterministic_algorithms_enabled()
+            assert not torch.is_deterministic_algorithms_warn_only_enabled()
+        finally:
+            torch.use_deterministic_algorithms(
+                previous_enabled,
+                warn_only=previous_warn_only,
+            )
+
     def test_state_dict_contains_codebook_and_round_trips(self) -> None:
         """Model checkpoints must include hierarchical codebook state."""
         module = AVQAttention(small_config(), in_proj=False, out_proj=False)
