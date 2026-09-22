@@ -168,6 +168,32 @@ class TestInMemoryKVCache:
         with pytest.raises(ShapeError, match="token dimensions"):
             cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 3, 6))
 
+    def test_failed_first_append_does_not_set_batch_state(self) -> None:
+        """A conversion failure cannot poison an otherwise empty cache."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(NotImplementedError, match="meta"):
+            cache.append(
+                torch.empty(1, 1, 1, 4, device="meta"),
+                torch.empty(1, 1, 1, 4, device="meta"),
+            )
+        assert cache.batch_size is None
+        assert cache.size == 0
+
+    def test_failed_restore_preserves_existing_state(self) -> None:
+        """A value conversion failure cannot partially replace cached keys."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.ones(1, 1, 1, 4)
+        original_value = torch.ones(1, 1, 1, 4) * 2
+        cache.append(original_key, original_value)
+        payload = cache.state_dict()
+        payload["cache_key"] = torch.zeros(1, 1, 1, 4)
+        payload["cache_value"] = torch.empty(1, 1, 1, 4, device="meta")
+        with pytest.raises(NotImplementedError, match="meta"):
+            cache.load_state_dict(payload)
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
+
     def test_cache_stats_expose_hits_and_misses(self) -> None:
         """Cache counters provide stable observability for serving code."""
         cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)

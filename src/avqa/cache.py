@@ -176,19 +176,23 @@ class InMemoryKVCache(KVCache):
                 expected=self.batch_size,
                 actual=int(key.shape[0]),
             )
+        converted_key = key.to(device=self.device, dtype=self.dtype)
+        converted_value = value.to(device=self.device, dtype=self.dtype)
         if self.batch_size is None:
             self.batch_size = int(key.shape[0])
         if self.cache_key.numel() == 0:
-            self.cache_key = key.to(device=self.device, dtype=self.dtype)
-            self.cache_value = value.to(device=self.device, dtype=self.dtype)
+            self.cache_key = converted_key
+            self.cache_value = converted_value
         else:
             existing_key = self.cache_key
-            self.cache_key = torch.cat([existing_key, key.to(existing_key.dtype)], dim=-2)
+            next_key = torch.cat([existing_key, converted_key.to(existing_key.dtype)], dim=-2)
             existing_value = self.cache_value
-            self.cache_value = torch.cat(
-                [existing_value, value.to(existing_value.dtype)],
+            next_value = torch.cat(
+                [existing_value, converted_value.to(existing_value.dtype)],
                 dim=-2,
             )
+            self.cache_key = next_key
+            self.cache_value = next_value
         if self.max_size > 0 and self.size > self.max_size:
             # Drop the oldest tokens. .contiguous() to keep downstream
             # reshape/tracing paths from incurring hidden copies.
@@ -322,8 +326,10 @@ class InMemoryKVCache(KVCache):
                     expected=f"<= {self.max_size}",
                     actual=serialized_size,
                 )
-            self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
-            self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
+            restored_key = cache_key.to(device=self.device, dtype=self.dtype)
+            restored_value = cache_value.to(device=self.device, dtype=self.dtype)
+            self.cache_key = restored_key
+            self.cache_value = restored_value
             self.batch_size = serialized_batch or None
         else:
             self.reset()
