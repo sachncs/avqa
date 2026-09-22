@@ -9,10 +9,16 @@ cd "$HERE"
 python -m pip install --upgrade twine
 python -m twine check dist/*
 
-WHEEL="$(find dist -maxdepth 1 -type f -name '*.whl' -print -quit)"
-SDIST="$(find dist -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
-test -n "$WHEEL"
-test -n "$SDIST"
+WHEEL_COUNT="$(find dist -maxdepth 1 -type f -name '*.whl' -print | wc -l | tr -d ' ')"
+SDIST_COUNT="$(find dist -maxdepth 1 -type f -name '*.tar.gz' -print | wc -l | tr -d ' ')"
+if [ "$WHEEL_COUNT" -ne 1 ] || [ "$SDIST_COUNT" -ne 1 ]; then
+  echo "error: expected exactly one wheel and one sdist in dist/" >&2
+  echo "found: wheels=$WHEEL_COUNT sdists=$SDIST_COUNT" >&2
+  exit 1
+fi
+
+WHEEL="$(find dist -maxdepth 1 -type f -name '*.whl' -print)"
+SDIST="$(find dist -maxdepth 1 -type f -name '*.tar.gz' -print)"
 
 SMOKE_ROOT="$(mktemp -d)"
 trap 'rm -rf "$SMOKE_ROOT"' EXIT

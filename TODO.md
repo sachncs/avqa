@@ -272,6 +272,8 @@ are not shipped capabilities. See
       performance boundary (commit `1dff96a`).
 - [x] TASK-P.022 Run the repository test target in tagged-release verification
       to keep release and CI support boundaries aligned (commit `52e76f2`).
+- [x] TASK-P.023 Fail closed when distribution smoke tests see ambiguous wheel
+      or sdist artifacts (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 
