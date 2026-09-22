@@ -259,7 +259,7 @@ are not shipped capabilities. See
 - [x] TASK-P.015 Add a validated backend registration seam for external
       implementations without hard-coded core imports (commit `b4feca6`).
 - [x] TASK-P.016 Normalize nested configuration deserialization failures to
-      the public ConfigurationError contract (commit `pending`).
+      the public ConfigurationError contract (commit `b5782e2`).
 
 ### Cleanup pass (2026-07-21)
 
