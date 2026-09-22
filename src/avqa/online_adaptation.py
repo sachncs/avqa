@@ -20,9 +20,9 @@ products the children with the queries in :func:`avqa.pipeline.child_logits`).
 
 References
 ----------
-
 - AVQ-Attention paper (§8.9): offline EMA training of the codebook.
 - Bottou & Bengio (1994): stochastic K-means convergence rate.
+
 """
 
 from __future__ import annotations
@@ -60,6 +60,7 @@ def online_codebook_adaptation(
         ConfigurationError: If ``decay`` is outside ``[0, 1)``.
         CodebookError: If the codebook shapes are wrong or assignments
             are missing.
+
     """
     if decay < 0.0 or decay >= 1.0:
         msg = f"decay must be in [0, 1), got {decay}"
@@ -76,6 +77,13 @@ def online_codebook_adaptation(
         else:
             msg = "either both parent and child assignments or just parent must be supplied"
         raise CodebookError(msg)
+
+    if (
+        not torch.isfinite(keys).all()
+        or not torch.isfinite(parents).all()
+        or not torch.isfinite(children).all()
+    ):
+        raise CodebookError("online codebook adaptation contains non-finite values")
 
     H = parents.shape[0]
     M0 = parents.shape[1]
@@ -133,16 +141,20 @@ def online_codebook_adaptation(
     update_pc_weight = ((1.0 - decay) * has_pc_bh).to(children_bh.dtype).unsqueeze(-1)
     new_children_bh = children_bh + update_pc_weight * (mean_per_pc_view - children_bh)
     new_children_per_bh = new_children_bh.view(B, H, M0, C, D).mean(dim=0)
-    children.copy_(
-        torch.where(
-            has_pc_bh.view(B, H, M0, C).any(dim=0).unsqueeze(-1),
-            new_children_per_bh,
-            children,
-        )
+    next_children = torch.where(
+        has_pc_bh.view(B, H, M0, C).any(dim=0).unsqueeze(-1),
+        new_children_per_bh,
+        children,
     )
+    next_parents = next_children.mean(dim=2)
+    if not torch.isfinite(next_children).all() or not torch.isfinite(next_parents).all():
+        raise CodebookError("online codebook adaptation produced non-finite values")
+
+    # Publish only after the complete candidate update has been validated.
+    children.copy_(next_children)
 
     # SPEC §7.9 invariant: parents = mean(children) at every step.
-    parents.copy_(children.mean(dim=2))
+    parents.copy_(next_parents)
     logger.debug(
         "bcar updated children/parents; decay=%.3f empty_cells=%d/%d",
         decay,

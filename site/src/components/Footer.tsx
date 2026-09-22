@@ -17,15 +17,24 @@ const COLS = [
       { label: "Documentation", href: DOCS_URL },
       { label: "GitHub repo", href: GITHUB_URL },
       { label: "arXiv paper", href: "https://arxiv.org/abs/2607.12789" },
-      { label: "Benchmark protocol", href: `${GITHUB_URL}/blob/main/BENCHMARKS.md` },
+      {
+        label: "Benchmark protocol",
+        href: `${GITHUB_URL}/blob/main/BENCHMARKS.md`,
+      },
       { label: "Specification", href: `${GITHUB_URL}/blob/main/SPEC.md` },
     ],
   },
   {
     title: "Project",
     links: [
-      { label: "Contributing", href: `${GITHUB_URL}/blob/main/CONTRIBUTING.md` },
-      { label: "Code of Conduct", href: `${GITHUB_URL}/blob/main/CODE_OF_CONDUCT.md` },
+      {
+        label: "Contributing",
+        href: `${GITHUB_URL}/blob/main/CONTRIBUTING.md`,
+      },
+      {
+        label: "Code of Conduct",
+        href: `${GITHUB_URL}/blob/main/CODE_OF_CONDUCT.md`,
+      },
       { label: "Security", href: `${GITHUB_URL}/blob/main/SECURITY.md` },
       { label: "Support", href: `${GITHUB_URL}/blob/main/SUPPORT.md` },
     ],
@@ -39,8 +48,11 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <a href="#top" className="inline-flex items-center gap-2">
-              <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
-              <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
+              <img
+                src="/avqa/avqa-wordmark.svg"
+                alt="AVQA"
+                className="h-9 w-auto"
+              />
             </a>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-ink-400">
               Adaptive Vector Quantized Attention for PyTorch. Public-alpha
@@ -51,6 +63,7 @@ export function Footer() {
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noreferrer"
+                aria-label="AVQA on GitHub"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-ink-300 transition hover:border-white/20 hover:text-white"
               >
                 <Github className="h-4 w-4" />
@@ -72,8 +85,12 @@ export function Footer() {
                     <li key={l.label}>
                       <a
                         href={l.href}
-                        target={l.href.startsWith("http") ? "_blank" : undefined}
-                        rel={l.href.startsWith("http") ? "noreferrer" : undefined}
+                        target={
+                          l.href.startsWith("http") ? "_blank" : undefined
+                        }
+                        rel={
+                          l.href.startsWith("http") ? "noreferrer" : undefined
+                        }
                         className="text-[14px] text-ink-300 transition hover:text-white"
                       >
                         {l.label}

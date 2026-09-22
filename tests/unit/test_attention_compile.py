@@ -116,7 +116,7 @@ class TestCompileNumericalEquivalence:
             assert compiled.forward_compiled is not None
             try:
                 out_compiled = compiled.forward_compiled(q, k, v, None, None)
-            except (RuntimeError, torch._C._dynamo.exc.TorchRuntimeError):  # type: ignore[attr-defined]
+            except (RuntimeError, torch._dynamo.exc.TorchRuntimeError):
                 pytest.skip("torch.compile Dynamo tracing not supported in this environment")
             assert out_compiled.shape == out_eager.shape
             assert out_compiled.dtype == out_eager.dtype

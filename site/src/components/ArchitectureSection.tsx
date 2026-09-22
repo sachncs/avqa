@@ -40,10 +40,10 @@ export function ArchitectureSection() {
             <span className="text-gradient-accent">clean boundaries.</span>
           </h2>
           <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            Every backend implements the same interface. Every router
-            implements the same selector contract. The core algorithm never
-            imports profiling or visualization — so you can observe, replace,
-            or extend without touching the math.
+            Every backend implements the same interface. Every router implements
+            the same selector contract. The core algorithm never imports
+            profiling or visualization — so you can observe, replace, or extend
+            without touching the math.
           </p>
         </FadeIn>
 

@@ -5,8 +5,57 @@ All notable changes to AVQA are documented here. Versions follow
 
 ## Unreleased
 
+### Added
+
+- **Python compatibility** now declares Python 3.10–3.15 and runs the CPU test
+  matrix across that range, using prerelease PyTorch wheels for Python 3.15
+  while the interpreter remains prerelease.
+- **Polymorphic strategy extension** — router and merge implementations can be
+  registered and selected through `AVQConfig`; scheduler and backend factories
+  are also registry-backed, with type-checked factory results.
+- **Google-style quality gates** — Ruff enforces 80-column formatting,
+  Google-convention docstrings, and strict static checks; frontend ESLint and
+  Prettier rules run in CI.
+- **Build and research documentation** — added the install/API/KV-cache guide,
+  compatibility boundaries, contributor style guide, and a ten-route docs
+  application. Usage examples are syntax-checked.
+- **Brand system and product page** — added light/dark and monochrome logo
+  variants, social preview artwork, responsive brand treatment, and an
+  evidence-led landing page.
+
 ### Fixed
 
+- **Runtime resilience and determinism** — seeded module initialization now
+  isolates caller RNG state; deterministic forwards restore the prior Torch
+  state; finite-input validation and transactional cache updates prevent
+  partial mutations; shared cache and profiler state is synchronized; and
+  cache lookups return isolated snapshots.
+- **Public-alpha release evidence** — the supported Python range is enforced
+  in CI and release checks; wheel and sdist smoke environments execute a real
+  public-API forward pass; frontend dependencies are audited; docs navigation
+  is route-tested; and superseded CI/Pages runs are cancelled automatically.
+- **Accessibility and governance** — frontend navigation now has complete
+  landmarks, labels, focus behavior, and Escape dismissal; the Code of
+  Conduct names a confidential reporting path; and historical compliance
+  coverage is labeled as historical evidence rather than current coverage.
+- **PyPI release safety** — version tags verify and build artifacts without
+  publishing by default; PyPI publication requires an explicit manual
+  dispatch, the protected `pypi` environment, and OIDC trusted publishing.
+- **Paged KV-cache restart safety** — page tensors and token positions now
+  survive `state_dict` round trips, with validation for malformed checkpoints,
+  batch changes, and invalid cache dimensions.
+- **Release and CI gates** — wheel/sdist installation smoke tests, strict
+  mypy, frontend lint/typecheck/build, metadata synchronization, and security
+  auditing now run as explicit release checks.
+- **Public-alpha documentation drift** — removed stale production claims,
+  corrected the compliance ledger for removed Triton/adapters, and aligned the
+  compatibility matrix with the CPU-validated support contract.
+- **Unsupported attention claims** — removed workload-specific latency and
+  memory assertions from public copy; clarified the distinction between
+  materialized score matrices and linear KV-cache growth.
+- **CUDA status** — the docs and product page now explicitly state that CUDA
+  execution, CUDA/Triton equivalence, and GPU performance have not been tested
+  in a CUDA environment.
 - **Visualizer import** (`from avqa import Visualizer`): the class was
   listed in `__all__` but never imported in `__init__.py`. Now exposed.
 - **Integration tests collection**: `tests/integration/test_avqa_end_to_end.py`

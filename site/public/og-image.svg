@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0C0F1C"/>
+      <stop offset="1" stop-color="#06080F"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#7DF9FF"/>
+      <stop offset="1" stop-color="#9AA8FF"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#AAB2C8" stroke-opacity=".06"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <circle cx="1040" cy="148" r="275" fill="#7C8CFF" fill-opacity=".08"/>
+  <rect x="82" y="92" width="72" height="72" rx="18" fill="#111827" stroke="#26304F" stroke-width="2"/>
+  <path d="M118 105v12m-16 7 16-7 16 7m-32 0v14m16-21v21m16-14v14M104 151l14-25 14 25m-21-9h14" fill="none" stroke="url(#signal)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="178" y="141" fill="#F7F8FA" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="700" letter-spacing="7">AVQA</text>
+  <text x="86" y="276" fill="#F7F8FA" font-family="Inter,Arial,sans-serif" font-size="66" font-weight="650" letter-spacing="-2">Spend compute where</text>
+  <text x="86" y="354" fill="#A8B8FF" font-family="Inter,Arial,sans-serif" font-size="66" font-weight="650" letter-spacing="-2">attention goes.</text>
+  <text x="90" y="412" fill="#B1B6C7" font-family="Inter,Arial,sans-serif" font-size="25">Adaptive Vector Quantized Attention · PyTorch research software</text>
+  <rect x="86" y="486" width="190" height="42" rx="21" fill="#7C8CFF" fill-opacity=".13" stroke="#9AA8FF" stroke-opacity=".3"/>
+  <text x="108" y="513" fill="#D6D9E2" font-family="Arial,sans-serif" font-size="15" font-weight="600" letter-spacing="2">PUBLIC ALPHA</text>
+  <text x="86" y="576" fill="#8088A1" font-family="Arial,sans-serif" font-size="16">CPU reference path · CUDA has not been tested in a CUDA environment</text>
+  <text x="1080" y="576" text-anchor="end" fill="#8088A1" font-family="Arial,sans-serif" font-size="17">sachncs.github.io/avqa</text>
+</svg>

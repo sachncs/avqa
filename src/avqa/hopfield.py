@@ -1,4 +1,4 @@
-"""Hopfield-VQ-Attention (HVAQ) primitive (SPEC \u00a716, OPT-0005).
+r"""Hopfield-VQ-Attention (HVAQ) primitive (SPEC \u00a716, OPT-0005).
 
 HVAQ generalises the paper's fixed-temperature softmax attention
 ``softmax(q \u00b7 k^T / \u221ad) \u00b7 v`` with per-parent and per-query
@@ -60,7 +60,7 @@ def per_query_beta(
     adaptive: str,
     alpha: float | torch.Tensor = 1.0,
 ) -> torch.Tensor:
-    """Compute the per-query temperature ``\u03b2_q`` (SPEC \u00a716.2).
+    r"""Compute the per-query temperature ``\u03b2_q`` (SPEC \u00a716.2).
 
     Args:
         parent_probs: ``[B, H, N, M_0]`` parent attention probabilities
@@ -78,6 +78,7 @@ def per_query_beta(
     Raises:
         ValueError: If ``beta_init`` is non-positive.
         ConfigurationError: If ``adaptive`` is unknown.
+
     """
     if beta_init <= 0.0:
         msg = f"beta_init must be > 0, got {beta_init}"
@@ -123,6 +124,7 @@ def hopfield_logits(
 
     Returns:
         ``[B, H, N, M_0]`` temperature-scaled logits ready for softmax.
+
     """
     if base_logits.dim() != 4:
         msg = f"base_logits must be rank 4 [B, H, N, M_0], got {base_logits.dim()}"

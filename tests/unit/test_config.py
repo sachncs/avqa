@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -15,8 +16,10 @@ from avqa.config import (
     CacheConfig,
     CodebookConfig,
     ExecutionConfig,
+    HopfieldConfig,
     MergeConfig,
     PrecisionConfig,
+    RefinementConfig,
     RoutingConfig,
 )
 from avqa.exceptions import ConfigurationError
@@ -70,6 +73,32 @@ class TestRoutingConfig:
         """refinement_budget must be > 0."""
         with pytest.raises(ConfigurationError):
             RoutingConfig(refinement_budget=0)
+
+
+class TestRefinementConfig:
+    """Refinement settings reject invalid runtime budgets."""
+
+    def test_passes_must_be_positive(self) -> None:
+        with pytest.raises(ConfigurationError):
+            RefinementConfig(passes=0)
+
+    def test_pass_decay_must_be_finite_and_positive(self) -> None:
+        with pytest.raises(ConfigurationError):
+            RefinementConfig(pass_decay=0.0)
+        with pytest.raises(ConfigurationError):
+            RefinementConfig(pass_decay=float("nan"))
+
+
+class TestHopfieldConfig:
+    """HVAQ schedule names and numeric inputs are validated at construction."""
+
+    def test_adaptive_schedule_is_restricted(self) -> None:
+        with pytest.raises(ConfigurationError, match=r"hopfield\.adaptive"):
+            HopfieldConfig(adaptive="unknown")
+
+    def test_non_finite_parameters_are_rejected(self) -> None:
+        with pytest.raises(ConfigurationError):
+            HopfieldConfig(alpha=float("nan"))
 
 
 class TestMergeConfig:
@@ -155,6 +184,54 @@ class TestAttentionShapeConfig:
         with pytest.raises(ConfigurationError, match="divisible"):
             AVQConfig(attention=AttentionShapeConfig(embed_dim=100, num_heads=8))
 
+    def test_explicit_head_dim_must_match_shape(self) -> None:
+        with pytest.raises(ConfigurationError, match="head_dim"):
+            AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=7)
+
+    def test_non_finite_shape_values_are_rejected(self) -> None:
+        with pytest.raises(ConfigurationError):
+            AttentionShapeConfig(embed_dim=float("nan"))
+
+
+class TestIntegerConfigurationValidation:
+    """Tests for integer-only configuration boundaries."""
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda: AttentionShapeConfig(embed_dim=32.0),
+            lambda: CodebookConfig(num_codewords=8.5),
+            lambda: RoutingConfig(refinement_budget=2.5),
+            lambda: RefinementConfig(passes=1.5),
+            lambda: CacheConfig(max_size=2.5),
+            lambda: ExecutionConfig(seed=1.5),
+        ],
+    )
+    def test_rejects_fractional_integer_fields(self, factory: Callable[[], object]) -> None:
+        """Integer-only fields reject fractional values at construction."""
+        with pytest.raises(ConfigurationError, match="integer"):
+            factory()
+
+    def test_rejects_boolean_integer_fields(self) -> None:
+        """Booleans must not be accepted as dimensions or capacities."""
+        with pytest.raises(ConfigurationError, match="integer"):
+            AttentionShapeConfig(embed_dim=True)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda: AVQConfig(causal=1),
+            lambda: CacheConfig(enabled=1),
+            lambda: ExecutionConfig(compile_enabled=1),
+            lambda: PrecisionConfig(autocast=1),
+            lambda: CodebookConfig(bcar_enabled=1),
+        ],
+    )
+    def test_rejects_non_boolean_fields(self, factory: Callable[[], object]) -> None:
+        """Boolean options reject integer truthy/falsy substitutes."""
+        with pytest.raises(ConfigurationError, match="boolean"):
+            factory()
+
 
 class TestAVQConfig:
     """Tests for the top-level AVQConfig."""
@@ -239,6 +316,11 @@ class TestAVQConfigSerialization:
         """Unknown fields raise ConfigurationError (no silent schema drift)."""
         with pytest.raises(ConfigurationError, match="unknown field"):
             AVQConfig.from_dict({"some_made_up_field": 1.0})
+
+    def test_from_dict_nested_unknown_field_uses_public_error_type(self) -> None:
+        """Nested schema drift also raises ConfigurationError, not TypeError."""
+        with pytest.raises(ConfigurationError, match="attention configuration"):
+            AVQConfig.from_dict({"attention": {"unknown_dimension": 64}})
 
     def test_from_dict_runs_post_init(self) -> None:
         """from_dict re-runs ``__post_init__`` (validation, auto-derivation)."""

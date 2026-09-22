@@ -221,7 +221,9 @@ class TestPaperEquivalenceIntegration:
             routing=RoutingConfig(refinement_budget=4),
             refinement=RefinementConfig(enabled=True),
             backend=BackendConfig(hopfield=True),
-            hopfield=HopfieldConfig(enabled=True, adaptive="entropy", beta_init=0.0),
+            # Use an explicit non-paper base temperature so the integration
+            # assertion remains meaningful across PyTorch/Python versions.
+            hopfield=HopfieldConfig(enabled=True, adaptive="entropy", beta_init=1.0),
         )
         mod_paper = AVQAttention(config_paper, in_proj=False, out_proj=False).eval()
         mod_hvaq = AVQAttention(config_hvaq, in_proj=False, out_proj=False).eval()
@@ -238,8 +240,8 @@ class TestPaperEquivalenceIntegration:
         # small. The previous 1e-3 threshold was tuned to the buggy
         # exp(softmaxed) path (issue #14) and is no longer appropriate
         # — the correct math produces only FP32-scale drift because
-        # the entropy schedule multiplies logits by a β_q < 1 (paper
-        # β = 1/sqrt(D)), and the merge weighting picks the same
+        # the entropy schedule changes the logits by a query-dependent β_q,
+        # and the merge weighting may still pick the same
         # argmax regardless. The test asserts the path is wired and
         # produces a numerically different output.
         assert (out_paper - out_hvaq).abs().max().item() > 0

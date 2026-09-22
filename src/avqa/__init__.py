@@ -36,6 +36,7 @@ Example:
     >>> key = torch.randn(2, 16, 64)
     >>> value = torch.randn(2, 16, 64)
     >>> output = attention(query, key, value)
+
 """
 
 from __future__ import annotations
@@ -58,6 +59,8 @@ from avqa.config import (
     PrecisionConfig,
     RefinementConfig,
     RoutingConfig,
+    require_boolean,
+    require_integer,
 )
 from avqa.data import (
     HEAD,
@@ -82,6 +85,7 @@ from avqa.exceptions import (
     RoutingError,
     ShapeError,
 )
+from avqa.functional import attention
 from avqa.hopfield import (
     AdaptiveSchedule,
     hopfield_logits,
@@ -218,6 +222,7 @@ __all__ = [
     "VectorQuantizer",
     "Visualizer",
     "__version__",
+    "attention",
     "coerce_shape",
     "compute_importance",
     "configure_logger",
@@ -232,6 +237,8 @@ __all__ = [
     "paper_beta",
     "per_query_beta",
     "refine",
+    "require_boolean",
+    "require_integer",
     "seed_everything",
     "shape_to_string",
     "validate_adaptive",

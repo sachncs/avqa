@@ -1,0 +1,82 @@
+name: Compatibility report
+description: Report a behavior or installation problem on a specific supported or candidate environment.
+title: "[compatibility] "
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Do not include secrets, private model data, or proprietary prompts.
+
+  - type: input
+    id: avqa-version
+    attributes:
+      label: AVQA revision or version
+      description: Include the release version or exact commit SHA.
+      placeholder: "0.1.0 or e74efe6"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: input
+    id: pytorch
+    attributes:
+      label: PyTorch version
+      placeholder: "2.5.1+cpu"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and device
+      description: Include CPU/GPU model and CUDA or ROCm version when applicable.
+      placeholder: "Ubuntu 24.04, NVIDIA A10, CUDA 12.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: installation
+    attributes:
+      label: Installation details
+      description: Explain whether this was a source, editable, wheel, or sdist installation and include the command used.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide a self-contained script or the smallest command that demonstrates the issue.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Expected and actual behavior
+      description: Include the complete traceback or relevant output.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I included the exact AVQA revision, Python, PyTorch, OS, and device details.
+          required: true
+        - label: I reproduced this with finite tensors and a minimal configuration where possible.
+          required: true
+        - label: I removed secrets and private model data from this report.
+          required: true

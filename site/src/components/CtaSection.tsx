@@ -15,13 +15,15 @@ export function CtaSection() {
               <div className="lg:col-span-7">
                 <span className="eyebrow">Get started</span>
                 <h2 className="mt-5 font-display text-[40px] font-semibold leading-[1.02] tracking-tightest text-white sm:text-[56px]">
-                  Install it like{" "}
-                  <span className="text-gradient-accent">any PyTorch backend.</span>
+                  Start with a clear{" "}
+                  <span className="text-gradient-accent">
+                    reference implementation.
+                  </span>
                 </h2>
                 <p className="mt-6 max-w-xl text-[16px] leading-relaxed text-ink-300">
-                  Start with the docs, install from source, and run the reference
-                  path locally. AVQA is Apache 2.0 and currently distributed as a
-                  public alpha.
+                  Install from source, start on CPU, and inspect every step of
+                  the routed-attention pipeline. AVQA is Apache 2.0 research
+                  software in public alpha.
                 </p>
               </div>
 
@@ -39,13 +41,16 @@ export function CtaSection() {
                       <span className="text-ink-500">$</span>{" "}
                       <span className="text-accent-300">cd</span> avqa{"\n"}
                       <span className="text-ink-500">$</span>{" "}
-                      <span className="text-accent-300">pip install</span> -e .[dev]
+                      <span className="text-accent-300">
+                        python -m pip install
+                      </span>{" "}
+                      -e &quot;.[dev]&quot;
                     </code>
                   </pre>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <a href={DOCS_URL} className="btn-primary">
-                    Read the docs <ArrowRight className="h-4 w-4" />
+                  <a href={`${DOCS_URL}#quickstart`} className="btn-primary">
+                    Run the quick start <ArrowRight className="h-4 w-4" />
                   </a>
                   <a
                     href={GITHUB_URL}

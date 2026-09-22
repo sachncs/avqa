@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+import io
+import json
+
 import pytest
 import torch
 
-from avqa.profiling import Profiler
+from avqa.exceptions import ConfigurationError
+from avqa.profiling import Profiler, peak_memory_bytes
 from avqa.routing import RoutingDecision
 from avqa.visualization import (
     JSONVisualizer,
@@ -44,6 +49,26 @@ class TestProfilerSession:
         assert "schema_version" in data
         assert data["schema_version"] == "avqa_profiler_v1"
 
+    def test_stage_is_recorded_when_body_raises(self) -> None:
+        """Stage timing remains observable when the profiled body fails."""
+        profiler = Profiler()
+        with pytest.raises(RuntimeError, match="expected"), profiler.stage("failing"):
+            raise RuntimeError("expected")
+        assert [timer.name for timer in profiler.report.stage_timers] == ["failing"]
+
+    def test_export_json_accepts_path_and_file_like_objects(self, tmp_path) -> None:
+        """Both documented export targets contain valid serialized reports."""
+        profiler = Profiler()
+        path = tmp_path / "profile.json"
+        profiler.export_json(path)
+        stream = io.StringIO()
+        profiler.export_json(stream)
+
+        assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == (
+            "avqa_profiler_v1"
+        )
+        assert json.loads(stream.getvalue())["schema_version"] == "avqa_profiler_v1"
+
 
 class TestProfilerCounters:
     """Tests for the profiler's counter helpers."""
@@ -58,6 +83,23 @@ class TestProfilerCounters:
         profiler.record_routing(decision)
         assert len(profiler.report.routing_stats) == 1
         assert profiler.report.routing_stats[0]["num_selected"] == 3
+
+    def test_record_routing_ignores_incomplete_decisions(self) -> None:
+        """An incomplete routing object must not create a misleading record."""
+        profiler = Profiler()
+        profiler.record_routing(object())
+        assert profiler.report.routing_stats == []
+
+    def test_factory_rejects_unknown_profiler(self) -> None:
+        """The extension boundary fails with a typed configuration error."""
+        assert isinstance(Profiler.create(), Profiler)
+        with pytest.raises(ConfigurationError, match="unknown profiler"):
+            Profiler.create("unknown")
+
+    def test_peak_memory_helper_is_safe_without_cuda(self) -> None:
+        """Memory inspection returns a non-negative integer on every platform."""
+        assert isinstance(peak_memory_bytes(), int)
+        assert peak_memory_bytes() >= 0
 
     def test_record_refinement(self) -> None:
         """Refinement step is recorded with budget and num_refined."""
@@ -79,6 +121,32 @@ class TestProfilerCounters:
         profiler = Profiler()
         profiler.set_codebook_utilization({"head_0": 0.75, "head_1": 0.50})
         assert profiler.report.codebook_utilization["head_0"] == 0.75
+
+    def test_concurrent_recording_is_atomic(self) -> None:
+        """Concurrent counter and stage recording does not lose updates."""
+        profiler = Profiler()
+
+        def record(_: int) -> None:
+            profiler.record_cache_hit()
+            profiler.record_cache_miss()
+            with profiler.stage("worker"):
+                pass
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(record, range(32)))
+
+        assert profiler.report.cache_hits == 32
+        assert profiler.report.cache_misses == 32
+        assert len(profiler.report.stage_timers) == 32
+
+    def test_overlapping_sessions_keep_independent_start_times(self) -> None:
+        """Nested sessions measure from their own entry points."""
+        profiler = Profiler()
+        with profiler.session():
+            with profiler.session():
+                pass
+            assert profiler.report.total_duration_ms >= 0
+        assert profiler.report.total_duration_ms >= 0
 
 
 class TestVisualizerInterface:

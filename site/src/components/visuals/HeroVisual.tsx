@@ -37,7 +37,10 @@ const ACTIVE_PATH = [0, 3, 8, 9];
 
 export function HeroVisual({ className = "", size = 420 }: Props) {
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size }}>
+    <div
+      className={`relative ${className}`}
+      style={{ width: size, height: size }}
+    >
       <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(124,140,255,0.18),transparent_60%)] blur-2xl" />
 
       <svg
@@ -115,13 +118,34 @@ export function HeroVisual({ className = "", size = 420 }: Props) {
         })}
 
         <g>
-          <text x="6" y="14" fill="#8088A1" fontSize="3" fontFamily="ui-sans-serif, sans-serif" letterSpacing="0.6">
+          <text
+            x="6"
+            y="14"
+            fill="#8088A1"
+            fontSize="3"
+            fontFamily="ui-sans-serif, sans-serif"
+            letterSpacing="0.6"
+          >
             ROOT
           </text>
-          <text x="6" y="34" fill="#8088A1" fontSize="3" fontFamily="ui-sans-serif, sans-serif" letterSpacing="0.6">
+          <text
+            x="6"
+            y="34"
+            fill="#8088A1"
+            fontSize="3"
+            fontFamily="ui-sans-serif, sans-serif"
+            letterSpacing="0.6"
+          >
             PARENTS
           </text>
-          <text x="6" y="68" fill="#8088A1" fontSize="3" fontFamily="ui-sans-serif, sans-serif" letterSpacing="0.6">
+          <text
+            x="6"
+            y="68"
+            fill="#8088A1"
+            fontSize="3"
+            fontFamily="ui-sans-serif, sans-serif"
+            letterSpacing="0.6"
+          >
             CHILDREN
           </text>
         </g>
@@ -129,11 +153,11 @@ export function HeroVisual({ className = "", size = 420 }: Props) {
 
       <div className="pointer-events-none absolute -top-2 -right-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-950/80 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-ink-300 backdrop-blur">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-soft" />
-        O(N · log N)
+        Hierarchical routing
       </div>
       <div className="pointer-events-none absolute -bottom-3 -left-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-950/80 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-ink-300 backdrop-blur">
         <span className="h-1.5 w-1.5 rounded-full bg-accent-300 animate-pulse-soft" />
-        n=4096
+        Selected leaves
       </div>
     </div>
   );

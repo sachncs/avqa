@@ -28,6 +28,7 @@ class OnlineSoftmaxState:
         running_max: Per-row running maximum ``[B, H, T, D_k]``.
         running_denominator: Per-row running denominator ``[B, H, T, D_k]``.
         running_numerator: Per-row running numerator ``[B, H, T, D_k, D_v]``.
+
     """
 
     running_max: torch.Tensor
@@ -83,6 +84,7 @@ class OnlineSoftmaxState:
 
         Returns:
             New :class:`OnlineSoftmaxState` covering both old and tile.
+
         """
         new_max, new_denom, new_num = online_softmax_step(
             self.running_max,
@@ -135,6 +137,7 @@ class OnlineSoftmaxState:
 
         Returns:
             New :class:`OnlineSoftmaxState` with the replacement applied.
+
         """
         if m_anchor is None:
             new_max = torch.maximum(torch.maximum(self.running_max, removed_max), added_max)
@@ -183,6 +186,7 @@ def recover_parent_logits(
 
     Raises:
         RoutingError: If ``num_children`` is not positive.
+
     """
     if num_children <= 0:
         raise RoutingError(f"num_children must be > 0, got {num_children}")

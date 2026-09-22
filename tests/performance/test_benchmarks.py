@@ -26,6 +26,11 @@ from avqa.config import (
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.utils.seed import seed_everything
 
+# This module contains timing and exploratory approximation checks. Keep it
+# out of the deterministic correctness target; ``make bench`` runs it
+# explicitly through pytest-benchmark.
+pytestmark = pytest.mark.benchmark
+
 if TYPE_CHECKING:
     # ``pytest_benchmark`` ships no type stubs. We declare a minimal
     # Protocol locally to keep mypy happy in the type-only block.

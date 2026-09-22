@@ -78,7 +78,12 @@ evidence in the repository. IDs follow the v2 ledger: `REQ-<chapter>.<section>.<
 | REQ-3.50.001 | Online Codebook Adaptation (SPEC §13) — `online_codebook_adaptation` updates parents/children via EMA; preserves SPEC §7.9 mean invariant at every step | `src/avqa/online_adaptation.py` | `tests/unit/test_online_adaptation.py` (4 cases) | Verified (CPU); statistical validation on GPU runner pending |
 | REQ-3.50.004 | Hopfield-VQ-Attention (SPEC §16) — per-query temperature ``β_q`` derived from the router's top-P attention-mass entropy; HVAQ-ENT and HVAQ-LIN schedules; Theorem 16.1 paper equivalence; Theorem 16.2 router invariance | `src/avqa/hopfield.py`; `src/avqa/attention_module.py` (HVAQ block) | `tests/unit/test_hopfield.py` (33 cases) | Verified (CPU); multi-seed + downstream-quality validation pending on the CUDA-matrix runner |
 
-### Per-Module Coverage
+### Historical Per-Module Coverage Snapshots
+
+The following module-level values are historical snapshots from the audit
+commits shown in the final column; they are not the current release metrics.
+For current evidence, run `make coverage`, which enforces the aggregate 90%
+gate used by CI.
 
 | Module | Coverage | Source |
 |--------|---------:|--------|

@@ -33,14 +33,16 @@ Examples of unacceptable behavior include:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may
-be reported to the community leaders responsible for enforcement at
-the issue tracker. All complaints will be reviewed and investigated
-promptly and fairly.
-
-To report an enforcement concern, contact the project maintainer through the
-private contact method listed in the repository profile. Do not post sensitive
-details publicly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported confidentially to the project maintainer, [sachncs](https://github.com/sachncs),
+through the repository's [private Security Advisory form](https://github.com/sachncs/avqa/security/advisories/new).
+Start the report title with `Code of Conduct` and include only the minimum
+details needed for a private response. Do not post sensitive details in a
+public issue or discussion. If GitHub's private reporting channel is
+unavailable, do not disclose sensitive details publicly; contact the
+maintainer through a private channel listed on the maintainer's profile.
+Reports will be reviewed and investigated promptly and fairly; retaliation
+against a reporter is not acceptable.
 
 ## Attribution
 

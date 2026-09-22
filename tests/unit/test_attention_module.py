@@ -14,10 +14,12 @@ from avqa.config import (
     AttentionShapeConfig,
     AVQConfig,
     CodebookConfig,
+    ExecutionConfig,
     RefinementConfig,
     RoutingConfig,
 )
-from avqa.exceptions import AVQAError
+from avqa.exceptions import AVQAError, DeviceError, DtypeError, ShapeError
+from avqa.utils.validation import NonFiniteTensorError
 
 
 class _ConfigOverrides(TypedDict, total=False):
@@ -63,6 +65,48 @@ class TestConstruction:
         """in_proj=False replaces linears with Identity."""
         module = AVQAttention(AVQConfig(), in_proj=False, out_proj=False)
         assert isinstance(module.q_proj, torch.nn.Identity)
+
+    def test_execution_seed_repeats_module_initialization(self) -> None:
+        """The configured seed makes construction reproducible."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(seed=17))
+        first = AVQAttention(config)
+        second = AVQAttention(config)
+
+        for name, tensor in first.state_dict().items():
+            assert torch.equal(tensor, second.state_dict()[name]), name
+        assert torch.equal(first.codebook.children, second.codebook.children)
+
+    def test_execution_seed_preserves_caller_rng_state(self) -> None:
+        """Constructing a module does not consume the caller RNG stream."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(seed=23))
+        torch.manual_seed(91)
+        expected = torch.get_rng_state()
+        reference = torch.rand(5)
+        torch.set_rng_state(expected)
+
+        AVQAttention(config)
+        observed = torch.rand(5)
+        assert torch.equal(observed, reference)
+
+    def test_deterministic_execution_restores_torch_state(self) -> None:
+        """AVQAttention applies deterministic mode only for its forward."""
+        config = dataclasses.replace(small_config(), execution=ExecutionConfig(deterministic=True))
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        query = torch.randn(1, 2, 32)
+
+        previous_enabled = torch.are_deterministic_algorithms_enabled()
+        previous_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        try:
+            torch.use_deterministic_algorithms(False, warn_only=False)
+            output = module(query, query, query)
+            assert output.shape == query.shape
+            assert not torch.are_deterministic_algorithms_enabled()
+            assert not torch.is_deterministic_algorithms_warn_only_enabled()
+        finally:
+            torch.use_deterministic_algorithms(
+                previous_enabled,
+                warn_only=previous_warn_only,
+            )
 
     def test_state_dict_contains_codebook_and_round_trips(self) -> None:
         """Model checkpoints must include hierarchical codebook state."""
@@ -110,6 +154,164 @@ class TestForwardNaive:
         # No exception means the causal mask path ran cleanly.
         out = module(q, k, v)
         assert out.shape == (1, 4, 32)
+
+    def test_rejects_mask_rank(self) -> None:
+        """Malformed mask ranks fail with ShapeError before pipeline math."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(ShapeError, match=r"rank 2|rank 4"):
+            module(q, q, q, mask=torch.ones(1, 1, 4))
+
+    def test_rejects_non_boolean_mask(self) -> None:
+        """Mask contracts require boolean tensors."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(DtypeError, match="mask dtype"):
+            module(q, q, q, mask=torch.ones(4, 4))
+
+    def test_rejects_mask_length_mismatch(self) -> None:
+        """Mask lengths must match resolved query and key sequences."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        with pytest.raises(ShapeError, match="resolved query/key"):
+            module(q, q, q, mask=torch.ones(3, 4, dtype=torch.bool))
+
+    def test_accepts_broadcastable_rank4_mask(self) -> None:
+        """Rank-4 masks may broadcast batch and head dimensions."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        mask = torch.ones(1, 1, 4, 4, dtype=torch.bool)
+        out = module(q, q, q, mask=mask)
+        assert out.shape == q.shape
+
+    def test_validates_mask_against_cached_key_length(self) -> None:
+        """Cached decoding validates against the resolved, longer K/V span."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        first = torch.randn(1, 1, 32)
+        module(first, first, first, kv_cache=cache)
+        next_token = torch.randn(1, 1, 32)
+        out = module(
+            next_token,
+            next_token,
+            next_token,
+            mask=torch.ones(1, 2, dtype=torch.bool),
+            kv_cache=cache,
+        )
+        assert out.shape == next_token.shape
+
+    def test_invalid_cached_mask_does_not_mutate_cache(self) -> None:
+        """Rejected masks cannot append K/V to the mutable cache."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        first = torch.randn(1, 1, 32)
+        module(first, first, first, kv_cache=cache)
+        next_token = torch.randn(1, 1, 32)
+        with pytest.raises(ShapeError, match="resolved query/key"):
+            module(
+                next_token,
+                next_token,
+                next_token,
+                mask=torch.ones(1, 1, dtype=torch.bool),
+                kv_cache=cache,
+            )
+        assert cache.size == 1
+
+    def test_failed_forward_does_not_mutate_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Downstream failures cannot append K/V to the mutable cache."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+
+        def fail(*args: object, **kwargs: object) -> torch.Tensor:
+            raise RuntimeError("sentinel backend failure")
+
+        monkeypatch.setattr(module.backend, "naive_attention", fail)
+        q = torch.randn(1, 1, 32)
+        with pytest.raises(RuntimeError, match="sentinel backend failure"):
+            module(q, q, q, kv_cache=cache)
+        assert cache.size == 0
+
+    def test_rejects_cache_batch_mismatch_before_append(self) -> None:
+        """A cache from another batch cannot be combined with the request."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        cached = torch.randn(1, 1, 32)
+        module(cached, cached, cached, kv_cache=cache)
+        request = torch.randn(2, 1, 32)
+        with pytest.raises(ShapeError, match="batch size"):
+            module(request, request, request, kv_cache=cache)
+        assert cache.size == 1
+
+    def test_empty_cache_accepts_first_multi_batch_append(self) -> None:
+        """The empty-cache sentinel does not constrain the first batch size."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        request = torch.randn(2, 1, 32)
+        out = module(request, request, request, kv_cache=cache)
+        assert out.shape == request.shape
+        assert cache.size == 1
+
+    def test_cache_storage_dtype_is_normalized_for_attention(self) -> None:
+        """Storage dtype conversion does not create mixed-dtype attention."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8, dtype=torch.float32)
+        first = torch.randn(1, 1, 32, dtype=torch.float16)
+        module(first, first, first, kv_cache=cache)
+        next_token = torch.randn(1, 1, 32, dtype=torch.float16)
+        out = module(next_token, next_token, next_token, kv_cache=cache)
+        assert out.shape == next_token.shape
+        assert cache.lookup()[0].dtype is torch.float32
+
+    def test_rejects_mask_device_mismatch(self) -> None:
+        """Masks must share the query device."""
+        if not torch.backends.mps.is_available() and not torch.cuda.is_available():
+            pytest.skip("requires a second device")
+        device = torch.device("mps" if torch.backends.mps.is_available() else "cuda")
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        q = torch.randn(1, 4, 32)
+        mask = torch.ones(4, 4, dtype=torch.bool, device=device)
+        with pytest.raises(DeviceError, match="mask device"):
+            module(q, q, q, mask=mask)
+
+    def test_rejects_non_finite_inputs_before_forward(self) -> None:
+        """NaN and Inf inputs fail before attention state can be mutated."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        query = torch.randn(1, 4, 32)
+        key = torch.randn(1, 4, 32)
+        value = torch.randn(1, 4, 32)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        query[0, 0, 0] = float("nan")
+        with pytest.raises(NonFiniteTensorError, match="query contains non-finite"):
+            module(query, key, value, kv_cache=cache)
+        assert cache.size == 0
 
 
 class TestForwardAVQ:

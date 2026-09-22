@@ -41,6 +41,7 @@ class QuantizationResult:
         child_aggregates: Sum of values per child. Shape ``[B, H, M_0, C, D]``.
         parent_counts: Number of keys assigned per parent. Shape ``[B, H, M_0]``.
         child_counts: Number of keys assigned per child. Shape ``[B, H, M_0, C]``.
+
     """
 
     parent_assignments: torch.Tensor
@@ -102,7 +103,7 @@ class VectorQuantizer(ABC):
 
     @classmethod
     def create(cls, name: str = "euclidean_hierarchical") -> VectorQuantizer:
-        """Factory: resolve ``name`` to a concrete :class:`VectorQuantizer`.
+        """Create the quantizer registered under ``name``.
 
         Args:
             name: ``"euclidean_hierarchical"`` (the only quantizer shipped).
@@ -112,6 +113,7 @@ class VectorQuantizer(ABC):
 
         Raises:
             ValueError: If ``name`` is unknown.
+
         """
         if name == "euclidean_hierarchical":
             return EuclideanHierarchicalQuantizer()
@@ -134,6 +136,7 @@ class VectorQuantizer(ABC):
 
         Returns:
             :class:`QuantizationResult` populated with all six outputs.
+
         """
 
 
@@ -160,6 +163,7 @@ class EuclideanHierarchicalQuantizer(VectorQuantizer):
         >>> result = q.precompute(keys, values, cb)
         >>> result.parent_assignments.shape
         torch.Size([1, 2, 16])
+
     """
 
     def __init__(self, deterministic: bool = True) -> None:

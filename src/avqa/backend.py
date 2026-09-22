@@ -22,11 +22,15 @@ one ``src/avqa/backend.py``. The class-based factory
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import torch
 
 from avqa.codebook import HierarchicalCodebook
-from avqa.exceptions import BackendError
+from avqa.exceptions import BackendError, ConfigurationError
 from avqa.logging import get_logger
 from avqa.merge import MergeInputs, ProbabilityMerge
 from avqa.quantizer import EuclideanHierarchicalQuantizer, QuantizationResult
@@ -60,10 +64,46 @@ class Backend(ABC):
     """
 
     name: str = "abstract"
+    _factories: ClassVar[dict[str, Callable[[], Backend]]] = {}
+
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[[], Backend],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a backend factory for dependency-injected creation.
+
+        Args:
+            name: Stable backend identifier used by :meth:`create`.
+            factory: Zero-argument callable returning a :class:`Backend`.
+            replace: Allow replacing an existing registration.
+
+        Raises:
+            BackendError: If the name, factory, or registration conflicts.
+
+        Third-party integrations can register an optional backend without
+        importing it into AVQA's core execution path::
+
+            Backend.register("my_backend", MyBackend)
+            backend = Backend.create("my_backend")
+
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise BackendError("backend registration name must be a non-empty string")
+        if not callable(factory):
+            raise BackendError(f"backend '{name}' factory must be callable")
+        if name == "torch" and not replace:
+            raise BackendError("backend 'torch' is reserved; pass replace=True to override it")
+        if name in cls._factories and not replace:
+            raise BackendError(f"backend '{name}' is already registered")
+        cls._factories[name] = factory
 
     @classmethod
     def create(cls, name: str = "torch") -> Backend:
-        """Factory: resolve ``name`` to a concrete backend.
+        """Create the backend registered under ``name``.
 
         Args:
             name: ``"torch"`` (default).
@@ -75,9 +115,19 @@ class Backend(ABC):
         Raises:
             BackendError: If ``name`` is unknown or unavailable in this
                 environment.
+
         """
-        if name == "torch":
+        factory = cls._factories.get(name)
+        if factory is None and name == "torch":
             return TorchBackend()
+        if factory is not None:
+            try:
+                backend = factory()
+            except Exception as exc:
+                raise BackendError(f"backend '{name}' failed during construction") from exc
+            if not isinstance(backend, Backend):
+                raise BackendError(f"backend '{name}' factory did not return a Backend")
+            return backend
         msg = f"backend '{name}' is not a known backend"
         raise BackendError(msg)
 
@@ -115,6 +165,11 @@ def online_softmax_attention(
     shim that delegates here so existing callers continue to work;
     orchestrator code does not depend on it.
     """
+    if isinstance(block_size, bool) or not isinstance(block_size, int) or block_size <= 0:
+        raise ConfigurationError(
+            "block_size must be a positive integer",
+            {"block_size": block_size},
+        )
     B, H, T, D_k = query.shape
     _, _, N, D_v = value.shape
     scale = scale_for(D_k)
@@ -212,7 +267,7 @@ class TorchBackend(Backend):
         block_size: int = 64,
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Method shim that delegates to the module-level helper."""
+        """Delegate to the module-level online-softmax helper."""
         return online_softmax_attention(query, key, value, block_size=block_size, mask=mask)
 
     def quantize(
@@ -251,7 +306,7 @@ class TorchBackend(Backend):
         tile_denom: torch.Tensor,
         tile_num: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Method shim that delegates to the module-level helper."""
+        """Delegate to the module-level correction helper."""
         return correction(state_max, state_denom, state_num, tile_max, tile_denom, tile_num)
 
     def reduction(
@@ -259,7 +314,7 @@ class TorchBackend(Backend):
         state_num: torch.Tensor,
         state_denom: torch.Tensor,
     ) -> torch.Tensor:
-        """Final output: ``num / clamp_min(denom)`` (with epsilon for empty states)."""
+        """Return ``num / clamp_min(denom)`` with epsilon for empty states."""
         return state_num / state_denom.clamp_min(EPS).unsqueeze(-1)
 
 

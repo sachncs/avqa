@@ -2,7 +2,7 @@
   <h1 align="center">AVQA</h1>
   <p align="center">Adaptive Vector Quantized Attention for PyTorch.</p>
   <p align="center">
-    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python"></a>
+    <a href="#installation"><img src="https://img.shields.io/badge/python-3.10--3.15-blue" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
     <a href="https://github.com/sachncs/avqa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/avqa/ci.yml?branch=main" alt="CI"></a>
     <a href="https://github.com/sachncs/avqa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/avqa" alt="Stars"></a>
@@ -43,8 +43,8 @@ implementation tracker is [TODO.md](TODO.md).
 
 ## Features
 
-- **Pure PyTorch reference implementation** with the canonical online-softmax
-  algorithm from FlashAttention-2.
+- **Pure PyTorch reference implementation** with a tiled online-softmax
+  algorithm inspired by published memory-efficient attention methods.
 - **Hierarchical codebook** with mean-constrained parent-child structure.
 - **Adaptive refinement** that expands only the most-attended codewords.
 - **Correcting attention** that replaces — not augments — parent
@@ -56,7 +56,8 @@ implementation tracker is [TODO.md](TODO.md).
 - **torch.compile** opt-in for reduced Python overhead where supported by the
   installed PyTorch build.
 - **Strict typing, zero-warning lint, ≥90% test coverage** on the
-  core package.
+  core package. The wheel ships a PEP 561 `py.typed` marker for downstream
+  type checkers.
 
 ---
 
@@ -207,7 +208,8 @@ mypy src/avqa
 # Tests
 pytest tests/unit -q
 pytest tests/reference -q
-pytest tests/performance -q
+make test
+make bench
 
 # With coverage
 pytest tests/unit tests/reference --cov=avqa --cov-report=term --cov-fail-under=90
@@ -238,7 +240,8 @@ test: add hand-computed reference tests
 ## Testing
 
 ```bash
-pytest                                          # full suite
+make test                                       # correctness + integration suite
+make bench                                      # pytest-benchmark suite
 pytest --cov=avqa tests/unit tests/reference    # with coverage
 ```
 
@@ -248,7 +251,7 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Category | Technology |
 |----------|------------|
-| Language | Python 3.10+ |
+| Language | Python 3.10–3.15 |
 | Framework | [PyTorch](https://pytorch.org/) 2.1+ |
 | Build | [Hatchling](https://hatch.pypa.io/) |
 | Lint/Format | [ruff](https://docs.astral.sh/ruff/) |
@@ -261,21 +264,29 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Area | Public-alpha baseline |
 |------|------------------------|
-| Python | 3.10, 3.11, 3.12 |
+| Python | 3.10–3.15 (3.15 uses the Python/PyTorch prerelease CI lane) |
 | PyTorch | 2.1+ |
 | Backend | Pure PyTorch reference backend |
 | CUDA/vendor kernels | Not guaranteed by the core distribution |
 | Framework adapters | Not bundled; see `src/avqa/integrations/` |
 | Stability | API and performance may change before v1.0 |
 
+Python 3.10–3.15 are covered by the CPU runtime CI matrix. Python 3.15 remains
+a prerelease interpreter, so that lane follows upstream PyTorch prerelease
+wheel availability. CUDA execution and CUDA/Triton numerical or performance
+validation have not been tested in a CUDA environment.
+
 See the [documentation site](https://sachncs.github.io/avqa/docs/) for the
-practical guide, architecture notes, benchmark protocol, and limitations.
+practical guide, architecture notes, benchmark protocol, and limitations. The
+canonical installation and usage walkthrough is [`docs/usage.md`](docs/usage.md).
 
 ## Roadmap
 
-- **v0.1.0** — Current: public-alpha reference implementation, CI coverage gate
-- **v0.2.0** — BCAR + HVAQ + multi-pass refinements (algorithmic contributions)
-- **v1.0.0** — Stable API, PyPI release, validated compatibility matrix
+- **v0.1.0** — Current: public-alpha reference implementation with BCAR,
+  HVAQ, multi-pass refinement, release gates, and reproducibility guidance
+- **Next minor** — Prioritized improvements will be selected from validated
+  benchmark evidence; optimized kernels and framework adapters are not promised
+- **v1.0.0** — Stable API, PyPI release, and a validated compatibility matrix
 
 ---
 

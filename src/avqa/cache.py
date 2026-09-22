@@ -13,11 +13,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from threading import RLock
 
 import torch
 
 from avqa.exceptions import ConfigurationError, NotInitializedError, ShapeError
 from avqa.logging import get_logger
+from avqa.utils.validation import NonFiniteTensorError
 
 logger = get_logger("cache")
 
@@ -56,6 +58,14 @@ def validate_cache_tensors(
             expected=f"key={head_dim_k}, value={head_dim_v}",
             actual=f"key={key.shape[-1]}, value={value.shape[-1]}",
         )
+    # Meta tensors are used by callers probing allocation paths and cannot be
+    # inspected for finite values until materialized.
+    if (
+        key.device.type != "meta"
+        and value.device.type != "meta"
+        and (not torch.isfinite(key).all() or not torch.isfinite(value).all())
+    ):
+        raise NonFiniteTensorError(f"{name} contains non-finite values")
 
 
 @dataclass
@@ -69,6 +79,7 @@ class CacheEntry:
             L7: populated on append in PagedKVCache; InMemoryKVCache
             always sets an empty tensor since positions are implicit
             in the contiguous key layout.
+
     """
 
     key: torch.Tensor
@@ -118,6 +129,7 @@ class InMemoryKVCache(KVCache):
         max_size: Maximum cache size (``0`` means unbounded).
         device: Device for the cache tensors.
         dtype: Dtype for the cache tensors.
+
     """
 
     def __init__(
@@ -155,13 +167,20 @@ class InMemoryKVCache(KVCache):
         self.hit_count: int = 0
         self.miss_count: int = 0
         self.batch_size: int | None = None
+        self._lock = RLock()
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
+        """Append new key/value tokens under the cache state lock."""
+        with self._lock:
+            self._append_unlocked(key, value)
+
+    def _append_unlocked(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append new tokens to the cache.
 
         Args:
             key: ``[B, H, T_new, D_k]`` new keys.
             value: ``[B, H, T_new, D_v]`` new values.
+
         """
         validate_cache_tensors(
             key,
@@ -176,19 +195,23 @@ class InMemoryKVCache(KVCache):
                 expected=self.batch_size,
                 actual=int(key.shape[0]),
             )
+        converted_key = key.to(device=self.device, dtype=self.dtype)
+        converted_value = value.to(device=self.device, dtype=self.dtype)
         if self.batch_size is None:
             self.batch_size = int(key.shape[0])
         if self.cache_key.numel() == 0:
-            self.cache_key = key.to(device=self.device, dtype=self.dtype)
-            self.cache_value = value.to(device=self.device, dtype=self.dtype)
+            self.cache_key = converted_key
+            self.cache_value = converted_value
         else:
             existing_key = self.cache_key
-            self.cache_key = torch.cat([existing_key, key.to(existing_key.dtype)], dim=-2)
+            next_key = torch.cat([existing_key, converted_key.to(existing_key.dtype)], dim=-2)
             existing_value = self.cache_value
-            self.cache_value = torch.cat(
-                [existing_value, value.to(existing_value.dtype)],
+            next_value = torch.cat(
+                [existing_value, converted_value.to(existing_value.dtype)],
                 dim=-2,
             )
+            self.cache_key = next_key
+            self.cache_value = next_value
         if self.max_size > 0 and self.size > self.max_size:
             # Drop the oldest tokens. .contiguous() to keep downstream
             # reshape/tracing paths from incurring hidden copies.
@@ -203,6 +226,11 @@ class InMemoryKVCache(KVCache):
             )
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return a consistent cache snapshot under the state lock."""
+        with self._lock:
+            return self._lookup_unlocked()
+
+    def _lookup_unlocked(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cached (key, value); empty cache returns empty tensors."""
         if self.cache_key.numel() == 0 or self.cache_value.numel() == 0:
             self.miss_count += 1
@@ -224,20 +252,28 @@ class InMemoryKVCache(KVCache):
             )
             return empty_k, empty_v
         self.hit_count += 1
-        return self.cache_key, self.cache_value
+        # Do not expose the live storage tensors. Callers may perform
+        # in-place attention transforms after lookup; returning clones keeps
+        # those operations from corrupting the persistent cache state.
+        return self.cache_key.detach().clone(), self.cache_value.detach().clone()
 
     def cache_stats(self) -> dict[str, int]:
         """Return eviction/hit/miss counters for observability."""
-        return {
-            "size": self.size,
-            "max_size": self.max_size,
-            "eviction_count": self.eviction_count,
-            "hit_count": self.hit_count,
-            "miss_count": self.miss_count,
-        }
+        with self._lock:
+            return {
+                "size": self.size,
+                "max_size": self.max_size,
+                "eviction_count": self.eviction_count,
+                "hit_count": self.hit_count,
+                "miss_count": self.miss_count,
+            }
 
     def reset(self) -> None:
         """Drop all cached entries."""
+        with self._lock:
+            self._reset_unlocked()
+
+    def _reset_unlocked(self) -> None:
         self.cache_key = torch.empty(
             0, self.num_heads, 0, self.head_dim_k, device=self.device, dtype=self.dtype
         )
@@ -248,19 +284,31 @@ class InMemoryKVCache(KVCache):
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Serialize cache contents (metadata + tensors)."""
-        return {
-            "schema_version": torch.tensor(1, dtype=torch.int32),
-            "num_heads": torch.tensor(self.num_heads, dtype=torch.int32),
-            "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
-            "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
-            "size": torch.tensor(self.size, dtype=torch.int32),
-            "batch_size": torch.tensor(self.batch_size or 0, dtype=torch.int32),
-            "cache_key": self.cache_key.detach().clone(),
-            "cache_value": self.cache_value.detach().clone(),
-        }
+        with self._lock:
+            return {
+                "schema_version": torch.tensor(1, dtype=torch.int32),
+                "num_heads": torch.tensor(self.num_heads, dtype=torch.int32),
+                "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
+                "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
+                "size": torch.tensor(self.size, dtype=torch.int32),
+                "batch_size": torch.tensor(self.batch_size or 0, dtype=torch.int32),
+                "cache_key": self.cache_key.detach().clone(),
+                "cache_value": self.cache_value.detach().clone(),
+            }
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore cache from :meth:`state_dict` output."""
+        with self._lock:
+            self._load_state_dict_unlocked(state)
+
+    def _load_state_dict_unlocked(self, state: dict[str, torch.Tensor]) -> None:
+        schema_version = state.get("schema_version")
+        if schema_version is not None and int(schema_version) != 1:
+            raise ShapeError(
+                "unsupported cache schema_version",
+                expected=1,
+                actual=int(schema_version),
+            )
         if "num_heads" in state and int(state["num_heads"]) != self.num_heads:
             raise ShapeError(
                 "num_heads mismatch", expected=self.num_heads, actual=int(state["num_heads"])
@@ -279,7 +327,13 @@ class InMemoryKVCache(KVCache):
             )
         cache_key = state.get("cache_key")
         cache_value = state.get("cache_value")
-        if cache_key is not None and cache_value is not None and cache_key.numel() > 0:
+        if (cache_key is None) != (cache_value is None):
+            raise ShapeError(
+                "serialized cache must contain both cache_key and cache_value",
+                expected="both tensors",
+                actual="one tensor",
+            )
+        if cache_key is not None and cache_value is not None:
             validate_cache_tensors(
                 cache_key,
                 cache_value,
@@ -288,18 +342,42 @@ class InMemoryKVCache(KVCache):
                 head_dim_v=self.head_dim_v,
                 name="serialized cache",
             )
-            self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
-            self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
-            self.batch_size = int(cache_key.shape[0])
+            serialized_size = int(state.get("size", torch.tensor(cache_key.shape[-2])))
+            serialized_batch = int(state.get("batch_size", torch.tensor(cache_key.shape[0])))
+            if serialized_size != int(cache_key.shape[-2]):
+                raise ShapeError(
+                    "serialized cache size metadata mismatch",
+                    expected=int(cache_key.shape[-2]),
+                    actual=serialized_size,
+                )
+            expected_batch = int(cache_key.shape[0]) if cache_key.numel() > 0 else 0
+            if serialized_batch != expected_batch:
+                raise ShapeError(
+                    "serialized cache batch metadata mismatch",
+                    expected=expected_batch,
+                    actual=serialized_batch,
+                )
+            if self.max_size > 0 and serialized_size > self.max_size:
+                raise ShapeError(
+                    "serialized cache exceeds max_size",
+                    expected=f"<= {self.max_size}",
+                    actual=serialized_size,
+                )
+            restored_key = cache_key.to(device=self.device, dtype=self.dtype)
+            restored_value = cache_value.to(device=self.device, dtype=self.dtype)
+            self.cache_key = restored_key
+            self.cache_value = restored_value
+            self.batch_size = serialized_batch or None
         else:
-            self.reset()
+            self._reset_unlocked()
 
     @property
     def size(self) -> int:
         """Number of cached tokens."""
-        if self.cache_key.numel() == 0:
-            return 0
-        return int(self.cache_key.shape[-2])
+        with self._lock:
+            if self.cache_key.numel() == 0:
+                return 0
+            return int(self.cache_key.shape[-2])
 
 
 class PagedKVCache(KVCache):
@@ -315,6 +393,7 @@ class PagedKVCache(KVCache):
         head_dim_k: Key head dimension.
         head_dim_v: Value head dimension.
         max_pages: Maximum number of pages (``0`` = unbounded).
+
     """
 
     def __init__(
@@ -346,9 +425,14 @@ class PagedKVCache(KVCache):
         self.device = device
         self.dtype = dtype
         self.pages: list[CacheEntry] = []
+        self._lock = RLock()
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append tokens; allocate a new page when the current one fills."""
+        with self._lock:
+            self._append_unlocked(key, value)
+
+    def _append_unlocked(self, key: torch.Tensor, value: torch.Tensor) -> None:
         validate_cache_tensors(
             key,
             value,
@@ -359,16 +443,62 @@ class PagedKVCache(KVCache):
         key = key.to(device=self.device, dtype=self.dtype)
         value = value.to(device=self.device, dtype=self.dtype)
         T = key.shape[-2]
+        if self.pages and int(self.pages[-1].key.shape[0]) != int(key.shape[0]):
+            raise ShapeError(
+                "paged cache batch size mismatch",
+                expected=int(self.pages[-1].key.shape[0]),
+                actual=int(key.shape[0]),
+            )
+        if self.max_pages > 0:
+            required_pages = (self.size + T + self.page_size - 1) // self.page_size
+            if required_pages > self.max_pages:
+                raise NotInitializedError(
+                    f"paged KV cache is full ({self.max_pages} pages); "
+                    f"append requires {required_pages} pages"
+                )
+
+        # Stage page wrappers locally and publish them only after every
+        # conversion and concatenation succeeds. Existing tensors are shared
+        # until a staged page is replaced, so a failed append cannot mutate
+        # the live cache or expose a partially written page.
+        staged_pages = [CacheEntry(page.key, page.value, page.positions) for page in self.pages]
+
+        def allocate_staged_page() -> None:
+            """Allocate a page in the transaction-local page list."""
+            if self.max_pages > 0 and len(staged_pages) >= self.max_pages:
+                raise NotInitializedError(f"paged KV cache is full ({self.max_pages} pages)")
+            staged_pages.append(
+                CacheEntry(
+                    key=torch.zeros(
+                        int(key.shape[0]),
+                        self.num_heads,
+                        0,
+                        self.head_dim_k,
+                        dtype=self.dtype,
+                        device=self.device,
+                    ),
+                    value=torch.zeros(
+                        int(key.shape[0]),
+                        self.num_heads,
+                        0,
+                        self.head_dim_v,
+                        dtype=self.dtype,
+                        device=self.device,
+                    ),
+                    positions=torch.zeros(0, dtype=torch.long, device=self.device),
+                )
+            )
+
+        def current_staged_page() -> CacheEntry:
+            """Return the current staged page, allocating when necessary."""
+            if not staged_pages or staged_pages[-1].key.shape[-2] == self.page_size:
+                allocate_staged_page()
+            return staged_pages[-1]
+
         cursor = 0
         position_start = self.size
         while cursor < T:
-            current_page = self.current_page(batch_size=int(key.shape[0]))
-            if current_page.key.shape[0] != key.shape[0]:
-                raise ShapeError(
-                    "paged cache batch size mismatch",
-                    expected=int(current_page.key.shape[0]),
-                    actual=int(key.shape[0]),
-                )
+            current_page = current_staged_page()
             free = self.page_size - current_page.key.shape[-2]
             take = min(free, T - cursor)
             k_chunk = key[..., cursor : cursor + take, :]
@@ -388,16 +518,22 @@ class PagedKVCache(KVCache):
             )
             cursor += take
             if current_page.key.shape[-2] == self.page_size and cursor < T:
-                self.allocate_page(batch_size=int(key.shape[0]))
+                allocate_staged_page()
+        self.pages = staged_pages
 
     def current_page(self, batch_size: int = 1) -> CacheEntry:
         """Return the most recent page, allocating one if none exists."""
-        if not self.pages or self.pages[-1].key.shape[-2] == self.page_size:
-            self.allocate_page(batch_size=batch_size)
-        return self.pages[-1]
+        with self._lock:
+            if not self.pages or self.pages[-1].key.shape[-2] == self.page_size:
+                self.allocate_page(batch_size=batch_size)
+            return self.pages[-1]
 
     def allocate_page(self, batch_size: int = 1) -> None:
         """Allocate a new empty page."""
+        with self._lock:
+            self._allocate_page_unlocked(batch_size)
+
+    def _allocate_page_unlocked(self, batch_size: int = 1) -> None:
         if self.max_pages > 0 and len(self.pages) >= self.max_pages:
             raise NotInitializedError(f"paged KV cache is full ({self.max_pages} pages)")
         self.pages.append(
@@ -424,25 +560,31 @@ class PagedKVCache(KVCache):
 
     def lookup(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Concatenate all page contents into a single (key, value) pair."""
-        if not self.pages:
-            return (
-                torch.zeros(
-                    1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device
-                ),
-                torch.zeros(
-                    1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device
-                ),
-            )
-        keys = torch.cat([p.key for p in self.pages], dim=-2)
-        values = torch.cat([p.value for p in self.pages], dim=-2)
-        return keys, values
+        with self._lock:
+            if not self.pages:
+                return (
+                    torch.zeros(
+                        1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device
+                    ),
+                    torch.zeros(
+                        1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device
+                    ),
+                )
+            keys = torch.cat([p.key for p in self.pages], dim=-2)
+            values = torch.cat([p.value for p in self.pages], dim=-2)
+            return keys, values
 
     def reset(self) -> None:
         """Drop all pages."""
-        self.pages = []
+        with self._lock:
+            self.pages = []
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Serialize page metadata and tensor contents for restart safety."""
+        with self._lock:
+            return self._state_dict_unlocked()
+
+    def _state_dict_unlocked(self) -> dict[str, torch.Tensor]:
         state: dict[str, torch.Tensor] = {
             "schema_version": torch.tensor(1, dtype=torch.int32),
             "page_size": torch.tensor(self.page_size, dtype=torch.int32),
@@ -457,6 +599,17 @@ class PagedKVCache(KVCache):
 
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Restore page metadata and tensor contents from a checkpoint."""
+        with self._lock:
+            self._load_state_dict_unlocked(state)
+
+    def _load_state_dict_unlocked(self, state: dict[str, torch.Tensor]) -> None:
+        schema_version = state.get("schema_version")
+        if schema_version is not None and int(schema_version) != 1:
+            raise ShapeError(
+                "unsupported cache schema_version",
+                expected=1,
+                actual=int(schema_version),
+            )
         if "page_size" in state and int(state["page_size"]) != self.page_size:
             raise ShapeError(
                 "page_size mismatch",
@@ -466,7 +619,15 @@ class PagedKVCache(KVCache):
         num_pages = int(state.get("num_pages", torch.tensor(0)))
         if num_pages < 0:
             raise ShapeError("num_pages must be non-negative", expected=">= 0", actual=num_pages)
+        if self.max_pages > 0 and num_pages > self.max_pages:
+            raise ShapeError(
+                "serialized cache exceeds max_pages",
+                expected=f"<= {self.max_pages}",
+                actual=num_pages,
+            )
         restored: list[CacheEntry] = []
+        expected_position = 0
+        expected_batch: int | None = None
         for index in range(num_pages):
             key = state.get(f"page_{index}_key")
             value = state.get(f"page_{index}_value")
@@ -499,6 +660,33 @@ class PagedKVCache(KVCache):
                     expected=int(key.shape[-2]),
                     actual=tuple(positions.shape),
                 )
+            if positions.dtype != torch.long:
+                raise ShapeError(
+                    "serialized page positions must use torch.long",
+                    expected=torch.long,
+                    actual=positions.dtype,
+                )
+            batch_size = int(key.shape[0])
+            if expected_batch is None:
+                expected_batch = batch_size
+            elif batch_size != expected_batch:
+                raise ShapeError(
+                    "serialized pages must use one batch size",
+                    expected=expected_batch,
+                    actual=batch_size,
+                )
+            expected_positions = torch.arange(
+                expected_position,
+                expected_position + key.shape[-2],
+                device=positions.device,
+                dtype=torch.long,
+            )
+            if not torch.equal(positions, expected_positions):
+                raise ShapeError(
+                    "serialized page positions must be contiguous",
+                    expected=f"{expected_position}:{expected_position + key.shape[-2]}",
+                    actual=positions.detach().cpu().tolist(),
+                )
             restored.append(
                 CacheEntry(
                     key=key.to(device=self.device, dtype=self.dtype),
@@ -506,17 +694,30 @@ class PagedKVCache(KVCache):
                     positions=positions.to(device=self.device, dtype=torch.long),
                 )
             )
+            expected_position += int(key.shape[-2])
+        serialized_size = int(
+            state.get("size", torch.tensor(sum(int(p.key.shape[-2]) for p in restored)))
+        )
+        restored_size = sum(int(page.key.shape[-2]) for page in restored)
+        if serialized_size != restored_size:
+            raise ShapeError(
+                "serialized paged cache size metadata mismatch",
+                expected=restored_size,
+                actual=serialized_size,
+            )
         self.pages = restored
 
     @property
     def size(self) -> int:
         """Number of cached tokens across all pages."""
-        return sum(int(p.key.shape[-2]) for p in self.pages)
+        with self._lock:
+            return sum(int(p.key.shape[-2]) for p in self.pages)
 
     @property
     def num_pages(self) -> int:
         """Number of allocated pages."""
-        return len(self.pages)
+        with self._lock:
+            return len(self.pages)
 
 
 __all__ = ["CacheEntry", "InMemoryKVCache", "KVCache", "PagedKVCache"]

@@ -27,10 +27,25 @@ export default [
       "react-refresh": reactRefresh,
     },
     rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        { "ts-ignore": true, "ts-nocheck": true, "ts-expect-error": true },
+      ],
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports" },
+      ],
+      "@typescript-eslint/no-explicit-any": "error",
       "react-hooks/exhaustive-deps": "error",
       "react-hooks/rules-of-hooks": "error",
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
     },
   },
 ];

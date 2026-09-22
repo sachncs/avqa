@@ -81,6 +81,7 @@ def validate_shape(
         >>> validate_shape(t, [2, 8, 256, 64])  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         avqa.exceptions.ShapeError: tensor shape mismatch at dim 2: expected 256 but got 128
+
     """
     actual = tensor.shape
     expected_size = coerce_shape(expected)
@@ -123,6 +124,7 @@ def validate_rank(
         >>> validate_rank(torch.zeros(2, 8), 3)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         avqa.exceptions.ShapeError: tensor rank mismatch: expected 3 but got 2
+
     """
     actual_rank = tensor.ndim
     if actual_rank != expected_rank:
@@ -156,6 +158,7 @@ def validate_dtype(
         >>> validate_dtype(torch.zeros(2, dtype=torch.float64), torch.float32)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         avqa.exceptions.DtypeError: tensor dtype mismatch
+
     """
     if isinstance(expected, torch.dtype):
         allowed: tuple[torch.dtype, ...] = (expected,)
@@ -193,6 +196,7 @@ def validate_device(
         >>> t = torch.zeros(2)
         >>> validate_device(t, "cpu")
         >>> validate_device(t, ["cpu", "cuda"])
+
     """
     if isinstance(expected, (str, torch.device)):
         allowed: tuple[torch.device, ...] = (torch.device(expected),)
@@ -230,6 +234,7 @@ def validate_contiguous(
         >>> validate_contiguous(t)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         avqa.exceptions.ShapeError: tensor must be contiguous
+
     """
     if not tensor.is_contiguous():
         raise ShapeError(
@@ -247,12 +252,12 @@ def validate_embed_dim(
 ) -> None:
     """Validate that the last dim of ``tensor`` matches ``expected_embed_dim``.
 
-        Args:
+    Args:
             tensor: Tensor whose last dim should equal ``expected_embed_dim``.
             expected_embed_dim: Required embedding dim.
             name: Variable name used in error messages.
 
-        Raises:
+    Raises:
             ShapeError: If the last dim does not match.
 
     Example:
@@ -261,6 +266,7 @@ def validate_embed_dim(
             >>> validate_embed_dim(torch.zeros(2, 8, 64), 128)  # doctest: +IGNORE_EXCEPTION_DETAIL
             Traceback (most recent call last):
             avqa.exceptions.ShapeError: tensor embed_dim mismatch
+
     """
     actual = tensor.shape[-1]
     if actual != expected_embed_dim:
@@ -278,11 +284,11 @@ def validate_device_match(
 ) -> None:
     """Validate that all tensors in ``tensors`` share the same device.
 
-        Args:
+    Args:
             tensors: Sequence of tensors to check.
             name: Variable name used in error messages.
 
-        Raises:
+    Raises:
             DeviceError: If the tensors are on different devices.
 
     Example:
@@ -291,6 +297,7 @@ def validate_device_match(
             >>> validate_device_match([torch.zeros(2), torch.zeros(3, device="meta")])  # doctest: +IGNORE_EXCEPTION_DETAIL
             Traceback (most recent call last):
             avqa.exceptions.DeviceError: tensors device mismatch
+
     """
     if not tensors:
         return
@@ -317,6 +324,7 @@ def validate_finite(
 
     Raises:
         NonFiniteTensorError: If any element is non-finite.
+
     """
     if not torch.isfinite(tensor).all():
         msg = f"{name} contains non-finite values (NaN or Inf)"

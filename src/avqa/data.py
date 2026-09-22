@@ -118,6 +118,7 @@ class TensorContract:
         ... )
         >>> contract.name
         'query'
+
     """
 
     name: str
@@ -157,6 +158,7 @@ def make_default_contract(name: str, shape: Sequence[str], owner: str) -> Tensor
         >>> c = make_default_contract("query", ("B", "H", "T", "D"), "attention")
         >>> c.dtype == frozenset({torch.float32, torch.float16, torch.bfloat16})
         True
+
     """
     return TensorContract(
         name=name,

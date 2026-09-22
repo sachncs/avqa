@@ -13,9 +13,12 @@ may raise if a non-deterministic op is used).
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import importlib.util
 import os
 import random
+from threading import RLock
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -23,6 +26,11 @@ from avqa.exceptions import ConfigurationError
 from avqa.logging import get_logger
 
 logger = get_logger("utils.seed")
+
+_DETERMINISTIC_LOCK = RLock()
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 DEFAULT_SEED: int = 0
 
@@ -53,6 +61,7 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
     Example:
         >>> seed_everything(42)
         42
+
     """
     if seed < 0:
         msg = f"seed must be non-negative, got {seed}"
@@ -87,4 +96,29 @@ def seed_everything(seed: int = DEFAULT_SEED, *, deterministic: bool = False) ->
     return seed
 
 
-__all__ = ["seed_everything"]
+@contextmanager
+def deterministic_algorithms(enabled: bool) -> Iterator[None]:
+    """Run a block with strict Torch determinism, restoring global state.
+
+    Torch exposes deterministic-algorithm mode as process-global state. The
+    lock prevents overlapping AVQA deterministic forwards from restoring one
+    another's settings. Non-deterministic forwards do not acquire the lock.
+    """
+    if not enabled:
+        yield
+        return
+
+    with _DETERMINISTIC_LOCK:
+        previous_enabled = torch.are_deterministic_algorithms_enabled()
+        previous_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        torch.use_deterministic_algorithms(True, warn_only=False)
+        try:
+            yield
+        finally:
+            torch.use_deterministic_algorithms(
+                previous_enabled,
+                warn_only=previous_warn_only,
+            )
+
+
+__all__ = ["deterministic_algorithms", "seed_everything"]

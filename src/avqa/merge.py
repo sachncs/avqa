@@ -12,10 +12,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
 import torch
 
 from avqa.exceptions import ConfigurationError, MergeError
+from avqa.utils.registry import FactoryRegistry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass
@@ -27,6 +32,7 @@ class MergeInputs:
         parent_value: Per-(B, H, N, D) parent-weighted value.
         child_probs: Per-(B, H, N, C) refined child attention probabilities.
         child_value: Per-(B, H, N, C, D) refined child-weighted values.
+
     """
 
     parent_probs: torch.Tensor
@@ -57,9 +63,27 @@ class MergeInputs:
 class MergeStrategy(ABC):
     """Abstract merge strategy (spec §4.7.6, §5.10)."""
 
+    _registry: ClassVar[FactoryRegistry[MergeStrategy]]
+
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[[], MergeStrategy],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a merge implementation for configuration-driven creation."""
+        cls._registry.register(name, factory, replace=replace)
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        """Return whether a merge strategy has a registered factory."""
+        return cls._registry.is_registered(name)
+
     @classmethod
     def create(cls, kind: str = "probability") -> MergeStrategy:
-        """Factory: resolve ``kind`` to a concrete :class:`MergeStrategy`.
+        """Create the merge strategy registered under ``kind``.
 
         Args:
             kind: ``"probability"`` (default), ``"weighted"``, ``"logit"``,
@@ -70,17 +94,9 @@ class MergeStrategy(ABC):
 
         Raises:
             MergeError: If ``kind`` is unknown.
+
         """
-        if kind == "probability":
-            return ProbabilityMerge()
-        if kind == "weighted":
-            return WeightedMerge()
-        if kind == "logit":
-            return LogitMerge()
-        if kind == "normalized":
-            return NormalizedMerge()
-        msg = f"unknown merge strategy: {kind!r}"
-        raise MergeError(msg)
+        return cls._registry.create(kind)
 
     @abstractmethod
     def merge(self, inputs: MergeInputs) -> torch.Tensor:
@@ -88,7 +104,15 @@ class MergeStrategy(ABC):
 
         Returns:
             Tensor of shape ``[B, H, N, D]``.
+
         """
+
+
+MergeStrategy._registry = FactoryRegistry(
+    MergeStrategy,
+    MergeError,
+    label="merge strategy",
+)
 
 
 class ProbabilityMerge(MergeStrategy):
@@ -113,6 +137,7 @@ class WeightedMerge(MergeStrategy):
     Args:
         parent_weight: Multiplier on parent contribution. Default ``0.5``.
         child_weight: Multiplier on child contribution. Default ``0.5``.
+
     """
 
     def __init__(self, parent_weight: float = 0.5, child_weight: float = 0.5) -> None:
@@ -130,6 +155,7 @@ class WeightedMerge(MergeStrategy):
 
         Returns:
             ``self.parent_weight * parent_value + self.child_weight * child_value``.
+
         """
         child_contrib = (inputs.child_probs.unsqueeze(-1) * inputs.child_value).sum(dim=-2)
         return self.parent_weight * inputs.parent_value + self.child_weight * child_contrib
@@ -159,6 +185,7 @@ class LogitMerge(MergeStrategy):
 
         Returns:
             Per-merge-position value ``[B, H, N, D]``.
+
         """
         # Log-probabilities: parent [B,H,T,P,1] and children [B,H,T,P,C].
         parent_log = inputs.parent_probs.clamp_min(1e-12).log()
@@ -188,12 +215,19 @@ class NormalizedMerge(MergeStrategy):
 
         Returns:
             ``ProbabilityMerge(inputs) / total_child_mass``.
+
         """
         base = ProbabilityMerge().merge(inputs)
         # Reconstruction of probs: parent_probs (mass 1) - parent_probs + sum(child_probs)
         total_mass = inputs.child_probs.sum(dim=-1, keepdim=True)
         # Normalize by mass so that, in the linear regime, attention sums to 1.
         return base / total_mass.clamp_min(1e-12)
+
+
+MergeStrategy.register("probability", ProbabilityMerge)
+MergeStrategy.register("weighted", WeightedMerge)
+MergeStrategy.register("logit", LogitMerge)
+MergeStrategy.register("normalized", NormalizedMerge)
 
 
 __all__ = [

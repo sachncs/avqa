@@ -3,7 +3,7 @@ import { FadeIn } from "./FadeIn";
 const ROWS = [
   {
     method: "vanilla attention",
-    desc: "O(N²) · dense softmax",
+    desc: "Dense softmax reference",
     cost: "O(N²)",
     scaling: "Quadratic",
     highlight: false,
@@ -11,15 +11,15 @@ const ROWS = [
   {
     method: "AVQA — single pass",
     desc: "Quantize → route → refine",
-    cost: "≈ O(N · K · log C)",
-    scaling: "Sub-quadratic",
+    cost: "Budget-dependent",
+    scaling: "Workload-specific",
     highlight: true,
   },
   {
     method: "AVQA — multi-pass (ACMPR)",
     desc: "Disjoint-set re-routing",
-    cost: "≈ O(N · K · log C · P)",
-    scaling: "Bounded by budget",
+    cost: "Budget × passes",
+    scaling: "Workload-specific",
     highlight: true,
   },
 ];
@@ -36,10 +36,10 @@ export function BenchmarksSection() {
             <span className="text-gradient-accent">Always.</span>
           </h2>
           <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            AVQA ships a strict benchmarking protocol. Every result published
-            below comes from a deterministic run — warm-up, repetitions,
-            platform metadata, raw JSON, and a hand-written summary. No
-            cherry-picking.
+            The repository records benchmark configuration, environment, raw
+            output, and interpretation. The figures below describe specific CPU
+            experiments—not general performance claims. Reproduce them and
+            validate end-to-end latency, memory, and quality on your workload.
           </p>
         </FadeIn>
 
@@ -49,9 +49,11 @@ export function BenchmarksSection() {
               <div className="border-b border-white/5 px-5 py-4">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[11px] uppercase tracking-widest text-ink-400">
-                    Complexity comparison
+                    Work model comparison
                   </span>
-                  <span className="font-mono text-[10px] text-ink-500">theoretical</span>
+                  <span className="font-mono text-[10px] text-ink-500">
+                    reference model
+                  </span>
                 </div>
               </div>
               <div className="divide-y divide-white/5">
@@ -70,10 +72,14 @@ export function BenchmarksSection() {
                       >
                         {row.method}
                       </div>
-                      <div className="font-mono text-[11px] text-ink-500">{row.desc}</div>
+                      <div className="font-mono text-[11px] text-ink-500">
+                        {row.desc}
+                      </div>
                     </div>
                     <div className="hidden sm:block text-right">
-                      <div className="font-mono text-[12px] text-ink-300">{row.cost}</div>
+                      <div className="font-mono text-[12px] text-ink-300">
+                        {row.cost}
+                      </div>
                       <div className="text-[10px] uppercase tracking-widest text-ink-500">
                         {row.scaling}
                       </div>
@@ -97,19 +103,31 @@ export function BenchmarksSection() {
                 </div>
                 <p className="mt-3 text-[15px] leading-relaxed text-ink-300">
                   Mean residual reduction against a static codebook in the
-                  repository's CPU experiment with <span className="font-mono text-accent-300">num_codewords=4</span>,
-                  <span className="font-mono text-accent-300"> children_per_codeword=2</span>.
+                  repository's CPU experiment with{" "}
+                  <span className="font-mono text-accent-300">
+                    num_codewords=4
+                  </span>
+                  ,
+                  <span className="font-mono text-accent-300">
+                    {" "}
+                    children_per_codeword=2
+                  </span>
+                  .
                 </p>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-white/[0.06] bg-ink-950/40 p-4">
-                  <div className="font-display text-3xl font-semibold text-white">60.7%</div>
+                  <div className="font-display text-3xl font-semibold text-white">
+                    60.7%
+                  </div>
                   <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-500">
                     after 1,024 updates
                   </div>
                 </div>
                 <div className="rounded-xl border border-accent-300/20 bg-accent-400/[0.05] p-4">
-                  <div className="font-display text-3xl font-semibold text-white">CPU</div>
+                  <div className="font-display text-3xl font-semibold text-white">
+                    CPU
+                  </div>
                   <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-400">
                     experiment only
                   </div>

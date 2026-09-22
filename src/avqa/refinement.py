@@ -30,6 +30,7 @@ class RefinementResult:
             ``[B, H, P]``.
         merge_value: Per-query refined value contribution. Shape
             ``[B, H, T, D_v]``.
+
     """
 
     state: OnlineSoftmaxState
@@ -45,6 +46,7 @@ class AdaptiveRefinement:
 
     Args:
         children_per_parent: Number of children per parent (C).
+
     """
 
     def __init__(self, children_per_parent: int = 4) -> None:
@@ -111,6 +113,7 @@ def vectorized_correction(
 
     Returns:
         Updated state.
+
     """
     B, H, T, P = parent_logit.shape
     C = num_children
@@ -203,6 +206,7 @@ def refine(
     Returns:
         :class:`RefinementResult` with the updated state, selected parent
         indices, and the merge value tensor.
+
     """
     selected = decision.selected_indices  # [B, H, P]
     budget = selected.shape[-1]

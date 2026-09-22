@@ -57,6 +57,7 @@ def online_softmax_step(
         >>> m, l, acc = online_softmax_step(m_old, l_old, acc_old, m_new, l_new, acc_new)
         >>> m.shape, l.shape, acc.shape
         (torch.Size([2]), torch.Size([2]), torch.Size([2, 1]))
+
     """
     m = torch.maximum(m_old, m_new)
     alpha = torch.exp(m_old - m)

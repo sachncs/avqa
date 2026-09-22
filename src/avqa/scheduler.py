@@ -11,18 +11,41 @@ one src/avqa/scheduler.py.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, ClassVar
 
 import torch
 
 from avqa.exceptions import ConfigurationError, RoutingError
+from avqa.utils.registry import FactoryRegistry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class Scheduler(ABC):
     """Abstract scheduler interface (spec §4.7)."""
 
+    _registry: ClassVar[FactoryRegistry[Scheduler]]
+
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[[], Scheduler],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a budget scheduler for configuration-driven creation."""
+        cls._registry.register(name, factory, replace=replace)
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        """Return whether a scheduler name has a registered factory."""
+        return cls._registry.is_registered(name)
+
     @classmethod
     def create(cls, strategy: str = "default", *, budget: int = 8) -> Scheduler:
-        """Factory: resolve ``strategy`` to a concrete :class:`Scheduler`.
+        """Create the scheduler registered under ``strategy``.
 
         Args:
             strategy: ``"default"`` (constant budget) or ``"adaptive"``
@@ -35,13 +58,17 @@ class Scheduler(ABC):
 
         Raises:
             RoutingError: If ``strategy`` is unknown.
+
         """
         if strategy == "default":
-            return DefaultScheduler(budget=budget)
+            return cls._registry.create(strategy, budget=budget)
         if strategy == "adaptive":
-            return AdaptiveScheduler(min_budget=max(1, budget // 2), max_budget=budget)
-        msg = f"unknown scheduler strategy: {strategy!r}"
-        raise RoutingError(msg)
+            return cls._registry.create(
+                strategy,
+                min_budget=max(1, budget // 2),
+                max_budget=budget,
+            )
+        return cls._registry.create(strategy)
 
     @abstractmethod
     def budget_for(self, importance: torch.Tensor) -> int | torch.Tensor:
@@ -53,7 +80,11 @@ class Scheduler(ABC):
         Returns:
             Number of parents to refine (P). May be a scalar (``int``)
             or a per-(B, H) tensor of shape ``[B, H]``.
+
         """
+
+
+Scheduler._registry = FactoryRegistry(Scheduler, RoutingError, label="scheduler strategy")
 
 
 class DefaultScheduler(Scheduler):
@@ -66,6 +97,7 @@ class DefaultScheduler(Scheduler):
         >>> s = DefaultScheduler(budget=8)
         >>> s.budget_for(torch.zeros(1, 1, 64))
         8
+
     """
 
     def __init__(self, budget: int = 8) -> None:
@@ -91,6 +123,7 @@ class AdaptiveScheduler(Scheduler):
         max_budget: Maximum refinement budget.
         entropy_threshold: Importance-entropy below which budget is
             increased (focused attention).
+
     """
 
     def __init__(
@@ -145,6 +178,10 @@ class AdaptiveScheduler(Scheduler):
             min_fill,
         )
         return budget.to(torch.int64)
+
+
+Scheduler.register("default", DefaultScheduler)
+Scheduler.register("adaptive", AdaptiveScheduler)
 
 
 __all__ = ["AdaptiveScheduler", "DefaultScheduler", "Scheduler"]

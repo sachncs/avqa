@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 import logging
 
 import pytest
@@ -88,6 +89,14 @@ class TestConfigureLogger:
         """Returns the configured logger."""
         logger = configure_logger()
         assert logger.name == AVQA_LOGGER_NAME
+
+    def test_concurrent_first_configuration_adds_one_handler(self) -> None:
+        """Concurrent application startup does not duplicate handlers."""
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            loggers = list(executor.map(configure_logger, range(8)))
+
+        assert all(logger is loggers[0] for logger in loggers)
+        assert len(loggers[0].handlers) == 1
 
 
 class TestIsConfigured:

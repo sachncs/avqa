@@ -21,6 +21,15 @@ export function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -36,13 +45,23 @@ export function Nav() {
         }`}
       >
         <a href="#top" className="flex items-center gap-2 pl-2 pr-3 py-1">
-          <img src="/avqa/avqa-mark.svg" alt="" className="h-8 w-8" />
-          <span className="text-sm font-semibold tracking-[0.16em] text-white">AVQA</span>
+          <img
+            src="/avqa/avqa-wordmark.svg"
+            alt="AVQA"
+            className="h-9 w-auto"
+          />
         </a>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav
+          aria-label="Primary navigation"
+          className="hidden md:flex items-center gap-1"
+        >
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="nav-link rounded-full px-3 py-1.5">
+            <a
+              key={l.href}
+              href={l.href}
+              className="nav-link rounded-full px-3 py-1.5"
+            >
               {l.label}
             </a>
           ))}
@@ -66,7 +85,10 @@ export function Nav() {
         </div>
 
         <button
-          aria-label="Toggle menu"
+          type="button"
+          aria-label={open ? "Close navigation" : "Open navigation"}
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
           onClick={() => setOpen((s) => !s)}
           className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5"
         >
@@ -81,9 +103,13 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.25 }}
+            id="mobile-navigation"
             className="absolute top-[78px] w-[92%] rounded-2xl border border-white/10 bg-ink-950/95 p-3 backdrop-blur-xl md:hidden"
           >
-            <div className="flex flex-col">
+            <nav
+              aria-label="Mobile primary navigation"
+              className="flex flex-col"
+            >
               {links.map((l) => (
                 <a
                   key={l.href}
@@ -110,7 +136,7 @@ export function Nav() {
               >
                 <Github className="h-4 w-4" /> GitHub
               </a>
-            </div>
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>

@@ -74,6 +74,7 @@ def parent_logits(
             in ``{2, 4}``.
         NotInitializedError: If ``mask`` is provided without
             ``parent_assignments``.
+
     """
     B, H, _, D = q.shape
     M_0 = codebook_parents.shape[-2]
@@ -124,6 +125,7 @@ def online_softmax(
 
     Returns:
         Tuple of (state, parent_attention_probs).
+
     """
     del head_dim  # accepted for stable call-site; unused mathematically
     B, H, T_q, _ = parent_logits.shape
@@ -167,6 +169,7 @@ def child_logits(
 
     Returns:
         ``[B, H, T, P, C]`` logits.
+
     """
     B, H, _, D = q.shape
     P = selected_indices.shape[-1]
@@ -212,6 +215,7 @@ def apply_hopfield(
     Returns:
         Scaled logits ``[B, H, T, M_0]`` ready for online softmax.
         Returns ``parent_logits`` unchanged when HVAQ is disabled.
+
     """
     if not (state.config.backend.hopfield and state.config.hopfield.adaptive != "none"):
         return parent_logits
@@ -285,6 +289,7 @@ def run_pipeline(
 
     Returns:
         ``[B, T_q, E]`` attention output.
+
     """
     state.validate_inputs(query, key, value)
 
@@ -295,12 +300,20 @@ def run_pipeline(
     v = state.split_heads(v_proj, H)
 
     state.sync_codebook_device(q)
+    user_mask = mask is not None
+    if user_mask:
+        cached_length = kv_cache.size if kv_cache is not None else 0
+        state.validate_mask(mask, q, int(k.shape[-2]) + cached_length)
     k_full, v_full = state.resolve_kv_cache(k, v, kv_cache)
     mask = state.resolve_mask(mask, q, kv=k_full)
+    if not user_mask:
+        state.validate_mask(mask, q, int(k_full.shape[-2]))
 
     use_naive = state.scheduler is None or state.config.execution.mode == "reference"
     if use_naive:
-        return naive_fallback(state, q, k_full, v_full, mask)
+        out = naive_fallback(state, q, k_full, v_full, mask)
+        state.commit_kv_cache(k, v, kv_cache)
+        return out
 
     _, _, _, D = q.shape
     D_v = v_full.shape[-1]
@@ -345,7 +358,9 @@ def run_pipeline(
     else:
         budget = min(raw_budget, int(num_valid_per_bh.min().item()))
     if budget <= 0:
-        return naive_fallback(state, q, k, v, mask)
+        out = naive_fallback(state, q, k_full, v_full, mask)
+        state.commit_kv_cache(k, v, kv_cache)
+        return out
     decision = state.router.select(importance, budget)
     assert decision is not None
 
@@ -399,6 +414,7 @@ def run_pipeline(
     out = state.merge_heads(attn_out)
     out = state.out_proj(out)
     out = state.dropout(out)
+    state.commit_kv_cache(k, v, kv_cache)
     return out
 
 

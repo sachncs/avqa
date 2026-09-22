@@ -7,7 +7,5 @@ import "./index.css";
 const isDocs = window.location.pathname.startsWith("/avqa/docs");
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    {isDocs ? <DocsApp /> : <App />}
-  </StrictMode>
+  <StrictMode>{isDocs ? <DocsApp /> : <App />}</StrictMode>,
 );

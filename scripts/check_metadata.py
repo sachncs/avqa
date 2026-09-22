@@ -26,8 +26,13 @@ def main() -> int:
         "README status": "public alpha" in read("README.md").lower()
         and version in read("README.md"),
         "release notes": f"## v{version} " in read("RELEASE.md"),
-        "site release label": f"Public alpha · v{version}" in read("site/src/lib/links.ts"),
+        "site canonical release injection": "RELEASE_VERSION = import.meta.env.VITE_AVQA_VERSION"
+        in read("site/src/lib/links.ts")
+        and "src/avqa/version.py" in read("site/vite.config.ts"),
         "package dynamic version": 'dynamic = ["version"]' in read("pyproject.toml"),
+        "python support range": 'requires-python = ">=3.10,<3.16"' in read("pyproject.toml")
+        and "Python 3.10\u20133.15" in read("README.md")
+        and "Python 3.10\u20133.15" in read("RELEASE.md"),
     }
     failed = [name for name, passed in checks.items() if not passed]
     if failed:

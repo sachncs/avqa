@@ -30,6 +30,7 @@ import torch
 
 from avqa.exceptions import ShapeError
 from avqa.quantizer import QuantizationResult
+from avqa.utils.validation import NonFiniteTensorError
 
 
 class StreamingVQBuffer:
@@ -124,6 +125,7 @@ class StreamingVQBuffer:
             (parent_assignments, child_assignments) — both
             ``[B, H]`` int64 tensors representing the new tokens' VQ
             targets.
+
         """
         if keys.dim() != 2 or keys.shape[1] != self.head_dim:
             raise ShapeError(
@@ -157,6 +159,12 @@ class StreamingVQBuffer:
                 ),
                 actual=tuple(children.shape),
             )
+        if (
+            not torch.isfinite(keys).all()
+            or not torch.isfinite(parents).all()
+            or not torch.isfinite(children).all()
+        ):
+            raise NonFiniteTensorError("streaming VQ input contains non-finite values")
         H, M0, D = parents.shape
         B = keys.shape[0]
         device, dtype = keys.device, keys.dtype

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 import torch
 
@@ -12,6 +14,7 @@ from avqa.exceptions import (
     NotInitializedError,
     ShapeError,
 )
+from avqa.utils.validation import NonFiniteTensorError
 
 
 class TestInMemoryKVCache:
@@ -44,6 +47,16 @@ class TestInMemoryKVCache:
         cache.append(torch.randn(1, 2, 2, 8), torch.randn(1, 2, 2, 8))
         assert cache.size == 5
 
+    def test_append_rejects_non_finite_values(self) -> None:
+        """NaN/Inf values cannot enter persistent cache state."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.zeros(1, 1, 1, 4)
+        value = torch.zeros(1, 1, 1, 4)
+        value[0, 0, 0, 0] = float("nan")
+        with pytest.raises(NonFiniteTensorError, match="non-finite"):
+            cache.append(key, value)
+        assert cache.size == 0
+
     def test_lookup_returns_concatenated(self) -> None:
         """lookup() concatenates appended chunks."""
         cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
@@ -58,6 +71,21 @@ class TestInMemoryKVCache:
         assert v_full.shape == (1, 2, 5, 8)
         assert torch.equal(k_full[..., :3, :], k1)
         assert torch.equal(k_full[..., 3:, :], k2)
+
+    def test_lookup_returns_isolated_snapshot(self) -> None:
+        """Mutating lookup results cannot corrupt persistent cache storage."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 2, 4)
+        value = torch.ones(1, 1, 2, 4)
+        cache.append(key, value)
+
+        cached_key, cached_value = cache.lookup()
+        cached_key.zero_()
+        cached_value.zero_()
+
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, key)
+        assert torch.equal(actual_value, value)
 
     def test_max_size_evicts_oldest(self) -> None:
         """max_size evicts the oldest tokens when exceeded."""
@@ -113,6 +141,29 @@ class TestInMemoryKVCache:
         with pytest.raises(AVQAError, match="num_heads"):
             cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
 
+    def test_load_state_dict_rejects_partial_payload(self) -> None:
+        """A checkpoint cannot silently reset when one tensor is missing."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="both cache_key"):
+            cache.load_state_dict({"cache_key": torch.empty(0, 1, 0, 4)})
+
+    def test_load_state_dict_rejects_metadata_drift(self) -> None:
+        """Serialized size and schema metadata are part of the contract."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.randn(1, 1, 2, 4)
+        value = torch.randn(1, 1, 2, 4)
+        state = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        state.append(key, value)
+        payload = state.state_dict()
+        payload["size"] = torch.tensor(99)
+        with pytest.raises(ShapeError, match="size metadata"):
+            cache.load_state_dict(payload)
+
+        payload = state.state_dict()
+        payload["schema_version"] = torch.tensor(2)
+        with pytest.raises(ShapeError, match="schema_version"):
+            cache.load_state_dict(payload)
+
     @pytest.mark.parametrize(
         ("key_shape", "value_shape", "message"),
         [
@@ -145,6 +196,46 @@ class TestInMemoryKVCache:
         with pytest.raises(ShapeError, match="token dimensions"):
             cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 3, 6))
 
+    def test_failed_first_append_does_not_set_batch_state(self) -> None:
+        """A conversion failure cannot poison an otherwise empty cache."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(NotImplementedError, match="meta"):
+            cache.append(
+                torch.empty(1, 1, 1, 4, device="meta"),
+                torch.empty(1, 1, 1, 4, device="meta"),
+            )
+        assert cache.batch_size is None
+        assert cache.size == 0
+
+    def test_failed_restore_preserves_existing_state(self) -> None:
+        """A value conversion failure cannot partially replace cached keys."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.ones(1, 1, 1, 4)
+        original_value = torch.ones(1, 1, 1, 4) * 2
+        cache.append(original_key, original_value)
+        payload = cache.state_dict()
+        payload["cache_key"] = torch.zeros(1, 1, 1, 4)
+        payload["cache_value"] = torch.empty(1, 1, 1, 4, device="meta")
+        with pytest.raises(NotImplementedError, match="meta"):
+            cache.load_state_dict(payload)
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
+
+    def test_restore_rejects_non_finite_values(self) -> None:
+        """Corrupted serialized tensors cannot replace valid cache state."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.zeros(1, 1, 1, 4)
+        original_value = torch.zeros(1, 1, 1, 4)
+        cache.append(original_key, original_value)
+        state = cache.state_dict()
+        state["cache_key"][0, 0, 0, 0] = float("inf")
+        with pytest.raises(NonFiniteTensorError, match="non-finite"):
+            cache.load_state_dict(state)
+        actual_key, actual_value = cache.lookup()
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
+
     def test_cache_stats_expose_hits_and_misses(self) -> None:
         """Cache counters provide stable observability for serving code."""
         cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
@@ -154,6 +245,19 @@ class TestInMemoryKVCache:
         stats = cache.cache_stats()
         assert stats["miss_count"] == 1
         assert stats["hit_count"] == 1
+
+    def test_concurrent_appends_publish_consistent_state(self) -> None:
+        """Concurrent appends are serialized without losing tokens."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 1, 4)
+        value = torch.ones(1, 1, 1, 4)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(lambda _: cache.append(key, value), range(32)))
+
+        cached_key, cached_value = cache.lookup()
+        assert cached_key.shape[-2] == 32
+        assert cached_value.shape[-2] == 32
 
 
 class TestPagedKVCache:
@@ -191,12 +295,52 @@ class TestPagedKVCache:
         assert torch.equal(k_full, k)
         assert torch.equal(v_full, v)
 
+    def test_concurrent_appends_publish_complete_pages(self) -> None:
+        """Concurrent paged appends do not expose partial page publication."""
+        cache = PagedKVCache(page_size=4, num_heads=1, head_dim_k=4, head_dim_v=4)
+        key = torch.ones(1, 1, 1, 4)
+        value = torch.ones(1, 1, 1, 4)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(lambda _: cache.append(key, value), range(16)))
+
+        cached_key, cached_value = cache.lookup()
+        assert cached_key.shape[-2] == 16
+        assert cached_value.shape[-2] == 16
+
     def test_max_pages_limit(self) -> None:
         """max_pages raises NotInitializedError when exceeded."""
         cache = PagedKVCache(page_size=1, num_heads=1, head_dim_k=4, head_dim_v=4, max_pages=2)
         cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 2, 4))
         with pytest.raises(NotInitializedError, match="full"):
             cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+
+    def test_capacity_failure_is_atomic(self) -> None:
+        """An over-capacity append cannot leave partially written pages."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4, max_pages=2)
+        with pytest.raises(NotInitializedError, match="requires 3 pages"):
+            cache.append(torch.randn(1, 1, 5, 4), torch.randn(1, 1, 5, 4))
+        assert cache.size == 0
+        assert cache.num_pages == 0
+
+    def test_conversion_failure_is_atomic(self) -> None:
+        """A tensor conversion failure cannot partially append a page."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        original_key = torch.randn(1, 1, 2, 4)
+        original_value = torch.randn(1, 1, 2, 4)
+        cache.append(original_key, original_value)
+
+        with pytest.raises((NotImplementedError, RuntimeError)):
+            cache.append(
+                torch.ones(1, 1, 1, 4),
+                torch.ones(1, 1, 1, 4, device="meta"),
+            )
+
+        actual_key, actual_value = cache.lookup()
+        assert cache.size == 2
+        assert cache.num_pages == 1
+        assert torch.equal(actual_key, original_key)
+        assert torch.equal(actual_value, original_value)
 
     def test_reset(self) -> None:
         """reset() drops all pages."""
@@ -265,6 +409,47 @@ class TestPagedKVCache:
         assert torch.equal(actual_value, value)
         assert torch.equal(restored.pages[0].positions, torch.tensor([0, 1]))
         assert torch.equal(restored.pages[1].positions, torch.tensor([2]))
+
+    def test_load_state_dict_rejects_page_size_metadata_drift(self) -> None:
+        """Paged checkpoints cannot claim a different token count."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 2, 4))
+        payload = cache.state_dict()
+        payload["size"] = torch.tensor(99)
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="size metadata"):
+            restored.load_state_dict(payload)
+
+    def test_load_state_dict_rejects_noncontiguous_positions(self) -> None:
+        """A checkpoint cannot silently skip or reorder cached tokens."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        payload = cache.state_dict()
+        payload["page_1_positions"] = torch.tensor([7])
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="contiguous"):
+            restored.load_state_dict(payload)
+
+    def test_load_state_dict_rejects_non_integer_positions(self) -> None:
+        """Checkpoint metadata must not be silently narrowed to integers."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+        payload = cache.state_dict()
+        payload["page_0_positions"] = torch.tensor([0.5])
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match=r"torch\.long"):
+            restored.load_state_dict(payload)
+
+    def test_load_state_dict_rejects_page_batch_drift(self) -> None:
+        """A checkpoint cannot combine pages from different request batches."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        payload = cache.state_dict()
+        payload["page_1_key"] = torch.randn(2, 1, 1, 4)
+        payload["page_1_value"] = torch.randn(2, 1, 1, 4)
+        restored = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        with pytest.raises(ShapeError, match="one batch size"):
+            restored.load_state_dict(payload)
 
 
 class TestKVCacheInterface:

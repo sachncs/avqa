@@ -18,9 +18,12 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import asdict, dataclass, field, fields
 import json
+import math
 from pathlib import Path
 
 from avqa.exceptions import ConfigurationError
+from avqa.merge import MergeStrategy
+from avqa.routing import Router
 
 # Spec §3.6 / §5.19 — version of the configuration schema.
 SCHEMA_VERSION: str = "1"
@@ -31,21 +34,35 @@ DEFAULT_EMA_DECAY: float = 0.99
 
 def require_positive(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is not positive."""
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         msg = f"{field_name} must be > 0, got {value}"
+        raise ConfigurationError(msg, {field_name: value})
+
+
+def require_integer(value: object, field_name: str) -> None:
+    """Raise ``ConfigurationError`` when ``value`` is not an integer."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        msg = f"{field_name} must be an integer, got {value!r}"
+        raise ConfigurationError(msg, {field_name: value})
+
+
+def require_boolean(value: object, field_name: str) -> None:
+    """Raise ``ConfigurationError`` when ``value`` is not a boolean."""
+    if not isinstance(value, bool):
+        msg = f"{field_name} must be a boolean, got {value!r}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_non_negative(value: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is negative."""
-    if value < 0:
+    if not math.isfinite(value) or value < 0:
         msg = f"{field_name} must be >= 0, got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
 
 def require_in_range(value: float, lo: float, hi: float, field_name: str) -> None:
     """Raise ``ConfigurationError`` if ``value`` is outside ``[lo, hi]``."""
-    if not lo <= value <= hi:
+    if not math.isfinite(value) or not lo <= value <= hi:
         msg = f"{field_name} must be in [{lo}, {hi}], got {value}"
         raise ConfigurationError(msg, {field_name: value})
 
@@ -84,6 +101,7 @@ class CodebookConfig:
         >>> cb = CodebookConfig()
         >>> cb.num_codewords
         64
+
     """
 
     num_codewords: int = 64
@@ -96,6 +114,10 @@ class CodebookConfig:
     bcar_decay: float = 0.99
 
     def __post_init__(self) -> None:
+        require_boolean(self.bcar_enabled, "bcar_enabled")
+        require_integer(self.num_codewords, "num_codewords")
+        require_integer(self.children_per_codeword, "children_per_codeword")
+        require_integer(self.max_depth, "max_depth")
         require_positive(self.num_codewords, "num_codewords")
         require_positive(self.children_per_codeword, "children_per_codeword")
         require_positive(self.perturbation_scale, "perturbation_scale")
@@ -123,6 +145,7 @@ class RoutingConfig:
     Example:
         >>> RoutingConfig()
         RoutingConfig(strategy='topp', refinement_budget=8, ...)
+
     """
 
     strategy: str = "topp"
@@ -130,10 +153,11 @@ class RoutingConfig:
     importance_temperature: float = 1.0
 
     def __post_init__(self) -> None:
+        require_integer(self.refinement_budget, "refinement_budget")
         require_positive(self.refinement_budget, "refinement_budget")
         require_positive(self.importance_temperature, "importance_temperature")
-        allowed = {"topp", "threshold", "budget"}
-        if self.strategy not in allowed:
+        if not Router.is_registered(self.strategy):
+            allowed = {"topp", "threshold", "budget"}
             raise ConfigurationError(
                 f"routing.strategy must be one of {sorted(allowed)}, got {self.strategy!r}",
                 {"strategy": self.strategy},
@@ -151,7 +175,13 @@ class RefinementConfig:
     pass_decay: float = 1.0
 
     def __post_init__(self) -> None:
+        require_boolean(self.enabled, "refinement.enabled")
+        require_boolean(self.adaptive_budget, "refinement.adaptive_budget")
+        require_integer(self.passes, "passes")
         require_in_range(self.threshold, 0.0, 1.0, "threshold")
+        require_positive(self.passes, "passes")
+        require_in_range(self.pass_decay, 0.0, 1.0, "pass_decay")
+        require_positive(self.pass_decay, "pass_decay")
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,13 +191,14 @@ class MergeConfig:
     Attributes:
         strategy: One of ``"probability"``, ``"weighted"``, ``"logit"``,
             ``"normalized"``.
+
     """
 
     strategy: str = "probability"
 
     def __post_init__(self) -> None:
-        allowed = {"probability", "weighted", "logit", "normalized"}
-        if self.strategy not in allowed:
+        if not MergeStrategy.is_registered(self.strategy):
+            allowed = {"probability", "weighted", "logit", "normalized"}
             msg = f"merge.strategy must be one of {sorted(allowed)}, got {self.strategy!r}"
             raise ConfigurationError(msg, {"strategy": self.strategy})
 
@@ -183,6 +214,7 @@ class BackendConfig:
         hopfield: When ``True`` AVQAttention applies the HVAQ
             temperature schedule (SPEC §16) to the parent attention
             logits. Default ``False`` keeps the paper-exact softmax.
+
     """
 
     name: str = "torch"
@@ -191,6 +223,9 @@ class BackendConfig:
     hopfield: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.enable_autotune, "backend.enable_autotune")
+        require_boolean(self.skip_validation, "backend.skip_validation")
+        require_boolean(self.hopfield, "backend.hopfield")
         allowed = {"torch"}
         if self.name not in allowed:
             msg = f"backend.name must be one of {sorted(allowed)}, got {self.name!r}"
@@ -204,12 +239,15 @@ class CacheConfig:
     Attributes:
         enabled: Whether to enable KV caching.
         max_size: Maximum number of cached entries. ``0`` means unbounded.
+
     """
 
     enabled: bool = True
     max_size: int = 0  # 0 means unbounded
 
     def __post_init__(self) -> None:
+        require_boolean(self.enabled, "cache.enabled")
+        require_integer(self.max_size, "cache.max_size")
         require_non_negative(self.max_size, "cache.max_size")
 
 
@@ -220,12 +258,14 @@ class PrecisionConfig:
     Attributes:
         dtype: Computation dtype. Must be in :data:`avqa.data.SUPPORTED_DTYPES`.
         autocast: Whether to enable PyTorch autocast for the forward pass.
+
     """
 
     dtype: str = "float32"
     autocast: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.autocast, "precision.autocast")
         allowed = {"float32", "float16", "bfloat16"}
         if self.dtype not in allowed:
             msg = f"precision.dtype must be one of {sorted(allowed)}, got {self.dtype!r}"
@@ -243,6 +283,7 @@ class ExecutionConfig:
         compile_enabled: When ``True`` the AVQAttention forward is
             wrapped in ``torch.compile`` to reduce Python overhead on
             CPU (OPT-0002). Requires stable input shapes.
+
     """
 
     mode: str = "optimized"
@@ -252,10 +293,14 @@ class ExecutionConfig:
     causal_incremental: bool = False
 
     def __post_init__(self) -> None:
+        require_boolean(self.deterministic, "execution.deterministic")
+        require_boolean(self.compile_enabled, "execution.compile_enabled")
+        require_boolean(self.causal_incremental, "execution.causal_incremental")
         allowed = {"reference", "optimized", "research"}
         if self.mode not in allowed:
             msg = f"execution.mode must be one of {sorted(allowed)}, got {self.mode!r}"
             raise ConfigurationError(msg, {"execution.mode": self.mode})
+        require_integer(self.seed, "execution.seed")
         require_non_negative(self.seed, "execution.seed")
 
 
@@ -285,6 +330,7 @@ class HopfieldConfig:
             ``alpha`` as an ``nn.Parameter`` (initialized from
             ``alpha``). Overrides the fixed ``alpha`` in entropy
             and linear schedules.
+
     """
 
     enabled: bool = False
@@ -295,12 +341,17 @@ class HopfieldConfig:
     learnable_alpha: bool = False
 
     def __post_init__(self) -> None:
-        if self.beta_init < 0.0:
-            msg = f"hopfield.beta_init must be >= 0, got {self.beta_init}"
-            raise ConfigurationError(msg, {"hopfield.beta_init": self.beta_init})
-        if self.alpha < 0.0:
-            msg = f"hopfield.alpha must be >= 0, got {self.alpha}"
-            raise ConfigurationError(msg, {"hopfield.alpha": self.alpha})
+        require_boolean(self.enabled, "hopfield.enabled")
+        require_boolean(self.learnable_parent_beta, "hopfield.learnable_parent_beta")
+        require_boolean(self.learnable_alpha, "hopfield.learnable_alpha")
+        require_non_negative(self.beta_init, "hopfield.beta_init")
+        require_non_negative(self.alpha, "hopfield.alpha")
+        allowed = {"none", "entropy", "linear"}
+        if self.adaptive not in allowed:
+            raise ConfigurationError(
+                f"hopfield.adaptive must be one of {sorted(allowed)}, got {self.adaptive!r}",
+                {"hopfield.adaptive": self.adaptive},
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,6 +362,7 @@ class AttentionShapeConfig:
         embed_dim: Embedding dimension (E).
         num_heads: Number of attention heads (H). Must divide ``embed_dim``.
         head_dim: Per-head dimension (D). Defaults to ``embed_dim // num_heads``.
+
     """
 
     embed_dim: int = 512
@@ -318,6 +370,9 @@ class AttentionShapeConfig:
     head_dim: int = 0  # 0 -> auto-derive as embed_dim // num_heads
 
     def __post_init__(self) -> None:
+        require_integer(self.embed_dim, "embed_dim")
+        require_integer(self.num_heads, "num_heads")
+        require_integer(self.head_dim, "head_dim")
         require_positive(self.embed_dim, "embed_dim")
         require_positive(self.num_heads, "num_heads")
         if self.embed_dim % self.num_heads != 0:
@@ -331,6 +386,12 @@ class AttentionShapeConfig:
         # derivation local to the sub-config and out of AVQConfig.
         if self.head_dim == 0:
             object.__setattr__(self, "head_dim", self.embed_dim // self.num_heads)
+        elif self.head_dim != self.embed_dim // self.num_heads:
+            expected = self.embed_dim // self.num_heads
+            raise ConfigurationError(
+                f"head_dim ({self.head_dim}) must equal embed_dim // num_heads ({expected})",
+                {"head_dim": self.head_dim, "expected": expected},
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +429,7 @@ class AVQConfig:
         8
         >>> cfg.precision.dtype
         'float32'
+
     """
 
     attention: AttentionShapeConfig = field(default_factory=AttentionShapeConfig)
@@ -386,6 +448,7 @@ class AVQConfig:
     tolerance_rtol: float = 1e-5
 
     def __post_init__(self) -> None:
+        require_boolean(self.causal, "causal")
         require_in_range(self.dropout, 0.0, 1.0, "dropout")
         require_positive(self.tolerance_atol, "tolerance_atol")
         require_positive(self.tolerance_rtol, "tolerance_rtol")
@@ -446,7 +509,11 @@ class AVQConfig:
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
-                    value = target(**value)
+                    try:
+                        value = target(**value)
+                    except TypeError as exc:
+                        msg = f"invalid {f.name} configuration: {exc}"
+                        raise ConfigurationError(msg, {"field": f.name}) from exc
             kwargs[f.name] = value
         # mypy can't narrow dict[str, object] through **kwargs into the
         # dataclass's union-of-sub-configs; the runtime constructor
@@ -487,6 +554,7 @@ class AVQConfig:
 
         Raises:
             ConfigurationError: If the file cannot be written.
+
         """
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -517,6 +585,7 @@ class AVQConfig:
         Raises:
             ConfigurationError: If the file is missing, unreadable, or
                 carries an incompatible schema version.
+
         """
         source = Path(path)
         try:
@@ -561,7 +630,9 @@ __all__ = [
     "PrecisionConfig",
     "RefinementConfig",
     "RoutingConfig",
+    "require_boolean",
     "require_in_range",
+    "require_integer",
     "require_non_negative",
     "require_positive",
     "to_primitive",

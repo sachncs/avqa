@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from avqa.codebook import HierarchicalCodebook
-from avqa.exceptions import ShapeError
+from avqa.exceptions import AVQAError, ShapeError
 from avqa.quantizer import EuclideanHierarchicalQuantizer
 from avqa.streaming_vq import StreamingVQBuffer
 
@@ -140,3 +140,14 @@ class TestStreamingVQBuffer:
         buf.reset()
         assert int(buf.parent_counts.sum().item()) == 0
         assert len(buf) == 0
+
+    def test_non_finite_key_does_not_mutate_state(self) -> None:
+        """A corrupt streaming key is rejected before counts advance."""
+        cb = codebook_with_random_parents()
+        buf = StreamingVQBuffer(num_heads=1, num_parents=4, children_per_parent=2, head_dim=8)
+        key = torch.zeros(1, 8)
+        key[0, 0] = float("nan")
+        with pytest.raises(AVQAError, match="non-finite"):
+            buf.extend(key, cb.parents, cb.children)
+        assert len(buf) == 0
+        assert int(buf.parent_counts.sum().item()) == 0

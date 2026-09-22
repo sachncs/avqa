@@ -29,7 +29,7 @@ from avqa.attention import OnlineSoftmaxState
 from avqa.backend import Backend
 from avqa.codebook import HierarchicalCodebook
 from avqa.config import AVQConfig
-from avqa.exceptions import NotInitializedError
+from avqa.exceptions import DeviceError, DtypeError, NotInitializedError, ShapeError
 from avqa.logging import get_logger
 from avqa.multipass import MultiPassRefiner
 from avqa.online_adaptation import online_codebook_adaptation
@@ -37,10 +37,12 @@ from avqa.pipeline import run_pipeline
 from avqa.refinement import refine as refine_step
 from avqa.routing import Router, compute_importance
 from avqa.scheduler import Scheduler
+from avqa.utils.seed import deterministic_algorithms
 from avqa.utils.validation import (
     validate_device_match,
     validate_dtype,
     validate_embed_dim,
+    validate_finite,
     validate_rank,
     validate_shape,
 )
@@ -93,9 +95,16 @@ class AVQAttention(nn.Module):
         >>> out = module(q, k, v)
         >>> out.shape
         torch.Size([2, 64, 512])
+
     """
 
     def __init__(self, config: AVQConfig, *, in_proj: bool = True, out_proj: bool = True) -> None:
+        """Construct a module using a reproducible, isolated RNG scope."""
+        with torch.random.fork_rng():
+            torch.manual_seed(config.execution.seed)
+            self._initialize_impl(config, in_proj=in_proj, out_proj=out_proj)
+
+    def _initialize_impl(self, config: AVQConfig, *, in_proj: bool, out_proj: bool) -> None:
         super().__init__()
         self.config = config
         self.backend = Backend.create(config.backend.name)
@@ -143,14 +152,15 @@ class AVQAttention(nn.Module):
             device="cpu",
             dtype=torch.float32,
         )
-        # Initialize children near parents so the mean constraint holds.
-        self.codebook.initialize_children_around_parents()
         # HierarchicalCodebook intentionally keeps its established lightweight
         # API (its public child tensor is named ``children``). Mirror its
         # tensors as module buffers so AVQAttention checkpoints persist and
         # restore the full attention state without changing that API.
+        self.codebook_parents: torch.Tensor
+        self.codebook_children: torch.Tensor
         self.register_buffer("codebook_parents", self.codebook.parents)
         self.register_buffer("codebook_children", self.codebook.children)
+        self.codebook.initialize_children_around_parents()
 
         # Resolve the configured router via the classmethod factory.
         self.router = Router.create(config.routing.strategy)
@@ -246,6 +256,7 @@ class AVQAttention(nn.Module):
 
         Raises:
             NotInitializedError: If called before any forward pass has executed.
+
         """
         if self.last_keys is None or self.last_parent_assignments is None:
             msg = "commitment_loss() requires at least one prior forward pass"
@@ -281,6 +292,7 @@ class AVQAttention(nn.Module):
 
         Returns:
             ``[B, T_q, E]`` attention output.
+
         """
         # ISSUE-0017: wrap in autocast when enabled (spec §3.4).
         autocast_enabled = self.config.precision.autocast
@@ -288,10 +300,13 @@ class AVQAttention(nn.Module):
         # OPT-0002: when torch.compile is enabled we route through the
         # compiled forward; otherwise we keep the eager path identical
         # to the prior behaviour.
-        with torch.autocast(
-            device_type=query.device.type,
-            enabled=autocast_enabled,
-            dtype=autocast_dtype,
+        with (
+            deterministic_algorithms(self.config.execution.deterministic),
+            torch.autocast(
+                device_type=query.device.type,
+                enabled=autocast_enabled,
+                dtype=autocast_dtype,
+            ),
         ):
             if self.forward_compiled is not None:
                 return self.forward_compiled(query, key, value, mask, kv_cache)
@@ -319,6 +334,7 @@ class AVQAttention(nn.Module):
 
         Returns:
             ``[B, T_q, E]`` attention output.
+
         """
         return run_pipeline(self, query, key, value, mask, kv_cache)
 
@@ -340,6 +356,7 @@ class AVQAttention(nn.Module):
         for name, tensor in [("query", query), ("key", key), ("value", value)]:
             validate_rank(tensor, 3, name=name)
             validate_dtype(tensor, supported_dtypes, name=name)
+            validate_finite(tensor, name=name)
         validate_embed_dim(query, self.config.attention.embed_dim, name="query")
         validate_embed_dim(key, self.config.attention.embed_dim, name="key")
         validate_embed_dim(value, self.config.attention.embed_dim, name="value")
@@ -348,6 +365,61 @@ class AVQAttention(nn.Module):
             validate_shape(key, query.shape, name="key")
         if key.shape != value.shape:
             validate_shape(value, key.shape, name="value")
+
+    def validate_mask(
+        self,
+        mask: torch.Tensor | None,
+        query: torch.Tensor,
+        key_length: int,
+    ) -> None:
+        """Validate a user mask against resolved query/key dimensions."""
+        if mask is None or self.config.backend.skip_validation:
+            return
+        if mask.ndim not in (2, 4):
+            raise ShapeError(
+                "mask must be rank 2 [T_q, T_k] or rank 4 [B, H, T_q, T_k]",
+                expected="rank=2 or rank=4",
+                actual=f"rank={mask.ndim}",
+            )
+        if mask.dtype is not torch.bool:
+            raise DtypeError(
+                "mask dtype mismatch: expected torch.bool",
+                expected=torch.bool,
+                actual=mask.dtype,
+            )
+        if mask.device != query.device:
+            raise DeviceError(
+                "mask device mismatch",
+                expected=query.device,
+                actual=mask.device,
+            )
+
+        expected_query = int(query.shape[-2])
+        expected_key = key_length
+        if mask.ndim == 2:
+            expected_shape = (expected_query, expected_key)
+            if tuple(mask.shape) != expected_shape:
+                raise ShapeError(
+                    "mask shape must match resolved query/key lengths",
+                    expected=expected_shape,
+                    actual=tuple(mask.shape),
+                )
+            return
+
+        batch, heads = int(query.shape[0]), int(query.shape[1])
+        if mask.shape[0] not in (1, batch) or mask.shape[1] not in (1, heads):
+            raise ShapeError(
+                "rank-4 mask batch/head dimensions must be broadcastable",
+                expected=f"batch in (1, {batch}), heads in (1, {heads})",
+                actual=tuple(mask.shape[:2]),
+            )
+        expected_tail = (expected_query, expected_key)
+        if tuple(mask.shape[-2:]) != expected_tail:
+            raise ShapeError(
+                "mask shape must match resolved query/key lengths",
+                expected=f"[..., {expected_query}, {expected_key}]",
+                actual=tuple(mask.shape),
+            )
 
     def sync_codebook_device(self, q: torch.Tensor) -> None:
         """Move codebook to match input device and dtype (M5)."""
@@ -363,18 +435,70 @@ class AVQAttention(nn.Module):
         v: torch.Tensor,
         kv_cache: KVCache | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Look up cached K/V and concatenate with current K/V (M4)."""
+        """Look up cached K/V and concatenate with current K/V (M4).
+
+        This method is intentionally read-only. The pipeline commits the
+        current K/V only after the complete forward pass succeeds, keeping
+        caller-owned cache state failure-atomic.
+        """
         if kv_cache is not None:
             cached_k, cached_v = kv_cache.lookup()
+            if cached_k.device != k.device or cached_v.device != v.device:
+                raise DeviceError(
+                    "KV cache device must match projected key/value tensors",
+                    expected=k.device,
+                    actual=f"key={cached_k.device}, value={cached_v.device}",
+                )
+            if cached_k.ndim != 4 or cached_v.ndim != 4:
+                raise ShapeError(
+                    "KV cache lookup must return rank-4 key/value tensors",
+                    expected="rank=4",
+                    actual=f"key_rank={cached_k.ndim}, value_rank={cached_v.ndim}",
+                )
+            has_cached_tokens = cached_k.shape[-2] > 0
+            if has_cached_tokens and (
+                cached_k.shape[0] != k.shape[0] or cached_v.shape[0] != v.shape[0]
+            ):
+                raise ShapeError(
+                    "KV cache batch size must match the current request",
+                    expected=f"batch={k.shape[0]}",
+                    actual=f"key_batch={cached_k.shape[0]}, value_batch={cached_v.shape[0]}",
+                )
+            if cached_k.shape[1] != k.shape[1] or cached_v.shape[1] != v.shape[1]:
+                raise ShapeError(
+                    "KV cache head count must match the current request",
+                    expected=f"heads={k.shape[1]}",
+                    actual=f"key_heads={cached_k.shape[1]}, value_heads={cached_v.shape[1]}",
+                )
+            if cached_k.shape[-1] != k.shape[-1] or cached_v.shape[-1] != v.shape[-1]:
+                raise ShapeError(
+                    "KV cache head dimensions must match the current request",
+                    expected=f"key_dim={k.shape[-1]}, value_dim={v.shape[-1]}",
+                    actual=f"key_dim={cached_k.shape[-1]}, value_dim={cached_v.shape[-1]}",
+                )
+            # Cache storage dtype is configurable; normalize it at the
+            # attention boundary so the query/key/value computation remains
+            # dtype-consistent without rewriting the stored checkpoint.
+            cached_k = cached_k.to(dtype=k.dtype)
+            cached_v = cached_v.to(dtype=v.dtype)
             if cached_k.shape[-2] > 0:
                 k_full = torch.cat([cached_k, k], dim=-2)
                 v_full = torch.cat([cached_v, v], dim=-2)
             else:
                 k_full, v_full = k, v
-            kv_cache.append(k, v)
         else:
             k_full, v_full = k, v
         return k_full, v_full
+
+    @staticmethod
+    def commit_kv_cache(
+        k: torch.Tensor,
+        v: torch.Tensor,
+        kv_cache: KVCache | None,
+    ) -> None:
+        """Append current K/V after a successful forward pass."""
+        if kv_cache is not None:
+            kv_cache.append(k, v)
 
     def resolve_mask(
         self,
@@ -415,6 +539,7 @@ class AVQAttention(nn.Module):
         Returns:
             QuantizationResult with parent/child aggregates, assignments,
             and counts.
+
         """
         # The streaming-VQ path (StreamingVQBuffer) is researcher-driven;
         # the orchestrator always uses the batched backend.quantize here.
@@ -472,6 +597,7 @@ class AVQAttention(nn.Module):
         Returns:
             Tuple of (importance, budget, decision, result).
             ``budget <= 0`` means fall back to naive attention.
+
         """
         importance = compute_importance(parent_attention_probs, result.parent_counts)
         assert self.scheduler is not None

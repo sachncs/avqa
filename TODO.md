@@ -196,6 +196,11 @@ Every completed task MUST satisfy:
 
 ### Framework Integrations
 
+> Historical note: the entries below describe integrations that existed in
+> pre-alpha development history. They were removed before `v0.1.0` and are
+> deferred from the current support contract. The authoritative current-state
+> record is `SPEC_COMPLIANCE.md` and `docs/compatibility.md`.
+
 - [x] TASK-12.001 Hugging Face adapter (commit `0e0d397`;
       weight-transfer hardening `155285a`)
 - [x] TASK-12.002 vLLM paged-attention adapter (commit `2131523`;
@@ -213,16 +218,155 @@ Every completed task MUST satisfy:
 
 ## Live next-open task
 
-All items in the "Active Tasks" section above are now `[x]` except for
+All core items in the "Active Tasks" section above are now `[x]` except for
 `TASK-11.001`–`TASK-11.004` (Triton GPU kernels and benchmarking), which
-remain blocked on the CUDA-matrix CI runner. See
+remain blocked on the CUDA-matrix CI runner. The framework-integration entries
+above are historical and deferred from the public-alpha support contract; they
+are not shipped capabilities. See
 `PUBLICATION.md` "Outstanding Gaps Before Publication" and `OPTIMIZATIONS.md`
 "Optimization Backlog" for the cross-referenced gates.
+
+### Public-alpha reliability follow-ups
+
+- [x] TASK-P.001 Execute every checked-in example in CI and compile examples in
+      the test suite so public API walkthroughs cannot silently drift (commit
+      `9e642e6`).
+- [x] TASK-P.002 Keep CI dependencies aligned with the supported alpha surface;
+      removed the stale framework-integration install (commit `2abc5c6`).
+- [x] TASK-P.003 Reconcile historical integration entries with the current
+      public-alpha support contract (commit `1868991`).
+- [x] TASK-P.004 Validate paged-cache checkpoint sequence and batch invariants
+      during restore (commit `664e53c`).
+- [x] TASK-P.005 Reject non-integral paged-cache position metadata instead of
+      silently coercing it (commit `365a9f1`).
+- [x] TASK-P.006 Make in-memory cache append and restore failure-atomic across
+      tensor conversion failures (commit `21ced43`).
+- [x] TASK-P.007 Validate integer-only configuration fields before runtime use
+      (commit `f7f0be0`).
+- [x] TASK-P.008 Validate boolean configuration fields before runtime use
+      (commit `f423a96`).
+- [x] TASK-P.009 Check repository Markdown links in CI (commit `78ac108`).
+- [x] TASK-P.010 Reconcile benchmark protocol and historical experiment
+      boundaries with the public-alpha support contract (commit `14253e4`).
+- [x] TASK-P.011 Include GitHub contribution templates in the Markdown link
+      gate (commit `a6e91d2`).
+- [x] TASK-P.012 Align package metadata and release copy with the tested Python
+      3.10–3.12 support range (commit `62e0527`).
+- [x] TASK-P.013 Make first-time logger configuration thread-safe so concurrent
+      application startup cannot install duplicate handlers (commit `ef6b520`).
+- [x] TASK-P.014 Make paged KV-cache appends transactional across conversion
+      and concatenation failures (commit `e3509d7`).
+- [x] TASK-P.015 Add a validated backend registration seam for external
+      implementations without hard-coded core imports (commit `b4feca6`).
+- [x] TASK-P.016 Normalize nested configuration deserialization failures to
+      the public ConfigurationError contract (commit `b5782e2`).
+- [x] TASK-P.017 Validate online-softmax tile sizes at the public backend
+      boundary (commit `021d0ac`).
+- [x] TASK-P.018 Declare pytest-benchmark in the development environment so
+      the documented full test target can collect performance tests (commit `7927fe9`).
+- [x] TASK-P.019 Mark the performance module as benchmark-only so standard
+      correctness tests exclude exploratory timing/quality assertions (commit `7927fe9`).
+- [x] TASK-P.020 Execute the documented repository test target in CI on Python
+      3.12 to prevent environment and scope drift (commit `b78347d`).
+- [x] TASK-P.021 Reconcile README test commands with the benchmark-only
+      performance boundary (commit `1dff96a`).
+- [x] TASK-P.022 Run the repository test target in tagged-release verification
+      to keep release and CI support boundaries aligned (commit `52e76f2`).
+- [x] TASK-P.023 Fail closed when distribution smoke tests see ambiguous wheel
+      or sdist artifacts (commit `1585fe1`).
+- [x] TASK-P.024 Validate public attention masks before pipeline execution,
+      including KV-cache-resolved lengths (commit `291aeee`).
+- [x] TASK-P.025 Validate user masks before mutating KV caches so rejected
+      requests remain failure-atomic (commit `a82a41d`).
+- [x] TASK-P.026 Keep KV-cache appends transactional across downstream forward
+      failures (commit `9870aba`).
+- [x] TASK-P.027 Validate and normalize resolved KV-cache tensors at the
+      attention pipeline boundary (commit `38381d7`).
+- [x] TASK-P.028 Inject the canonical Python release version into the frontend
+      build and remove duplicated public version literals (commit `daac321`).
+- [x] TASK-P.029 Preserve multi-batch first append for empty KV-cache sentinels
+      (commit `ff9edea`).
+- [x] TASK-P.030 Reject non-finite attention inputs before pipeline mutation
+      (commit `e757ae3`).
+- [x] TASK-P.031 Make codebook checkpoint restores failure-atomic
+      (commit `258e26d`).
+- [x] TASK-P.032 Reject non-finite codebook checkpoint tensors before restore
+      (commit `45c1a6f`).
+- [x] TASK-P.033 Make EMA codebook updates finite and failure-atomic
+      (commit `5fa24c1`).
+- [x] TASK-P.034 Reject non-finite tensors at the KV-cache storage boundary
+      (commit `a109e29`).
+- [x] TASK-P.035 Make BCAR online adaptation finite and failure-atomic
+      (commit `ee0d2c0`).
+- [x] TASK-P.036 Reject non-finite inputs in StreamingVQBuffer before mutation
+      (commit `a7d3d99`).
+- [x] TASK-P.037 Make shared profiler recording and export concurrency-safe
+      (commit `7c334bb`).
+- [x] TASK-P.038 Apply ExecutionConfig.seed during module initialization without
+      mutating caller RNG state (commit `149f6d7`).
+- [x] TASK-P.039 Make KV-cache state transitions and snapshots thread-safe
+      (commit `a4083cb`).
+- [x] TASK-P.040 Restore CI formatter compliance after initialization refactor
+      (commit `fb1794b`).
+- [x] TASK-P.041 Cancel superseded CI and Pages runs on the main branch
+      (commit `071d5c4`).
+- [x] TASK-P.042 Return isolated KV-cache lookup snapshots
+      (commit `3416919`).
+- [x] TASK-P.043 Remove stale current-suite test-count wording from readiness docs
+      (commit `cf0ed99`).
+- [x] TASK-P.044 Enforce the supported Python range in CI and release verification
+      (commit `04ea7eb`).
+- [x] TASK-P.045 Apply ExecutionConfig.deterministic during forward safely
+      (commit `c641dde`).
+- [x] TASK-P.046 Complete frontend navigation landmarks and icon labels
+      (commit `f707f78`).
+- [x] TASK-P.047 Make mobile navigation dismissible with Escape
+      (commit `4b3e551`).
+- [x] TASK-P.048 Add a docs navigation route contract gate
+      (commit `f992b44`).
+- [x] TASK-P.049 Verify deterministic execution wiring through AVQAttention
+      (commit `a47078d`).
+- [x] TASK-P.050 Execute a public-API forward pass in wheel and sdist smoke envs
+      (commit `2bd9b5c`).
+- [x] TASK-P.051 Audit locked frontend dependencies in CI
+      (commit `d965c9f`).
+- [x] TASK-P.052 Document a concrete confidential Code of Conduct reporting path
+      (commit `9a0a53d`).
+- [x] TASK-P.053 Label historical compliance coverage snapshots explicitly
+      (commit `54f99c9`).
+- [x] TASK-P.054 Reconcile Unreleased changelog with current readiness work
+      (commit `854e12b`).
+- [x] TASK-P.055 Gate PyPI publication behind explicit trusted-publishing
+      approval (commit `d7df3a4`).
+- [x] TASK-P.056 Add a compatibility-report issue template for the support
+      matrix (commit `a93865a`).
+- [x] TASK-P.057 Reconcile benchmark protocol paths with tracked evidence and
+      test required experiment artifacts (commit `57828b4`).
+- [x] TASK-P.058 Expand profiler contract coverage for export and failure
+      paths (commit `a10a076`).
+- [x] TASK-P.059 Verify the bootstrapped environment with an import and public
+      API forward smoke test (commit `eff2f52`).
+- [x] TASK-P.060 Align CI lint scope with the repository lint target
+      (commit `10315a4`).
+- [x] TASK-P.061 Restore formatter compliance for the expanded CI lint scope
+      (commit `9f7300b`).
+- [x] TASK-P.062 Expand package Python metadata and user-facing support
+      boundaries through Python 3.15, with prerelease and CUDA caveats explicit
+      (commit `9de8604`).
+- [x] TASK-P.063 Enforce Google Python/TypeScript style conventions and
+      complete public API documentation with automated CI checks.
+- [x] TASK-P.064 Replace conditional component factory ladders with tested
+      registry-backed polymorphic extension points.
+- [x] TASK-P.065 Redesign the product landing page with a coherent brand,
+      practical first-success path, and evidence-led product hierarchy.
+- [x] TASK-P.066 Expand practitioner and researcher docs with support,
+      architecture, API, limitation, and reproducibility guidance.
 
 ### Cleanup pass (2026-07-21)
 
 The following catch-up items are owned by the sweep (verified by the
-461-test suite + ruff/mypy clean + 90.5% coverage). Each corresponds
+then-current test suite + ruff/mypy clean + 90.5% coverage). The suite
+has since grown; run `make test` for current evidence. Each corresponds
 to the deep-review findings reported in CHANGELOG "Unreleased Fixed".
 
 - [x] TASK-A.001 Visualizer public-API restore

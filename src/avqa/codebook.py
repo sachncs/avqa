@@ -38,6 +38,7 @@ class CodebookStats:
         child_counts: Per-child assignment count. Shape ``[H, M_0, C]``.
         utilization: Fraction of codewords that received at least one
             assignment. Shape ``[H]`` (parents) and ``[H, M_0]`` (children).
+
     """
 
     parent_counts: torch.Tensor
@@ -93,6 +94,7 @@ class HierarchicalCodebook:
         >>> cb.children.shape
         torch.Size([2, 8, 4, 16])
         >>> cb.validate_mean_constraint()
+
     """
 
     def __init__(
@@ -151,6 +153,7 @@ class HierarchicalCodebook:
             perturbation: Optional pre-sampled noise of shape
                 ``[H, M_0, C, D]``. If ``None``, samples Gaussian noise.
             generator: Optional RNG generator for reproducibility.
+
         """
         if perturbation is None:
             perturbation = torch.randn(
@@ -191,6 +194,7 @@ class HierarchicalCodebook:
         Args:
             generator: Optional RNG.
             scale: Standard deviation of the initialization distribution.
+
         """
         self.parents.copy_(
             torch.randn(
@@ -227,11 +231,17 @@ class HierarchicalCodebook:
 
         Raises:
             CodebookError: If ``||parent - mean(children)|| > atol``.
+
         """
-        diff = (self.parents - self.children.mean(dim=2)).abs().max().item()
+        diff = self._mean_constraint_diff(self.parents, self.children)
         if diff > atol:
             msg = f"mean constraint violated: max |parent - mean(child)| = {diff}"
             raise CodebookError(msg, {"max_diff": diff})
+
+    @staticmethod
+    def _mean_constraint_diff(parents: torch.Tensor, children: torch.Tensor) -> float:
+        """Return the maximum parent/child-mean absolute difference."""
+        return float((parents - children.mean(dim=2)).abs().max().item())
 
     # ------------------------------------------------------------------
     # EMA training (spec §8.9)
@@ -252,6 +262,7 @@ class HierarchicalCodebook:
 
         Raises:
             CodebookError: On shape mismatch or invalid decay.
+
         """
         if not 0.0 <= decay <= 1.0:
             msg = f"EMA decay must be in [0, 1], got {decay}"
@@ -269,9 +280,23 @@ class HierarchicalCodebook:
         if tuple(new_children.shape) != expected_child_shape:
             msg = f"new_children shape {tuple(new_children.shape)} != {expected_child_shape}"
             raise CodebookError(msg)
-        self.parents.mul_(decay).add_(new_parents, alpha=1.0 - decay)
-        self.children.mul_(decay).add_(new_children, alpha=1.0 - decay)
-        self.reproject_parents()
+        restored_parents = new_parents.to(self.parents.device, self.parents.dtype)
+        restored_children = new_children.to(self.children.device, self.children.dtype)
+        if (
+            not torch.isfinite(restored_parents).all()
+            or not torch.isfinite(restored_children).all()
+        ):
+            raise CodebookError("EMA update contains non-finite values")
+
+        # Stage both tensors before publishing either one. Parent values are
+        # reprojected from the staged children, preserving the mean constraint
+        # without exposing a partially updated codebook.
+        next_children = self.children * decay + restored_children * (1.0 - decay)
+        next_parents = next_children.mean(dim=2)
+        if not torch.isfinite(next_parents).all() or not torch.isfinite(next_children).all():
+            raise CodebookError("EMA update produced non-finite values")
+        self.parents.copy_(next_parents)
+        self.children.copy_(next_children)
 
     # ------------------------------------------------------------------
     # Commitment loss (spec §8.9)
@@ -294,6 +319,7 @@ class HierarchicalCodebook:
 
         Returns:
             Scalar mean commitment loss.
+
         """
         B, H, N, D = keys.shape
         # Gather assigned codewords: [B, H, N, D].
@@ -333,9 +359,19 @@ class HierarchicalCodebook:
             raise CodebookError(f"parents shape {tuple(parents.shape)} != {expected_parent_shape}")
         if tuple(children.shape) != expected_child_shape:
             raise CodebookError(f"children shape {tuple(children.shape)} != {expected_child_shape}")
-        self.parents.copy_(parents.to(self.parents.device, self.parents.dtype))
-        self.children.copy_(children.to(self.children.device, self.children.dtype))
-        self.validate_mean_constraint()
+        restored_parents = parents.to(self.parents.device, self.parents.dtype)
+        restored_children = children.to(self.children.device, self.children.dtype)
+        if (
+            not torch.isfinite(restored_parents).all()
+            or not torch.isfinite(restored_children).all()
+        ):
+            raise CodebookError("codebook checkpoint contains non-finite values")
+        diff = self._mean_constraint_diff(restored_parents, restored_children)
+        if diff > 1e-5:
+            msg = f"mean constraint violated: max |parent - mean(child)| = {diff}"
+            raise CodebookError(msg, {"max_diff": diff})
+        self.parents.copy_(restored_parents)
+        self.children.copy_(restored_children)
 
     def __repr__(self) -> str:
         return (
