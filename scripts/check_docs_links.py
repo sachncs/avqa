@@ -14,6 +14,7 @@ def markdown_files() -> list[Path]:
     """Return public repository Markdown files covered by the link gate."""
     files = set(ROOT.glob("*.md"))
     files.update((ROOT / "docs").rglob("*.md"))
+    files.update((ROOT / ".github").rglob("*.md"))
     files.add(ROOT / "site" / "README.md")
     return sorted(path for path in files if path.is_file())
 
