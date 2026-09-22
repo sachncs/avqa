@@ -40,7 +40,7 @@ validation on the target PyTorch/CUDA environment.
 
 ### Compatibility
 
-- Python ≥ 3.10
+- Python 3.10–3.12
 - PyTorch ≥ 2.1
 - Optional: `matplotlib`, `graphviz` (installed via `pip install -e ".[viz]"`).
   Framework integrations are user-supplied — see

@@ -249,7 +249,7 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 | Category | Technology |
 |----------|------------|
-| Language | Python 3.10+ |
+| Language | Python 3.10–3.12 |
 | Framework | [PyTorch](https://pytorch.org/) 2.1+ |
 | Build | [Hatchling](https://hatch.pypa.io/) |
 | Lint/Format | [ruff](https://docs.astral.sh/ruff/) |

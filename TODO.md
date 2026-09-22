@@ -250,6 +250,8 @@ are not shipped capabilities. See
       boundaries with the public-alpha support contract (commit `14253e4`).
 - [x] TASK-P.011 Include GitHub contribution templates in the Markdown link
       gate (commit `a6e91d2`).
+- [x] TASK-P.012 Align package metadata and release copy with the tested Python
+      3.10–3.12 support range (commit pending).
 
 ### Cleanup pass (2026-07-21)
 

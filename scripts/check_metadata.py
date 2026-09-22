@@ -28,6 +28,9 @@ def main() -> int:
         "release notes": f"## v{version} " in read("RELEASE.md"),
         "site release label": f"Public alpha · v{version}" in read("site/src/lib/links.ts"),
         "package dynamic version": 'dynamic = ["version"]' in read("pyproject.toml"),
+        "python support range": 'requires-python = ">=3.10,<3.13"' in read("pyproject.toml")
+        and "| Python | 3.10, 3.11, 3.12 |" in read("README.md")
+        and "Python 3.10\u20133.12" in read("RELEASE.md"),
     }
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
