@@ -332,8 +332,8 @@ are not shipped capabilities. See
       (commit `d965c9f`).
 - [x] TASK-P.052 Document a concrete confidential Code of Conduct reporting path
       (commit `9a0a53d`).
-- [ ] TASK-P.053 Label historical compliance coverage snapshots explicitly
-      (implementation pending).
+- [x] TASK-P.053 Label historical compliance coverage snapshots explicitly
+      (commit `54f99c9`).
 
 ### Cleanup pass (2026-07-21)
 
