@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 64" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 56" role="img" aria-labelledby="title">
   <title id="title">Monochrome AVQA wordmark for light surfaces</title>
-  <image href="/avqa/avqa-mark-mono-light.svg" x="0" y="0" width="64" height="64"/>
-  <text x="78" y="31" fill="#0C0F1C" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="2">AVQA</text>
-  <text x="80" y="48" fill="#0C0F1C" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="600" letter-spacing="1.2">ADAPTIVE ATTENTION</text>
+  <image href="/avqa/avqa-mark-mono-light.svg" x="0" y="3" width="50" height="50"/>
+  <text x="64" y="30" fill="#0D1510" font-family="Manrope, Arial, sans-serif" font-size="24" font-weight="800" letter-spacing="1.5">AVQA</text>
+  <text x="65" y="45" fill="#0D1510" font-family="'IBM Plex Mono', monospace" font-size="7.5" font-weight="500" letter-spacing="1.1">ADAPTIVE ATTENTION</text>
 </svg>

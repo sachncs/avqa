@@ -1,169 +1,188 @@
+import { ArrowUpRight } from "lucide-react";
 import { FadeIn } from "./FadeIn";
 
-const ROWS = [
+const LOSS = [
   {
-    method: "vanilla attention",
-    desc: "Dense softmax reference",
-    cost: "O(N²)",
-    scaling: "Quadratic",
-    highlight: false,
+    label: "Static codebook",
+    value: 15.8983,
+    width: "100%",
+    tone: "bg-ink-500",
   },
   {
-    method: "AVQA — single pass",
-    desc: "Quantize → route → refine",
-    cost: "Budget-dependent",
-    scaling: "Workload-specific",
-    highlight: true,
+    label: "BCAR · adapted",
+    value: 4.8974,
+    width: "30.8%",
+    tone: "bg-accent-400",
   },
-  {
-    method: "AVQA — multi-pass (ACMPR)",
-    desc: "Disjoint-set re-routing",
-    cost: "Budget × passes",
-    scaling: "Workload-specific",
-    highlight: true,
-  },
+  { label: "Oracle codebook", value: 0.01, width: "1px", tone: "bg-signal" },
 ];
 
 export function BenchmarksSection() {
   return (
-    <section id="benchmarks" className="relative py-28 sm:py-36">
-      <div className="absolute inset-0 -z-10 bg-radial-fade opacity-50" />
+    <section
+      id="evidence"
+      className="relative scroll-mt-24 py-20 sm:py-28"
+      aria-labelledby="evidence-heading"
+    >
       <div className="container-edge">
-        <FadeIn className="max-w-3xl">
-          <span className="eyebrow">Benchmarks</span>
-          <h2 className="mt-5 font-display text-[36px] font-semibold leading-[1.05] tracking-tightest text-white sm:text-[52px]">
-            Correctness first.{" "}
-            <span className="text-gradient-accent">Always.</span>
-          </h2>
-          <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            The repository records benchmark configuration, environment, raw
-            output, and interpretation. The figures below describe specific CPU
-            experiments—not general performance claims. Reproduce them and
-            validate end-to-end latency, memory, and quality on your workload.
-          </p>
-        </FadeIn>
-
-        <div className="mt-14 grid gap-6 lg:grid-cols-12">
-          <FadeIn delay={0.05} className="lg:col-span-7">
-            <div className="surface overflow-hidden rounded-2xl">
-              <div className="border-b border-white/5 px-5 py-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] uppercase tracking-widest text-ink-400">
-                    Work model comparison
-                  </span>
-                  <span className="font-mono text-[10px] text-ink-500">
-                    reference model
-                  </span>
-                </div>
-              </div>
-              <div className="divide-y divide-white/5">
-                {ROWS.map((row) => (
-                  <div
-                    key={row.method}
-                    className={`flex items-center justify-between gap-4 px-5 py-4 ${
-                      row.highlight ? "bg-accent-400/[0.04]" : ""
-                    }`}
-                  >
-                    <div>
-                      <div
-                        className={`font-display text-sm font-semibold ${
-                          row.highlight ? "text-white" : "text-ink-200"
-                        }`}
-                      >
-                        {row.method}
-                      </div>
-                      <div className="font-mono text-[11px] text-ink-500">
-                        {row.desc}
-                      </div>
-                    </div>
-                    <div className="hidden sm:block text-right">
-                      <div className="font-mono text-[12px] text-ink-300">
-                        {row.cost}
-                      </div>
-                      <div className="text-[10px] uppercase tracking-widest text-ink-500">
-                        {row.scaling}
-                      </div>
-                    </div>
-                    {row.highlight && (
-                      <span className="hidden md:inline-flex items-center gap-1 rounded-full border border-accent-300/30 bg-accent-400/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent-200">
-                        AVQA
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="grid gap-10 border-t border-white/15 pt-6 lg:grid-cols-12 lg:gap-12">
+          <FadeIn className="lg:col-span-4">
+            <span className="eyebrow">Evidence and limits</span>
+            <h2
+              id="evidence-heading"
+              className="mt-5 max-w-[13ch] font-display text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-4xl"
+            >
+              Read the experiment, not a promise.
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-ink-300">
+              The checked-in EXP-0004 CPU artifact measures codebook
+              reconstruction loss during synthetic online adaptation. It is not
+              an end-to-end attention latency or quality benchmark.
+            </p>
+            <p className="mt-4 max-w-lg text-sm leading-6 text-ink-400">
+              CUDA execution, CUDA/Triton numerical equivalence, and GPU
+              performance have not been tested in a CUDA environment.
+            </p>
+            <a
+              href="https://github.com/sachncs/avqa/tree/main/benchmarks/raw/EXP-0004"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm text-ink-100 underline decoration-white/30 underline-offset-4 hover:decoration-accent-300"
+            >
+              Inspect raw data and configuration
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </a>
           </FadeIn>
 
-          <FadeIn delay={0.1} className="lg:col-span-5">
-            <div className="surface flex h-full flex-col justify-between rounded-2xl p-6">
-              <div>
-                <div className="font-mono text-[11px] uppercase tracking-widest text-ink-400">
-                  BCAR — online adaptation
+          <FadeIn delay={0.06} className="lg:col-span-8">
+            <div className="grid gap-8 xl:grid-cols-[1.3fr_0.7fr]">
+              <figure
+                aria-labelledby="bcar-chart-title"
+                className="border-y border-white/15 py-5 sm:py-6"
+              >
+                <figcaption id="bcar-chart-title">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-400">
+                    EXP-0004 · VQ reconstruction loss
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    After 1,024 adaptation updates
+                  </p>
+                  <p className="mt-1 text-xs text-ink-400">
+                    Lower is better · synthetic stream · dimensionless loss
+                  </p>
+                </figcaption>
+
+                <div
+                  className="mt-7 space-y-5"
+                  role="img"
+                  aria-label="At 1,024 updates, static codebook loss is 15.8983, BCAR loss is 4.8974, and oracle codebook loss is 0.0100."
+                >
+                  {LOSS.map((item) => (
+                    <div key={item.label}>
+                      <div className="flex items-baseline justify-between gap-4 text-xs">
+                        <span className="text-ink-200">{item.label}</span>
+                        <span className="font-mono tabular-nums text-white">
+                          {item.value.toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 bg-ink-800">
+                        <div
+                          className={`h-full ${item.tone}`}
+                          style={{ width: item.width }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-3 text-[15px] leading-relaxed text-ink-300">
-                  Mean residual reduction against a static codebook in the
-                  repository's CPU experiment with{" "}
-                  <span className="font-mono text-accent-300">
-                    num_codewords=4
-                  </span>
-                  ,
-                  <span className="font-mono text-accent-300">
-                    {" "}
-                    children_per_codeword=2
-                  </span>
-                  .
+                <div
+                  aria-hidden="true"
+                  className="mt-3 flex justify-between border-t border-white/15 pt-2 font-mono text-[10px] tabular-nums text-ink-500"
+                >
+                  <span>0</span>
+                  <span>4</span>
+                  <span>8</span>
+                  <span>12</span>
+                  <span>16</span>
+                </div>
+                <p className="mt-1 text-right font-mono text-[10px] uppercase tracking-[0.08em] text-ink-500">
+                  Loss
+                </p>
+
+                <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3 border-t border-white/10 pt-4">
+                  <p className="font-display text-2xl font-semibold tracking-tight text-white">
+                    69.2%
+                  </p>
+                  <p className="text-right text-xs leading-5 text-ink-400">
+                    lower VQ loss than static at this checkpoint; not a speedup
+                    measurement
+                  </p>
+                </div>
+              </figure>
+
+              <div className="py-5 sm:py-6">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-400">
+                  Experiment scope
+                </h3>
+                <dl className="mt-4 divide-y divide-white/10 border-y border-white/10 text-xs">
+                  {[
+                    ["Codewords", "4 parents × 2 children"],
+                    ["Attention heads", "1"],
+                    ["Head dimension", "8"],
+                    ["Tokens per update", "16"],
+                    ["Runtime", "CPU"],
+                    ["Artifact", "EXP-0004 / raw.json"],
+                  ].map(([term, value]) => (
+                    <div
+                      key={term}
+                      className="flex items-start justify-between gap-3 py-3"
+                    >
+                      <dt className="text-ink-400">{term}</dt>
+                      <dd className="text-right font-mono text-ink-100">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-4 text-xs leading-5 text-ink-400">
+                  Reproduce the adaptation task before interpreting the loss
+                  change. The oracle is a reference codebook, not a deployable
+                  runtime baseline.
                 </p>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/[0.06] bg-ink-950/40 p-4">
-                  <div className="font-display text-3xl font-semibold text-white">
-                    60.7%
-                  </div>
-                  <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-500">
-                    after 1,024 updates
-                  </div>
-                </div>
-                <div className="rounded-xl border border-accent-300/20 bg-accent-400/[0.05] p-4">
-                  <div className="font-display text-3xl font-semibold text-white">
-                    CPU
-                  </div>
-                  <div className="mt-1 text-[11px] uppercase tracking-widest text-ink-400">
-                    experiment only
-                  </div>
-                </div>
+            </div>
+
+            <div className="mt-7 grid gap-4 border-t border-white/10 pt-5 sm:grid-cols-[1fr_1fr]">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-500">
+                  Dense attention
+                </p>
+                <p className="mt-2 font-mono text-sm text-ink-100">O(N²D)</p>
+                <p className="mt-1 text-xs leading-5 text-ink-400">
+                  Reference score work across N tokens at dimension D.
+                </p>
               </div>
-              <div className="mt-6 font-mono text-[10px] uppercase tracking-widest text-ink-500">
-                Source · EXP-0004 (raw.json)
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-500">
+                  AVQA method model
+                </p>
+                <p className="mt-2 font-mono text-sm text-ink-100">
+                  O(N(M₀ + PC)D)
+                </p>
+                <p className="mt-1 text-xs leading-5 text-ink-400">
+                  M₀ parent groups, P routed parents, C children per parent.
+                  Formal cost is not measured latency.
+                </p>
               </div>
             </div>
+            <a
+              href="/avqa/docs/#reproducibility"
+              className="mt-4 inline-flex min-h-10 items-center gap-1 text-xs text-ink-200 underline decoration-white/25 underline-offset-4 hover:decoration-accent-300"
+            >
+              Benchmark protocol and interpretation
+              <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+            </a>
           </FadeIn>
         </div>
-
-        <FadeIn delay={0.15} className="mt-8">
-          <div className="surface rounded-2xl px-5 py-4">
-            <div className="flex flex-col gap-3 text-[12px] text-ink-400 sm:flex-row sm:items-center sm:justify-between">
-              <div className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                ACMPR vs paper · max abs diff ={" "}
-                <span className="font-mono text-white">0.0000</span>
-              </div>
-              <div className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                HVAQ-LIN vs paper · max abs diff ={" "}
-                <span className="font-mono text-white">0.0000</span>
-              </div>
-              <a
-                href="https://github.com/sachncs/avqa/tree/main/benchmarks"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-ink-200 transition hover:text-white"
-              >
-                Full benchmark methodology →
-              </a>
-            </div>
-          </div>
-        </FadeIn>
       </div>
     </section>
   );

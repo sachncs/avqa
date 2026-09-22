@@ -1,105 +1,128 @@
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { FadeIn } from "./FadeIn";
 
 const LAYERS = [
   {
-    name: "Applications",
-    items: ["Your code", "nn.Module wrappers"],
-    accent: "rgba(124,140,255,0.4)",
+    number: "01",
+    title: "Public surface",
+    pieces: ["AVQAttention", "attention()", "AVQConfig"],
+    detail: "Module and functional entry points",
   },
   {
-    name: "Public API",
-    items: ["AVQAttention", "attention()", "AVQConfig"],
-    accent: "rgba(124,140,255,0.55)",
+    number: "02",
+    title: "Attention pipeline",
+    pieces: ["Quantize", "Score", "Route", "Refine", "Merge"],
+    detail: "Online-softmax state and parent correction",
   },
   {
-    name: "Pipeline",
-    items: ["Refinement", "Backend", "Routing", "Merge", "Quantizer"],
-    accent: "rgba(125,249,255,0.5)",
-  },
-  {
-    name: "Codebook",
-    items: ["HierarchicalCodebook"],
-    accent: "rgba(125,249,255,0.55)",
-  },
-  {
-    name: "Foundations",
-    items: ["Config", "Data", "Utils", "Cache", "Scheduler", "Profiling"],
-    accent: "rgba(255,255,255,0.4)",
+    number: "03",
+    title: "Core structures",
+    pieces: ["Codebook", "Shapes", "Validation", "Cache"],
+    detail: "Tensor data, configuration, and invariants",
   },
 ];
 
+const EXTENSIONS = ["Backend", "Router", "Merge strategy", "Scheduler"];
+
 export function ArchitectureSection() {
   return (
-    <section id="architecture" className="relative py-28 sm:py-36">
-      <div className="absolute inset-x-0 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    <section
+      id="architecture"
+      className="relative scroll-mt-24 py-20 sm:py-28"
+      aria-labelledby="architecture-heading"
+    >
       <div className="container-edge">
-        <FadeIn className="max-w-3xl">
-          <span className="eyebrow">Architecture</span>
-          <h2 className="mt-5 font-display text-[36px] font-semibold leading-[1.05] tracking-tightest text-white sm:text-[52px]">
-            A layered stack with{" "}
-            <span className="text-gradient-accent">clean boundaries.</span>
-          </h2>
-          <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            Every backend implements the same interface. Every router implements
-            the same selector contract. The core algorithm never imports
-            profiling or visualization — so you can observe, replace, or extend
-            without touching the math.
-          </p>
-        </FadeIn>
+        <div className="grid gap-10 border-t border-white/15 pt-6 lg:grid-cols-12 lg:gap-12">
+          <FadeIn className="lg:col-span-4">
+            <span className="eyebrow">Architecture</span>
+            <h2
+              id="architecture-heading"
+              className="mt-5 max-w-[13ch] font-display text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-4xl"
+            >
+              A small public surface; explicit seams.
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-ink-300">
+              The implementation is organized around the call path. Extension
+              registries exist for selected strategies; the current CPU
+              reference remains the primary validated execution path.
+            </p>
+            <a
+              href="/avqa/docs/#architecture"
+              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm text-ink-100 underline decoration-white/30 underline-offset-4 hover:decoration-accent-300"
+            >
+              Open the architecture guide
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </a>
+          </FadeIn>
 
-        <FadeIn delay={0.1} className="mt-14">
-          <div className="surface relative overflow-hidden rounded-3xl p-6 sm:p-10">
-            <div className="flex flex-col gap-3">
-              {LAYERS.map((layer, i) => (
-                <div
-                  key={layer.name}
-                  className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-950/40 p-4 sm:p-5"
-                  style={{
-                    borderLeft: `2px solid ${layer.accent}`,
-                  }}
-                >
-                  <div
-                    className="pointer-events-none absolute inset-y-0 left-0 -z-10 opacity-30"
-                    style={{
-                      width: "60%",
-                      background: `linear-gradient(90deg, ${layer.accent} 0%, transparent 100%)`,
-                    }}
-                  />
-                  <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-500">
-                        L{i}
-                      </span>
-                      <span className="font-display text-base font-semibold text-white sm:text-lg">
-                        {layer.name}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {layer.items.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 font-mono text-[11px] text-ink-200"
+          <FadeIn delay={0.06} className="lg:col-span-8">
+            <div className="grid border-y border-white/10 md:grid-cols-[1fr_auto_1.25fr_auto_1fr] md:items-stretch">
+              {LAYERS.map((layer, index) => (
+                <div key={layer.number} className="contents">
+                  <section className="py-5 md:px-4 md:py-6 first:md:pl-0 last:md:pr-0">
+                    <p className="font-mono text-[10px] text-accent-300">
+                      {layer.number} <span className="text-ink-500">/</span>
+                    </p>
+                    <h3 className="mt-2 font-display text-base font-semibold text-white">
+                      {layer.title}
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-ink-400">
+                      {layer.detail}
+                    </p>
+                    <ul className="mt-4 space-y-2">
+                      {layer.pieces.map((piece) => (
+                        <li
+                          key={piece}
+                          className="border-l border-white/15 pl-2 font-mono text-[10px] text-ink-200"
                         >
-                          {item}
-                        </span>
+                          {piece}
+                        </li>
                       ))}
+                    </ul>
+                  </section>
+                  {index < LAYERS.length - 1 && (
+                    <div
+                      className="flex items-center justify-center border-y border-white/10 py-1 text-ink-500 md:border-y-0"
+                      aria-hidden="true"
+                    >
+                      <ArrowRight className="h-4 w-4 rotate-90 md:rotate-0" />
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="mt-8 flex flex-col gap-2 text-[12px] text-ink-400 sm:flex-row sm:items-center sm:gap-6">
-              <div className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent-300" />
-                Dependency rule: core never imports profiling or visualization.
-              </div>
-              <div className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-glow" />
-                Extension points: Backend, Router, Scheduler, Merge.
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-[140px_1fr]">
+              <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-500">
+                Registered strategies
+              </p>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {EXTENSIONS.map((extension) => (
+                  <span
+                    key={extension}
+                    className="inline-flex items-center gap-2 text-xs text-ink-200"
+                  >
+                    <span className="h-1.5 w-1.5 bg-accent-400" />
+                    {extension}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
-        </FadeIn>
+            <p className="mt-5 border-l border-glow/60 pl-3 text-xs leading-5 text-ink-400">
+              Core attention does not import profiling or visualization; those
+              modules observe the execution path. See the
+              <a
+                href="https://github.com/sachncs/avqa/blob/main/docs/architecture.md"
+                target="_blank"
+                rel="noreferrer"
+                className="ml-1 text-ink-100 underline decoration-white/30 underline-offset-4 hover:decoration-accent-300"
+              >
+                source architecture notes
+              </a>
+              .
+            </p>
+          </FadeIn>
+        </div>
       </div>
     </section>
   );

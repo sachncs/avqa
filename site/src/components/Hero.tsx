@@ -1,5 +1,4 @@
-import { ArrowRight, Github, Terminal } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowDownRight, ArrowRight, Github } from "lucide-react";
 import { HeroVisual } from "./visuals/HeroVisual";
 import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "../lib/links";
 
@@ -7,61 +6,32 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="relative isolate overflow-hidden pb-24 pt-32 sm:pb-32 sm:pt-40"
+      className="relative isolate overflow-hidden pb-16 pt-28 sm:pb-20 sm:pt-36 lg:pb-24"
     >
-      <div className="absolute inset-0 -z-10 bg-radial-fade" />
-      <div className="absolute inset-x-0 top-0 -z-10 h-[42rem] bg-grid-faint [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[38rem] bg-grid-faint [background-size:56px_56px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
 
       <div className="container-edge">
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
-          <div className="lg:col-span-7">
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="eyebrow"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-glow" />
-              Research software <span aria-hidden="true">·</span>{" "}
-              {RELEASE_LABEL}
-            </motion.div>
+        <div className="grid grid-cols-1 gap-12 xl:grid-cols-12 xl:items-center xl:gap-14">
+          <div className="xl:col-span-5">
+            <div className="eyebrow">
+              <span className="h-1.5 w-1.5 bg-accent-400" />
+              Adaptive vector-quantized attention
+            </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.8,
-                delay: 0.15,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="mt-6 font-display text-[44px] font-semibold leading-[1.02] tracking-tightest text-white sm:text-[64px] lg:text-[78px]"
-            >
-              Spend compute{" "}
-              <span className="text-gradient-accent">
-                where attention goes.
-              </span>
-            </motion.h1>
+            <h1 className="mt-7 max-w-[12ch] font-display text-[clamp(2.8rem,6.5vw,5.7rem)] font-semibold leading-[0.98] tracking-[-0.065em] text-white">
+              Spend compute where attention goes.
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.25 }}
-              className="mt-7 max-w-xl text-[17px] leading-relaxed text-ink-300 sm:text-[19px]"
-            >
-              AVQA is an open-source PyTorch research implementation of
-              hierarchical, codebook-routed attention. It explores coarse
-              attention followed by selective refinement—with a transparent
-              reference path you can inspect and test.
-            </motion.p>
+            <p className="prose-measure mt-7 text-base leading-7 text-ink-200 sm:text-lg sm:leading-8">
+              AVQA is an inspectable PyTorch implementation of hierarchical,
+              codebook-routed attention. It groups keys, scores groups at a
+              coarse level, then refines selected regions. The result is an
+              approximation to study—not a claim of faster attention.
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.35 }}
-              className="mt-10 flex flex-wrap items-center gap-3"
-            >
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <a href={`${DOCS_URL}#quickstart`} className="btn-primary">
-                Run the quick start <ArrowRight className="h-4 w-4" />
+                Start with the CPU quickstart <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href={GITHUB_URL}
@@ -69,94 +39,46 @@ export function Hero() {
                 rel="noreferrer"
                 className="btn-ghost"
               >
-                <Github className="h-4 w-4" /> View on GitHub
+                <Github aria-hidden="true" className="h-4 w-4" /> Source code
               </a>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.55 }}
-              className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-[12px] uppercase tracking-[0.12em] text-ink-300"
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-ink-400" />
-                PyTorch 2.1+
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-ink-400" />
-                Python 3.10–3.15 · CPU CI
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-ink-400" />
-                Apache 2.0
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-ink-400" /> Independent
-                research implementation
-              </span>
-            </motion.div>
+            <div className="mt-9 border-t border-white/10 pt-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-400">
+                {RELEASE_LABEL} <span className="px-1.5 text-ink-600">/</span>
+                Python 3.10–3.15
+                <span className="px-1.5 text-ink-600">/</span> CPU validation
+                <span className="px-1.5 text-ink-600">/</span> Apache 2.0
+              </p>
+              <p className="mt-3 max-w-[60ch] text-xs leading-5 text-ink-300">
+                CUDA execution, CUDA/Triton numerical equivalence, and GPU
+                performance have not been tested in a CUDA environment. Python
+                3.15 is prerelease; see the support matrix for details.
+              </p>
+            </div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative lg:col-span-5"
-          >
-            <div className="relative mx-auto max-w-lg">
-              <div className="surface overflow-hidden rounded-3xl border-white/10 shadow-card">
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <img src="/avqa/avqa-mark.svg" alt="" className="h-9 w-9" />
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        AVQA pipeline
-                      </p>
-                      <p className="text-xs text-ink-400">
-                        coarse-to-fine attention
-                      </p>
-                    </div>
-                  </div>
-                  <span className="rounded-full border border-glow/20 bg-glow/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-glow">
-                    reference
-                  </span>
+          <div className="xl:col-span-7">
+            <div className="border-y border-white/15 bg-ink-900/45 px-4 py-4 sm:px-6 sm:py-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-400">
+                    The routing idea
+                  </p>
+                  <p className="mt-1 text-sm text-ink-100">
+                    From grouped keys to selective refinement
+                  </p>
                 </div>
-                <div className="flex items-center justify-center px-4 py-5 sm:px-8 sm:py-8">
-                  <HeroVisual size={390} />
-                </div>
-                <div className="grid grid-cols-3 border-t border-white/10 text-center">
-                  {[
-                    { label: "Group", value: "Keys" },
-                    { label: "Rank", value: "Parents" },
-                    { label: "Refine", value: "Children" },
-                  ].map((item, index) => (
-                    <div
-                      key={item.label}
-                      className={`px-2 py-4 ${index ? "border-l border-white/10" : ""}`}
-                    >
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">
-                        0{index + 1} · {item.label}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-ink-100">
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <a
+                  href="#method"
+                  className="inline-flex min-h-10 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-300 transition-colors hover:text-white"
+                >
+                  Read the method <ArrowDownRight className="h-4 w-4" />
+                </a>
               </div>
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200/15 bg-amber-100/[0.04] p-4 text-sm leading-6 text-ink-200">
-                <Terminal className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
-                <p>
-                  <span className="font-semibold text-white">
-                    CPU reference path.
-                  </span>{" "}
-                  CUDA execution, CUDA/Triton equivalence, and GPU performance
-                  have not been tested in a CUDA environment.
-                </p>
-              </div>
+              <HeroVisual />
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

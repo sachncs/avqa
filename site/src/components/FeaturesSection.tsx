@@ -1,102 +1,101 @@
-import {
-  Layers,
-  GitBranch,
-  Thermometer,
-  Repeat,
-  Cpu,
-  BookOpen,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { FadeIn } from "./FadeIn";
 
-const FEATURES = [
+const CAPABILITIES = [
   {
-    icon: Layers,
-    eyebrow: "Quantization",
-    title: "Hierarchical codebook",
-    desc: "Mean-constrained parent–child structure with disjoint refinement — coarse at the root, surgical at the leaves.",
-    accent: "from-accent-300/20",
+    group: "Core method",
+    title: "Hierarchical key codebook",
+    description:
+      "Keys are assigned to child codewords beneath parent representations, enabling a coarse pass before selected groups are expanded.",
   },
   {
-    icon: GitBranch,
-    eyebrow: "Routing",
-    title: "Adaptive refinement",
-    desc: "Expand only the most-attended codewords. Top-p, threshold, and budget-aware selectors — all pluggable.",
-    accent: "from-glow/20",
+    group: "Core method",
+    title: "Configurable parent routing",
+    description:
+      "Top-p, threshold, and budget routers expose the selection policy. Implementations can register additional router strategies.",
   },
   {
-    icon: Thermometer,
-    eyebrow: "HVAQ",
-    title: "Hopfield temperature schedules",
-    desc: "Per-query entropy or linear temperature, with learnable parameters — control sharpness exactly where you need it.",
-    accent: "from-accent-200/20",
+    group: "Optional research paths",
+    title: "HVAQ temperature schedules",
+    description:
+      "Entropy- or linear-based temperature scaling modifies parent attention logits; it is a research option, not a default guarantee.",
   },
   {
-    icon: Repeat,
-    eyebrow: "Multi-pass",
-    title: "Disjoint-set re-routing",
-    desc: "Converging residual norms with budget decay. Multiple passes, never the same codeword twice.",
-    accent: "from-glow/15",
+    group: "Optional research paths",
+    title: "Multi-pass correction",
+    description:
+      "ACMPR can refine disjoint parent groups over successive passes using a decaying budget, as specified in the repository method notes.",
   },
   {
-    icon: Cpu,
-    eyebrow: "Performance",
-    title: "Pure PyTorch · torch.compile",
-    desc: "Online-softmax tiles in the reference backend. torch.compile is opt-in where the selected configuration supports it.",
-    accent: "from-accent-300/15",
+    group: "Implementation",
+    title: "Readable PyTorch reference",
+    description:
+      "The online-softmax path is intended for inspection, experiments, and CPU correctness comparisons—not as a tuned production kernel.",
   },
   {
-    icon: BookOpen,
-    eyebrow: "Engineering",
-    title: "Strict typing · CI coverage gate",
-    desc: "Strict typing, a CI coverage gate, reproducible tests, and explicit alpha limitations for the core package.",
-    accent: "from-glow/10",
+    group: "Implementation",
+    title: "Experimental adaptation and compile",
+    description:
+      "BCAR and torch.compile are optional paths with workload and environment limits. Neither is presented as a validated performance win.",
   },
 ];
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="relative py-28 sm:py-36">
+    <section
+      id="implementation"
+      className="relative scroll-mt-24 py-20 sm:py-28"
+      aria-labelledby="implementation-heading"
+    >
       <div className="container-edge">
-        <FadeIn className="max-w-3xl">
-          <span className="eyebrow">What's inside</span>
-          <h2 className="mt-5 font-display text-[36px] font-semibold leading-[1.05] tracking-tightest text-white sm:text-[52px]">
-            Six pieces.{" "}
-            <span className="text-gradient-accent">One attention.</span>
-          </h2>
-          <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-300">
-            AVQA is not one algorithm — it's a layered stack of contributions
-            from the AVQ-Attention paper, each with its own clear extension
-            point.
-          </p>
-        </FadeIn>
+        <div className="grid gap-10 border-t border-white/15 pt-6 lg:grid-cols-12 lg:gap-12">
+          <FadeIn className="lg:col-span-4">
+            <span className="eyebrow">Implementation map</span>
+            <h2
+              id="implementation-heading"
+              className="mt-5 max-w-[13ch] font-display text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-4xl"
+            >
+              Separate the method from the experiments.
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-ink-300">
+              The core path, configurable choices, and optional research
+              components have different maturity. The labels here are intended
+              to make that boundary legible.
+            </p>
+            <a
+              href="/avqa/docs/#api"
+              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm text-ink-100 underline decoration-white/30 underline-offset-4 hover:decoration-accent-300"
+            >
+              Browse API and configuration
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </a>
+          </FadeIn>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <FadeIn key={f.title} delay={i * 0.05}>
-                <div className="group relative h-full overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.02] to-white/[0.01] p-7 transition-all duration-500 hover:border-white/15 hover:from-white/[0.05] hover:to-white/[0.02]">
-                  <div
-                    className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${f.accent} to-transparent opacity-0 blur-2xl transition-opacity duration-700 group-hover:opacity-100`}
-                  />
-                  <div className="relative flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-400">
-                      {f.eyebrow}
+          <FadeIn delay={0.06} className="lg:col-span-8">
+            <ol className="border-y border-white/10">
+              {CAPABILITIES.map((item, index) => (
+                <li
+                  key={item.title}
+                  className="grid gap-x-5 gap-y-2 border-b border-white/10 py-5 last:border-b-0 sm:grid-cols-[42px_1fr_1.45fr] sm:items-start sm:py-6"
+                >
+                  <span className="pt-0.5 font-mono text-[11px] text-accent-300">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.11em] text-ink-500">
+                      {item.group}
                     </span>
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-ink-200 transition group-hover:border-accent-300/40 group-hover:text-white">
-                      <Icon className="h-4 w-4" />
-                    </span>
+                    <h3 className="mt-1 text-sm font-semibold leading-5 text-ink-100">
+                      {item.title}
+                    </h3>
                   </div>
-                  <h3 className="mt-12 font-display text-xl font-semibold text-white">
-                    {f.title}
-                  </h3>
-                  <p className="mt-3 text-[14.5px] leading-relaxed text-ink-300">
-                    {f.desc}
+                  <p className="text-sm leading-6 text-ink-300">
+                    {item.description}
                   </p>
-                </div>
-              </FadeIn>
-            );
-          })}
+                </li>
+              ))}
+            </ol>
+          </FadeIn>
         </div>
       </div>
     </section>

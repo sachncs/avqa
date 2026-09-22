@@ -1,17 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#9AA8FF"/>
-      <stop offset="0.5" stop-color="#7C8CFF"/>
-      <stop offset="1" stop-color="#5F6EF0"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#7DF9FF"/>
-      <stop offset="1" stop-color="#9AA8FF"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="16" fill="#06080F" stroke="#26304F" stroke-width="2"/>
-  <path d="M32 13v10M18 29l14-6 14 6M18 29v12M32 23v18M46 29v12" fill="none" stroke="#6877E9" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="32" cy="13" r="3" fill="#fff"/><circle cx="18" cy="29" r="3" fill="#9AA8FF"/><circle cx="32" cy="23" r="3" fill="#9AA8FF"/><circle cx="46" cy="29" r="3" fill="#9AA8FF"/>
-  <path d="M20 50 32 28l12 22M25 42h14" stroke="url(#g2)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="#0D1510" stroke="#39463A" stroke-width="2"/>
+  <g fill="#566351">
+    <rect x="12" y="12" width="6" height="6"/><rect x="23" y="12" width="6" height="6"/><rect x="34" y="12" width="6" height="6"/><rect x="45" y="12" width="6" height="6"/>
+    <rect x="12" y="23" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/><rect x="34" y="23" width="6" height="6"/><rect x="45" y="23" width="6" height="6"/>
+    <rect x="12" y="34" width="6" height="6"/><rect x="23" y="34" width="6" height="6"/><rect x="34" y="34" width="6" height="6"/><rect x="45" y="34" width="6" height="6"/>
+    <rect x="12" y="45" width="6" height="6"/><rect x="23" y="45" width="6" height="6"/><rect x="34" y="45" width="6" height="6"/><rect x="45" y="45" width="6" height="6"/>
+  </g>
+  <path d="M15 15h11v11h11v11h11v11" fill="none" stroke="#E9784F" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/>
+  <g fill="#F5A17C"><rect x="12" y="12" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/><rect x="34" y="34" width="6" height="6"/><rect x="45" y="45" width="6" height="6"/></g>
 </svg>

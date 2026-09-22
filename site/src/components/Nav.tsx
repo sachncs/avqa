@@ -1,145 +1,168 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Github, BookOpen, Command, Menu, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, BookOpen, Github, Menu, X } from "lucide-react";
 import { DOCS_URL, GITHUB_URL } from "../lib/links";
 
-const links = [
-  { href: "#why", label: "Why AVQA" },
-  { href: "#features", label: "Features" },
+const LINKS = [
+  { href: "#method", label: "Method" },
+  { href: "#implementation", label: "Implementation" },
   { href: "#architecture", label: "Architecture" },
-  { href: "#benchmarks", label: "Benchmarks" },
+  { href: "#evidence", label: "Evidence" },
 ];
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState("");
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
+    const sections = LINKS.map(({ href }) =>
+      document.querySelector(href),
+    ).filter((section): section is Element => section !== null);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target.id) setActive(`#${visible.target.id}`);
+      },
+      { rootMargin: "-20% 0px -65% 0px", threshold: [0, 0.2, 0.5] },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        menuButton.current?.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  const closeMenu = () => setOpen(false);
+
   return (
-    <motion.header
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed inset-x-0 top-10 z-50 flex justify-center pt-4 sm:top-11"
+    <header
+      className={`sticky top-0 z-50 border-b transition-colors duration-200 ${
+        scrolled
+          ? "border-white/10 bg-ink-950/95 backdrop-blur"
+          : "border-transparent bg-ink-950/75 backdrop-blur-sm"
+      }`}
     >
-      <div
-        className={`pointer-events-auto flex w-[min(96%,1100px)] items-center justify-between rounded-full px-3 py-2 transition-all duration-500 ${
-          scrolled
-            ? "border border-white/10 bg-ink-950/70 backdrop-blur-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)]"
-            : "border border-transparent"
-        }`}
-      >
-        <a href="#top" className="flex items-center gap-2 pl-2 pr-3 py-1">
+      <div className="container-edge flex min-h-[68px] items-center justify-between gap-6">
+        <a
+          href="#top"
+          onClick={closeMenu}
+          className="inline-flex min-h-11 items-center"
+          aria-label="AVQA home"
+        >
           <img
             src="/avqa/avqa-wordmark.svg"
-            alt="AVQA"
-            className="h-9 w-auto"
+            alt=""
+            className="h-[34px] w-auto"
+            width="210"
+            height="56"
           />
         </a>
 
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-1"
+          className="hidden items-center gap-7 md:flex"
         >
-          {links.map((l) => (
+          {LINKS.map((link) => (
             <a
-              key={l.href}
-              href={l.href}
-              className="nav-link rounded-full px-3 py-1.5"
+              key={link.href}
+              href={link.href}
+              aria-current={active === link.href ? "location" : undefined}
+              className="nav-link inline-flex min-h-11 items-center border-b border-transparent hover:border-accent-400"
             >
-              {l.label}
+              {link.label}
             </a>
           ))}
-        </nav>
-
-        <div className="hidden md:flex items-center gap-2">
           <a
             href={DOCS_URL}
-            className="nav-link rounded-full px-3 py-1.5 inline-flex items-center gap-1.5"
+            className="nav-link inline-flex min-h-11 items-center gap-2"
           >
-            <BookOpen className="h-3.5 w-3.5" /> Docs
+            <BookOpen aria-hidden="true" className="h-4 w-4" /> Docs
           </a>
           <a
             href={GITHUB_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-ink-950 transition hover:shadow-glow"
+            className="inline-flex min-h-10 items-center gap-2 border border-white/20 px-3 text-sm font-medium text-ink-50 transition-colors hover:border-accent-300 hover:text-accent-200"
           >
-            <Github className="h-4 w-4" /> GitHub
+            GitHub <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
           </a>
-        </div>
+        </nav>
 
         <button
+          ref={menuButton}
           type="button"
           aria-label={open ? "Close navigation" : "Open navigation"}
           aria-expanded={open}
           aria-controls="mobile-navigation"
-          onClick={() => setOpen((s) => !s)}
-          className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5"
+          onClick={() => setOpen((wasOpen) => !wasOpen)}
+          className="inline-flex h-11 w-11 items-center justify-center border border-white/20 text-ink-100 transition-colors hover:border-accent-300 md:hidden"
         >
-          {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          {open ? (
+            <X aria-hidden="true" className="h-5 w-5" />
+          ) : (
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          )}
         </button>
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25 }}
-            id="mobile-navigation"
-            className="absolute top-[78px] w-[92%] rounded-2xl border border-white/10 bg-ink-950/95 p-3 backdrop-blur-xl md:hidden"
-          >
-            <nav
-              aria-label="Mobile primary navigation"
-              className="flex flex-col"
+      <div
+        id="mobile-navigation"
+        hidden={!open}
+        className="border-t border-white/10 bg-ink-950 px-5 pb-4 pt-2 md:hidden"
+      >
+        <nav
+          aria-label="Mobile primary navigation"
+          className="container-edge !px-0"
+        >
+          {LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={closeMenu}
+              aria-current={active === link.href ? "location" : undefined}
+              className="flex min-h-12 items-center border-b border-white/10 text-sm text-ink-100 hover:text-accent-200"
             >
-              {links.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-2 text-sm text-ink-200 hover:bg-white/5"
-                >
-                  {l.label}
-                </a>
-              ))}
-              <div className="my-2 h-px bg-white/5" />
-              <a
-                href={DOCS_URL}
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2 text-sm text-ink-200 hover:bg-white/5 inline-flex items-center gap-2"
-              >
-                <Command className="h-4 w-4" /> Docs
-              </a>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-ink-950 inline-flex items-center gap-2"
-              >
-                <Github className="h-4 w-4" /> GitHub
-              </a>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.header>
+              {link.label}
+            </a>
+          ))}
+          <div className="flex gap-5 pt-3">
+            <a
+              href={DOCS_URL}
+              onClick={closeMenu}
+              className="inline-flex min-h-11 items-center gap-2 text-sm text-ink-200 hover:text-white"
+            >
+              <BookOpen aria-hidden="true" className="h-4 w-4" /> Documentation
+            </a>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 text-sm text-ink-200 hover:text-white"
+            >
+              <Github aria-hidden="true" className="h-4 w-4" /> GitHub
+            </a>
+          </div>
+        </nav>
+      </div>
+    </header>
   );
 }

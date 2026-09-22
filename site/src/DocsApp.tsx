@@ -5,6 +5,7 @@ import {
   Menu,
   Network,
   Sigma,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -74,7 +75,7 @@ export default function DocsApp() {
 
   return (
     <div className="min-h-screen bg-ink-950 text-ink-100">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950">
         <div className="container-edge flex h-16 items-center justify-between gap-5">
           <a
             href="/avqa/"
@@ -120,7 +121,11 @@ export default function DocsApp() {
                 : "Open documentation navigation"
             }
           >
-            <Menu className="h-4 w-4" />
+            {menuOpen ? (
+              <X aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Menu aria-hidden="true" className="h-4 w-4" />
+            )}
           </button>
         </div>
       </header>
@@ -158,7 +163,7 @@ export default function DocsApp() {
                       key={item.id}
                       onClick={() => selectPage(item.id)}
                       aria-current={page === item.id ? "page" : undefined}
-                      className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${page === item.id ? "bg-accent-400/10 text-white" : "text-ink-400 hover:bg-white/[0.04] hover:text-white"}`}
+                      className={`block min-h-10 w-full border-l-2 px-3 py-2 text-left text-sm transition ${page === item.id ? "border-accent-400 bg-accent-400/[0.06] text-white" : "border-transparent text-ink-400 hover:bg-white/[0.025] hover:text-white"}`}
                     >
                       {item.label}
                     </button>
@@ -226,7 +231,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Code({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-ink-900/70 p-5 font-mono text-[13px] leading-6 text-ink-100">
+    <pre className="overflow-x-auto border border-white/10 bg-ink-900/70 p-5 font-mono text-[13px] leading-6 text-ink-100">
       <code>{children}</code>
     </pre>
   );
@@ -291,8 +296,8 @@ function DocCard({
   text: string;
 }) {
   return (
-    <div className="surface rounded-2xl p-6">
-      <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-accent-300/20 bg-accent-400/10 text-accent-200">
+    <div className="surface border-l-2 border-l-accent-400 p-6">
+      <div className="mb-5 inline-flex h-10 w-10 items-center justify-center border border-accent-300/20 bg-accent-400/10 text-accent-200">
         {icon}
       </div>
       <h2 className="font-display text-xl font-semibold text-white">{title}</h2>

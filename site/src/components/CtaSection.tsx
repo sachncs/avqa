@@ -1,67 +1,65 @@
-import { ArrowRight, Github, Terminal } from "lucide-react";
+import { ArrowRight, Github } from "lucide-react";
 import { FadeIn } from "./FadeIn";
 import { DOCS_URL, GITHUB_URL } from "../lib/links";
 
 export function CtaSection() {
   return (
-    <section className="relative py-32 sm:py-40">
+    <section
+      className="relative py-20 sm:py-28"
+      aria-labelledby="start-heading"
+    >
       <div className="container-edge">
         <FadeIn>
-          <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-accent-500/10 via-ink-900/40 to-glow/[0.06] p-10 sm:p-16">
-            <div className="pointer-events-none absolute -inset-1 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(124,140,255,0.25),transparent_60%)]" />
-            <div className="pointer-events-none absolute -inset-1 -z-10 bg-[radial-gradient(circle_at_80%_70%,rgba(125,249,255,0.15),transparent_60%)]" />
+          <div className="grid gap-9 border-y border-white/15 py-8 sm:py-10 lg:grid-cols-12 lg:items-center lg:gap-12">
+            <div className="min-w-0 lg:col-span-5">
+              <span className="eyebrow">Start with the reference</span>
+              <h2
+                id="start-heading"
+                className="mt-5 max-w-[13ch] font-display text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-4xl"
+              >
+                Inspect it on CPU first.
+              </h2>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-ink-300">
+                AVQA is source-first research software in public alpha. Begin
+                with the documented CPU path, then validate any changes against
+                the reference tests and your own workload.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <a href={`${DOCS_URL}#quickstart`} className="btn-primary">
+                  Open quick start{" "}
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-ghost"
+                >
+                  <Github aria-hidden="true" className="h-4 w-4" /> Repository
+                </a>
+              </div>
+            </div>
 
-            <div className="grid items-center gap-10 lg:grid-cols-12">
-              <div className="lg:col-span-7">
-                <span className="eyebrow">Get started</span>
-                <h2 className="mt-5 font-display text-[40px] font-semibold leading-[1.02] tracking-tightest text-white sm:text-[56px]">
-                  Start with a clear{" "}
-                  <span className="text-gradient-accent">
-                    reference implementation.
-                  </span>
-                </h2>
-                <p className="mt-6 max-w-xl text-[16px] leading-relaxed text-ink-300">
-                  Install from source, start on CPU, and inspect every step of
-                  the routed-attention pipeline. AVQA is Apache 2.0 research
-                  software in public alpha.
+            <div className="min-w-0 lg:col-span-7">
+              <div className="border border-white/15 bg-ink-950 px-4 py-4 sm:px-6 sm:py-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-500">
+                  Install from the repository
                 </p>
+                <pre className="mt-4 overflow-x-auto font-mono text-xs leading-6 text-ink-100 sm:text-sm">
+                  <code>
+                    <span className="text-ink-500">$</span> git clone
+                    https://github.com/sachncs/avqa.git{"\n"}
+                    <span className="text-ink-500">$</span> cd avqa{"\n"}
+                    <span className="text-ink-500">$</span> python -m pip
+                    install -e &quot;.[dev]&quot;
+                  </code>
+                </pre>
               </div>
-
-              <div className="lg:col-span-5">
-                <div className="rounded-2xl border border-white/10 bg-ink-950/80 p-5 backdrop-blur">
-                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-ink-500">
-                    <Terminal className="h-3.5 w-3.5" />
-                    Terminal
-                  </div>
-                  <pre className="mt-3 overflow-x-auto font-mono text-[13px] leading-relaxed text-ink-100">
-                    <code>
-                      <span className="text-ink-500">$</span>{" "}
-                      <span className="text-accent-300">git clone</span>{" "}
-                      https://github.com/sachncs/avqa.git{"\n"}
-                      <span className="text-ink-500">$</span>{" "}
-                      <span className="text-accent-300">cd</span> avqa{"\n"}
-                      <span className="text-ink-500">$</span>{" "}
-                      <span className="text-accent-300">
-                        python -m pip install
-                      </span>{" "}
-                      -e &quot;.[dev]&quot;
-                    </code>
-                  </pre>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <a href={`${DOCS_URL}#quickstart`} className="btn-primary">
-                    Run the quick start <ArrowRight className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={GITHUB_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-ghost"
-                  >
-                    <Github className="h-4 w-4" /> Star on GitHub
-                  </a>
-                </div>
-              </div>
+              <p className="mt-3 text-xs leading-5 text-ink-500">
+                This editable install is for contributors and local experiments.
+                Follow the docs for the minimal CPU installation and first
+                forward pass.
+              </p>
             </div>
           </div>
         </FadeIn>

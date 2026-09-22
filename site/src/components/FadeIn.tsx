@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 type Props = {
@@ -9,17 +8,10 @@ type Props = {
   id?: string;
 };
 
-export function FadeIn({ children, className, delay = 0, y = 16, id }: Props) {
+export function FadeIn({ children, className, id }: Props) {
   return (
-    <motion.div
-      id={id}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >
+    <div id={id} className={`min-w-0 ${className ?? ""}`}>
       {children}
-    </motion.div>
+    </div>
   );
 }

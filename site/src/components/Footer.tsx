@@ -1,14 +1,15 @@
-import { Github } from "lucide-react";
+import { ArrowUpRight, Github } from "lucide-react";
 import { DOCS_URL, GITHUB_URL, RELEASE_LABEL } from "../lib/links";
 
 const COLS = [
   {
     title: "Product",
     links: [
-      { label: "Why AVQA", href: "#why" },
-      { label: "Features", href: "#features" },
+      { label: "Method", href: "#method" },
+      { label: "Implementation", href: "#implementation" },
       { label: "Architecture", href: "#architecture" },
-      { label: "Benchmarks", href: "#benchmarks" },
+      { label: "Evidence", href: "#evidence" },
+      { label: "Paper", href: "#paper" },
     ],
   },
   {
@@ -51,7 +52,7 @@ export function Footer() {
               <img
                 src="/avqa/avqa-wordmark.svg"
                 alt="AVQA"
-                className="h-9 w-auto"
+                className="h-[34px] w-auto"
               />
             </a>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-ink-400">
@@ -64,7 +65,7 @@ export function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="AVQA on GitHub"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-ink-300 transition hover:border-white/20 hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center border border-white/15 text-ink-300 transition hover:border-accent-300 hover:text-white"
               >
                 <Github className="h-4 w-4" />
               </a>
@@ -91,9 +92,15 @@ export function Footer() {
                         rel={
                           l.href.startsWith("http") ? "noreferrer" : undefined
                         }
-                        className="text-[14px] text-ink-300 transition hover:text-white"
+                        className="inline-flex min-h-9 items-center text-[13px] text-ink-300 transition hover:text-white"
                       >
                         {l.label}
+                        {l.href.startsWith("http") && (
+                          <ArrowUpRight
+                            aria-hidden="true"
+                            className="ml-1 h-3 w-3 text-ink-500"
+                          />
+                        )}
                       </a>
                     </li>
                   ))}

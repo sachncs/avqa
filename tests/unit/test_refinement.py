@@ -7,7 +7,7 @@ import torch
 
 from avqa.attention import OnlineSoftmaxState
 from avqa.exceptions import RoutingError
-from avqa.refinement import RefinementResult, refine
+from avqa.refinement import RefinementResult, refine, vectorized_correction
 from avqa.routing import RoutingDecision, TopPRouter, compute_importance
 
 
@@ -58,6 +58,34 @@ def make_decision(
     """Build a RoutingDecision for testing."""
     importance = compute_importance(attention_probs, parent_counts)
     return TopPRouter().select(importance, budget)
+
+
+def test_correction_applies_counts_only_to_softmax_mass() -> None:
+    """Counts scale mass; value aggregates already contain their token sums."""
+    state = OnlineSoftmaxState.empty(1, 1, 1, 1, 1)
+    zero = torch.zeros(1, 1, 1, 1)
+    state = state.merge(
+        zero,
+        torch.full_like(zero, 3.0),
+        torch.full((1, 1, 1, 1, 1), 6.0),
+    )
+
+    corrected = vectorized_correction(
+        state=state,
+        parent_logit=zero,
+        child_logits=torch.zeros(1, 1, 1, 1, 2),
+        parent_value=torch.full((1, 1, 1, 1, 1), 6.0),
+        child_value=torch.tensor([[[[[2.0], [9.0]]]]]),
+        num_children=2,
+        parent_counts=torch.tensor([[[3.0]]]),
+        child_counts=torch.tensor([[[[2.0, 1.0]]]]),
+    )
+
+    assert torch.allclose(corrected.running_denominator, torch.full_like(zero, 3.0))
+    assert torch.allclose(
+        corrected.running_numerator,
+        torch.full((1, 1, 1, 1, 1), 11.0),
+    )
 
 
 class TestRefine:

@@ -14,25 +14,28 @@ export function CodeBlock({
   filename,
   showLineNumbers = true,
 }: Props) {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
 
   const onCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+    window.setTimeout(() => setCopyStatus("idle"), 1800);
   };
 
   const lines = code.split("\n");
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-ink-900/60 shadow-card">
-      <div className="flex items-center justify-between border-b border-white/5 bg-ink-900/80 px-4 py-2.5 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+    <div className="group relative overflow-hidden border border-white/10 bg-ink-900/60">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-white/10 bg-ink-900/80 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-3">
           {filename && (
-            <span className="ml-3 font-mono text-[11px] uppercase tracking-widest text-ink-400">
+            <span className="truncate font-mono text-[11px] tracking-wide text-ink-300">
               {filename}
             </span>
           )}
@@ -42,15 +45,21 @@ export function CodeBlock({
             {language}
           </span>
           <button
+            type="button"
+            aria-label={`${copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed" : "Copy"} ${filename ?? "code"}`}
             onClick={onCopy}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-ink-300 transition hover:border-white/15 hover:bg-white/[0.08] hover:text-white"
+            className="inline-flex min-h-9 items-center gap-1.5 border border-white/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-ink-300 transition hover:border-accent-300/70 hover:text-white"
           >
-            {copied ? (
-              <Check className="h-3 w-3" />
+            {copyStatus === "copied" ? (
+              <Check aria-hidden="true" className="h-3 w-3" />
             ) : (
-              <Copy className="h-3 w-3" />
+              <Copy aria-hidden="true" className="h-3 w-3" />
             )}
-            {copied ? "Copied" : "Copy"}
+            {copyStatus === "copied"
+              ? "Copied"
+              : copyStatus === "failed"
+                ? "Unavailable"
+                : "Copy"}
           </button>
         </div>
       </div>
@@ -81,7 +90,7 @@ function highlight(line: string): string {
   s = s.replace(/(#[^\n]*)$/g, '<span class="text-ink-500 italic">$1</span>');
   s = s.replace(
     /("""|'''|"|')([^\n]*?)\1/g,
-    (m) => `<span class="text-emerald-300/90">${m}</span>`,
+    (m) => `<span class="text-glow-soft">${m}</span>`,
   );
   s = s.replace(
     /\b(from|import|as|def|class|return|if|elif|else|for|while|in|not|and|or|with|None|True|False|self)\b/g,
@@ -91,6 +100,6 @@ function highlight(line: string): string {
     /\b(AVQAttention|AVQConfig|AttentionShapeConfig|CodebookConfig|RoutingConfig)\b/g,
     '<span class="text-glow-soft">$1</span>',
   );
-  s = s.replace(/\b([0-9]+)\b/g, '<span class="text-amber-200/80">$1</span>');
+  s = s.replace(/\b([0-9]+)\b/g, '<span class="text-accent-200">$1</span>');
   return s || "&nbsp;";
 }
