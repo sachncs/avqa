@@ -240,7 +240,7 @@ are not shipped capabilities. See
 - [x] TASK-P.005 Reject non-integral paged-cache position metadata instead of
       silently coercing it (commit `365a9f1`).
 - [x] TASK-P.006 Make in-memory cache append and restore failure-atomic across
-      tensor conversion failures (commit pending).
+      tensor conversion failures (commit `21ced43`).
 
 ### Cleanup pass (2026-07-21)
 
