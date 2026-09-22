@@ -346,6 +346,8 @@ are not shipped capabilities. See
       paths (commit `a10a076`).
 - [x] TASK-P.059 Verify the bootstrapped environment with an import and public
       API forward smoke test (commit `eff2f52`).
+- [x] TASK-P.060 Align CI lint scope with the repository lint target
+      (commit `10315a4`).
 
 ### Cleanup pass (2026-07-21)
 
