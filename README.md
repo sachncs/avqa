@@ -72,6 +72,13 @@ cd avqa
 pip install -e ".[dev]"
 ```
 
+For a clean local environment, use the repository bootstrap script instead:
+
+```bash
+./setup.sh
+source .venv/bin/activate
+```
+
 ### With optional visualization extras
 
 ```bash

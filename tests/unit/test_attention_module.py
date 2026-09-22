@@ -64,6 +64,20 @@ class TestConstruction:
         module = AVQAttention(AVQConfig(), in_proj=False, out_proj=False)
         assert isinstance(module.q_proj, torch.nn.Identity)
 
+    def test_state_dict_contains_codebook_and_round_trips(self) -> None:
+        """Model checkpoints must include hierarchical codebook state."""
+        module = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        module.codebook.initialize_parents_random()
+        module.codebook.initialize_children_around_parents()
+        state = module.state_dict()
+        assert "codebook_parents" in state
+        assert "codebook_children" in state
+
+        restored = AVQAttention(small_config(), in_proj=False, out_proj=False)
+        restored.load_state_dict(state)
+        assert torch.equal(restored.codebook.parents, module.codebook.parents)
+        assert torch.equal(restored.codebook.children, module.codebook.children)
+
 
 class TestForwardNaive:
     """Tests for the naive (refinement-disabled) forward path."""

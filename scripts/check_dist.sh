@@ -6,5 +6,5 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
 
-python -m pip install --upgrade twine 2>/dev/null || true
+python -m pip install --upgrade twine
 python -m twine check dist/*

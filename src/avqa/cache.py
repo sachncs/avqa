@@ -22,6 +22,42 @@ from avqa.logging import get_logger
 logger = get_logger("cache")
 
 
+def validate_cache_tensors(
+    key: torch.Tensor,
+    value: torch.Tensor,
+    *,
+    num_heads: int,
+    head_dim_k: int,
+    head_dim_v: int,
+    name: str = "cache entry",
+) -> None:
+    """Validate one cache append before it can mutate cache state."""
+    if key.ndim != 4 or value.ndim != 4:
+        raise ShapeError(
+            f"{name} key/value must be rank 4 [B, H, T, D]",
+            expected="rank=4",
+            actual=f"key_rank={key.ndim}, value_rank={value.ndim}",
+        )
+    if key.shape[:3] != value.shape[:3]:
+        raise ShapeError(
+            f"{name} key/value batch, head, and token dimensions must match",
+            expected=str(tuple(key.shape[:3])),
+            actual=str(tuple(value.shape[:3])),
+        )
+    if key.shape[1] != num_heads:
+        raise ShapeError(
+            f"{name} head count mismatch",
+            expected=num_heads,
+            actual=int(key.shape[1]),
+        )
+    if key.shape[-1] != head_dim_k or value.shape[-1] != head_dim_v:
+        raise ShapeError(
+            f"{name} head dimension mismatch",
+            expected=f"key={head_dim_k}, value={head_dim_v}",
+            actual=f"key={key.shape[-1]}, value={value.shape[-1]}",
+        )
+
+
 @dataclass
 class CacheEntry:
     """One cache slot (spec §3.13).
@@ -108,6 +144,7 @@ class InMemoryKVCache(KVCache):
         self.eviction_count: int = 0
         self.hit_count: int = 0
         self.miss_count: int = 0
+        self.batch_size: int | None = None
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append new tokens to the cache.
@@ -116,12 +153,21 @@ class InMemoryKVCache(KVCache):
             key: ``[B, H, T_new, D_k]`` new keys.
             value: ``[B, H, T_new, D_v]`` new values.
         """
-        if tuple(key.shape) != (*value.shape[:-1], self.head_dim_k):
+        validate_cache_tensors(
+            key,
+            value,
+            num_heads=self.num_heads,
+            head_dim_k=self.head_dim_k,
+            head_dim_v=self.head_dim_v,
+        )
+        if self.batch_size is not None and key.shape[0] != self.batch_size:
             raise ShapeError(
-                f"key/value shape mismatch: key={tuple(key.shape)}, value={tuple(value.shape)}",
-                expected=(*value.shape[:-1], self.head_dim_k),
-                actual=tuple(key.shape),
+                "cache batch size mismatch",
+                expected=self.batch_size,
+                actual=int(key.shape[0]),
             )
+        if self.batch_size is None:
+            self.batch_size = int(key.shape[0])
         if self.cache_key.numel() == 0:
             self.cache_key = key.to(device=self.device, dtype=self.dtype)
             self.cache_value = value.to(device=self.device, dtype=self.dtype)
@@ -188,6 +234,7 @@ class InMemoryKVCache(KVCache):
         self.cache_value = torch.empty(
             0, self.num_heads, 0, self.head_dim_v, device=self.device, dtype=self.dtype
         )
+        self.batch_size = None
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         """Serialize cache contents (metadata + tensors)."""
@@ -197,6 +244,7 @@ class InMemoryKVCache(KVCache):
             "head_dim_k": torch.tensor(self.head_dim_k, dtype=torch.int32),
             "head_dim_v": torch.tensor(self.head_dim_v, dtype=torch.int32),
             "size": torch.tensor(self.size, dtype=torch.int32),
+            "batch_size": torch.tensor(self.batch_size or 0, dtype=torch.int32),
             "cache_key": self.cache_key.detach().clone(),
             "cache_value": self.cache_value.detach().clone(),
         }
@@ -222,8 +270,17 @@ class InMemoryKVCache(KVCache):
         cache_key = state.get("cache_key")
         cache_value = state.get("cache_value")
         if cache_key is not None and cache_value is not None and cache_key.numel() > 0:
+            validate_cache_tensors(
+                cache_key,
+                cache_value,
+                num_heads=self.num_heads,
+                head_dim_k=self.head_dim_k,
+                head_dim_v=self.head_dim_v,
+                name="serialized cache",
+            )
             self.cache_key = cache_key.to(device=self.device, dtype=self.dtype)
             self.cache_value = cache_value.to(device=self.device, dtype=self.dtype)
+            self.batch_size = int(cache_key.shape[0])
         else:
             self.reset()
 
@@ -276,10 +333,25 @@ class PagedKVCache(KVCache):
 
     def append(self, key: torch.Tensor, value: torch.Tensor) -> None:
         """Append tokens; allocate a new page when the current one fills."""
+        validate_cache_tensors(
+            key,
+            value,
+            num_heads=self.num_heads,
+            head_dim_k=self.head_dim_k,
+            head_dim_v=self.head_dim_v,
+        )
+        key = key.to(device=self.device, dtype=self.dtype)
+        value = value.to(device=self.device, dtype=self.dtype)
         T = key.shape[-2]
         cursor = 0
         while cursor < T:
-            current_page = self.current_page()
+            current_page = self.current_page(batch_size=int(key.shape[0]))
+            if current_page.key.shape[0] != key.shape[0]:
+                raise ShapeError(
+                    "paged cache batch size mismatch",
+                    expected=int(current_page.key.shape[0]),
+                    actual=int(key.shape[0]),
+                )
             free = self.page_size - current_page.key.shape[-2]
             take = min(free, T - cursor)
             k_chunk = key[..., cursor : cursor + take, :]
@@ -288,25 +360,35 @@ class PagedKVCache(KVCache):
             current_page.value = torch.cat([current_page.value, v_chunk], dim=-2)
             cursor += take
             if current_page.key.shape[-2] == self.page_size and cursor < T:
-                self.allocate_page()
+                self.allocate_page(batch_size=int(key.shape[0]))
 
-    def current_page(self) -> CacheEntry:
+    def current_page(self, batch_size: int = 1) -> CacheEntry:
         """Return the most recent page, allocating one if none exists."""
         if not self.pages or self.pages[-1].key.shape[-2] == self.page_size:
-            self.allocate_page()
+            self.allocate_page(batch_size=batch_size)
         return self.pages[-1]
 
-    def allocate_page(self) -> None:
+    def allocate_page(self, batch_size: int = 1) -> None:
         """Allocate a new empty page."""
         if self.max_pages > 0 and len(self.pages) >= self.max_pages:
             raise NotInitializedError(f"paged KV cache is full ({self.max_pages} pages)")
         self.pages.append(
             CacheEntry(
                 key=torch.zeros(
-                    1, self.num_heads, 0, self.head_dim_k, dtype=self.dtype, device=self.device
+                    batch_size,
+                    self.num_heads,
+                    0,
+                    self.head_dim_k,
+                    dtype=self.dtype,
+                    device=self.device,
                 ),
                 value=torch.zeros(
-                    1, self.num_heads, 0, self.head_dim_v, dtype=self.dtype, device=self.device
+                    batch_size,
+                    self.num_heads,
+                    0,
+                    self.head_dim_v,
+                    dtype=self.dtype,
+                    device=self.device,
                 ),
                 positions=torch.zeros(0, dtype=torch.long, device=self.device),
             )

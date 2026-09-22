@@ -1,7 +1,8 @@
-.PHONY: help install dev test lint format typecheck bench coverage clean
+.PHONY: help setup install dev test lint format typecheck bench coverage clean
 
 help:
 	@echo "AVQA development targets:"
+	@echo "  make setup        - create .venv and install all development extras"
 	@echo "  make install      - install package + dev deps"
 	@echo "  make dev          - install with dev and visualization extras"
 	@echo "  make test         - run unit + integration tests"
@@ -12,12 +13,14 @@ help:
 	@echo "  make coverage     - run tests with coverage gate (>=90%)"
 	@echo "  make clean        - remove build/cache artifacts"
 
+setup:
+	./setup.sh
+
 install:
-	python -m pip install -e . --no-deps
-	python -m pip install pytest pytest-cov pytest-benchmark ruff mypy
+	python -m pip install -e ".[dev]"
 
 dev:
-	python -m pip install -e ".[dev,viz]" --no-deps
+	python -m pip install -e ".[dev,viz]"
 
 test:
 	PYTHONPATH=src pytest tests/ -q -m "not benchmark"

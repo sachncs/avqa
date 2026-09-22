@@ -192,7 +192,7 @@ class HierarchicalCodebook:
             generator: Optional RNG.
             scale: Standard deviation of the initialization distribution.
         """
-        self.parents = (
+        self.parents.copy_(
             torch.randn(
                 self.num_heads,
                 self.num_parents,
@@ -203,7 +203,7 @@ class HierarchicalCodebook:
             )
             * scale
         )
-        self.children = torch.zeros_like(self.children)
+        self.children.zero_()
         self.initialize_children_around_parents(generator=generator)
 
     # ------------------------------------------------------------------
@@ -269,8 +269,8 @@ class HierarchicalCodebook:
         if tuple(new_children.shape) != expected_child_shape:
             msg = f"new_children shape {tuple(new_children.shape)} != {expected_child_shape}"
             raise CodebookError(msg)
-        self.parents = decay * self.parents + (1.0 - decay) * new_parents
-        self.children = decay * self.children + (1.0 - decay) * new_children
+        self.parents.mul_(decay).add_(new_parents, alpha=1.0 - decay)
+        self.children.mul_(decay).add_(new_children, alpha=1.0 - decay)
         self.reproject_parents()
 
     # ------------------------------------------------------------------
@@ -320,8 +320,21 @@ class HierarchicalCodebook:
         if "parents" not in state or "children" not in state:
             msg = "state_dict must contain 'parents' and 'children'"
             raise CodebookError(msg)
-        self.parents = state["parents"].to(self.parents.device, self.parents.dtype)
-        self.children = state["children"].to(self.children.device, self.children.dtype)
+        parents = state["parents"]
+        children = state["children"]
+        expected_parent_shape = (self.num_heads, self.num_parents, self.head_dim)
+        expected_child_shape = (
+            self.num_heads,
+            self.num_parents,
+            self.children_per_parent,
+            self.head_dim,
+        )
+        if tuple(parents.shape) != expected_parent_shape:
+            raise CodebookError(f"parents shape {tuple(parents.shape)} != {expected_parent_shape}")
+        if tuple(children.shape) != expected_child_shape:
+            raise CodebookError(f"children shape {tuple(children.shape)} != {expected_child_shape}")
+        self.parents.copy_(parents.to(self.parents.device, self.parents.dtype))
+        self.children.copy_(children.to(self.children.device, self.children.dtype))
         self.validate_mean_constraint()
 
     def __repr__(self) -> str:

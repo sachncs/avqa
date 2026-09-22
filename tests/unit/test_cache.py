@@ -80,6 +80,48 @@ class TestInMemoryKVCache:
         with pytest.raises(AVQAError, match="num_heads"):
             cache.load_state_dict({"num_heads": torch.tensor(4, dtype=torch.int32)})
 
+    @pytest.mark.parametrize(
+        ("key_shape", "value_shape", "message"),
+        [
+            ((1, 2, 3), (1, 2, 3), "rank 4"),
+            ((1, 2, 3, 8), (1, 2, 3, 7), "head dimension"),
+            ((1, 3, 3, 8), (1, 3, 3, 8), "head count"),
+        ],
+    )
+    def test_append_rejects_malformed_tensors(
+        self,
+        key_shape: tuple[int, ...],
+        value_shape: tuple[int, ...],
+        message: str,
+    ) -> None:
+        """Invalid appends fail with domain errors, not native torch errors."""
+        cache = InMemoryKVCache(num_heads=2, head_dim_k=8, head_dim_v=8)
+        with pytest.raises(ShapeError, match=message):
+            cache.append(torch.randn(*key_shape), torch.randn(*value_shape))
+
+    def test_append_rejects_batch_size_change(self) -> None:
+        """A cache cannot silently combine independent streams."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=6)
+        cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 2, 6))
+        with pytest.raises(ShapeError, match="batch size"):
+            cache.append(torch.randn(2, 1, 1, 4), torch.randn(2, 1, 1, 6))
+
+    def test_append_rejects_token_count_change(self) -> None:
+        """Key and value sequences must stay aligned."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=6)
+        with pytest.raises(ShapeError, match="token dimensions"):
+            cache.append(torch.randn(1, 1, 2, 4), torch.randn(1, 1, 3, 6))
+
+    def test_cache_stats_expose_hits_and_misses(self) -> None:
+        """Cache counters provide stable observability for serving code."""
+        cache = InMemoryKVCache(num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.lookup()
+        cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+        cache.lookup()
+        stats = cache.cache_stats()
+        assert stats["miss_count"] == 1
+        assert stats["hit_count"] == 1
+
 
 class TestPagedKVCache:
     """Tests for the paged KV cache (spec §3.15)."""
@@ -135,6 +177,33 @@ class TestPagedKVCache:
         """page_size <= 0 raises ConfigurationError."""
         with pytest.raises(ConfigurationError):
             PagedKVCache(page_size=0)
+
+    def test_preserves_batch_dimension_across_pages(self) -> None:
+        """Paged storage supports batched decoding without shape drift."""
+        cache = PagedKVCache(page_size=2, num_heads=2, head_dim_k=4, head_dim_v=6)
+        key = torch.randn(3, 2, 5, 4)
+        value = torch.randn(3, 2, 5, 6)
+        cache.append(key, value)
+        actual_key, actual_value = cache.lookup()
+        assert actual_key.shape == key.shape
+        assert actual_value.shape == value.shape
+        assert torch.equal(actual_key, key)
+        assert torch.equal(actual_value, value)
+
+    def test_rejects_wrong_value_dimension(self) -> None:
+        """Paged cache validates value dimensions before allocation."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=6)
+        with pytest.raises(ShapeError, match="head dimension"):
+            cache.append(torch.randn(1, 1, 1, 4), torch.randn(1, 1, 1, 4))
+
+    def test_state_dict_round_trip_resets_pages(self) -> None:
+        """Paged metadata can be loaded without leaving stale pages."""
+        cache = PagedKVCache(page_size=2, num_heads=1, head_dim_k=4, head_dim_v=4)
+        cache.append(torch.randn(1, 1, 3, 4), torch.randn(1, 1, 3, 4))
+        state = cache.state_dict()
+        cache.load_state_dict(state)
+        assert cache.size == 0
+        assert cache.num_pages == 0
 
 
 class TestKVCacheInterface:

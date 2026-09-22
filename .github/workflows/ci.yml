@@ -31,8 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install -e . --no-deps
-      - run: pip install "mypy>=1.10,<2"
+      - run: pip install -e ".[dev]"
       - run: mypy src/avqa
 
   test:
@@ -48,10 +47,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install "torch>=2.1" --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install -e . --no-deps
-      - name: Install dev dependencies
-        run: |
-          pip install pytest pytest-cov pytest-benchmark hypothesis ruff mypy matplotlib transformers
+      - run: pip install -e ".[dev,viz]"
+      - name: Install integration dependencies
+        run: pip install matplotlib transformers
       - name: Unit + reference tests with coverage
         run: |
           pytest tests/unit tests/reference \
@@ -78,22 +76,22 @@ jobs:
       - run: python -m build
       - run: twine check dist/*
 
-audit:
-  name: Security audit
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "3.12"
-    - run: pip install pip-audit
-    - name: Generate requirements from pyproject.toml
-      run: |
-        python - <<'PY' > /tmp/avqa-reqs.txt
-        import pathlib, tomllib
-        data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
-        deps = list(data["project"]["dependencies"])
-        extras = sum(data["project"].get("optional-dependencies", {}).values(), [])
-        print("\n".join(deps + extras))
-        PY
-    - run: pip-audit -r /tmp/avqa-reqs.txt
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - name: Generate requirements from pyproject.toml
+        run: |
+          python - <<'PY' > /tmp/avqa-reqs.txt
+          import pathlib, tomllib
+          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          deps = list(data["project"]["dependencies"])
+          extras = sum(data["project"].get("optional-dependencies", {}).values(), [])
+          print("\n".join(deps + extras))
+          PY
+      - run: pip-audit -r /tmp/avqa-reqs.txt

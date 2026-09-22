@@ -145,6 +145,12 @@ class AVQAttention(nn.Module):
         )
         # Initialize children near parents so the mean constraint holds.
         self.codebook.initialize_children_around_parents()
+        # HierarchicalCodebook intentionally keeps its established lightweight
+        # API (its public child tensor is named ``children``). Mirror its
+        # tensors as module buffers so AVQAttention checkpoints persist and
+        # restore the full attention state without changing that API.
+        self.register_buffer("codebook_parents", self.codebook.parents)
+        self.register_buffer("codebook_children", self.codebook.children)
 
         # Resolve the configured router via the classmethod factory.
         self.router = Router.create(config.routing.strategy)
@@ -345,9 +351,11 @@ class AVQAttention(nn.Module):
 
     def sync_codebook_device(self, q: torch.Tensor) -> None:
         """Move codebook to match input device and dtype (M5)."""
-        if self.codebook.parents.device != q.device or self.codebook.parents.dtype != q.dtype:
-            self.codebook.parents = self.codebook.parents.to(device=q.device, dtype=q.dtype)
-            self.codebook.children = self.codebook.children.to(device=q.device, dtype=q.dtype)
+        if self.codebook_parents.device != q.device or self.codebook_parents.dtype != q.dtype:
+            self.codebook_parents = self.codebook_parents.to(device=q.device, dtype=q.dtype)
+            self.codebook_children = self.codebook_children.to(device=q.device, dtype=q.dtype)
+            self.codebook.parents = self.codebook_parents
+            self.codebook.children = self.codebook_children
 
     def resolve_kv_cache(
         self,
@@ -440,6 +448,8 @@ class AVQAttention(nn.Module):
                 dtype=q.dtype,
             )
             self.codebook.initialize_children_around_parents()
+            self.codebook_parents = self.codebook.parents
+            self.codebook_children = self.codebook.children
             result = self.backend.quantize(
                 k_full, v_full, self.codebook.parents, self.codebook.children
             )

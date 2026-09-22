@@ -4,11 +4,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-echo "==> AVQA setup"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+VENV_DIR="${VENV_DIR:-.venv}"
 
-# --- core package (editable) ---
-echo "--- installing avqa + dev tools"
-python -m pip install -e . --no-deps
-python -m pip install pytest pytest-cov pytest-benchmark ruff mypy
+echo "==> AVQA environment setup"
+echo "Python: $PYTHON_BIN"
+echo "Virtual environment: $VENV_DIR"
 
-echo "==> done. Run 'make test' to verify."
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "error: $PYTHON_BIN was not found" >&2
+  exit 1
+fi
+
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+  "$PYTHON_BIN" -m venv "$VENV_DIR"
+fi
+
+VENV_PYTHON="$VENV_DIR/bin/python"
+"$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel
+"$VENV_PYTHON" -m pip install -e ".[dev,viz]"
+
+echo "==> environment ready"
+echo "Run: $VENV_PYTHON -m pytest"
+echo "Or:  source $VENV_DIR/bin/activate"

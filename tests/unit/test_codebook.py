@@ -90,6 +90,17 @@ class TestMeanConstraint:
         cb.reproject_parents()
         assert torch.allclose(cb.parents, cb.children.mean(dim=2))
 
+    def test_codebook_state_contains_centroids(self) -> None:
+        """Codebook checkpoints contain both centroid levels."""
+        cb = HierarchicalCodebook(num_heads=2, num_parents=4, children_per_parent=2, head_dim=3)
+        assert {"parents", "children"}.issubset(cb.state_dict())
+
+    def test_state_dict_rejects_wrong_tensor_shapes(self) -> None:
+        """Malformed checkpoints fail before mutating codebook state."""
+        cb = HierarchicalCodebook(num_heads=1, num_parents=2, children_per_parent=2, head_dim=3)
+        with pytest.raises(CodebookError, match="parents shape"):
+            cb.load_state_dict({"parents": torch.zeros(1, 3, 3), "children": cb.children.clone()})
+
 
 class TestChildInitialization:
     """Tests for child initialization (spec §8.10)."""
