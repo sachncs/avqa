@@ -326,6 +326,8 @@ are not shipped capabilities. See
       (commit `f992b44`).
 - [x] TASK-P.049 Verify deterministic execution wiring through AVQAttention
       (commit `a47078d`).
+- [ ] TASK-P.050 Execute a public-API forward pass in wheel and sdist smoke envs
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
