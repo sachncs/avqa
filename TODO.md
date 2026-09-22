@@ -269,7 +269,7 @@ are not shipped capabilities. See
 - [x] TASK-P.020 Execute the documented repository test target in CI on Python
       3.12 to prevent environment and scope drift (commit `b78347d`).
 - [x] TASK-P.021 Reconcile README test commands with the benchmark-only
-      performance boundary (commit `pending`).
+      performance boundary (commit `1dff96a`).
 
 ### Cleanup pass (2026-07-21)
 
