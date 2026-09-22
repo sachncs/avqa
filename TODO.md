@@ -262,6 +262,10 @@ are not shipped capabilities. See
       the public ConfigurationError contract (commit `b5782e2`).
 - [x] TASK-P.017 Validate online-softmax tile sizes at the public backend
       boundary (commit `021d0ac`).
+- [x] TASK-P.018 Declare pytest-benchmark in the development environment so
+      the documented full test target can collect performance tests (commit `pending`).
+- [x] TASK-P.019 Mark the performance module as benchmark-only so standard
+      correctness tests exclude exploratory timing/quality assertions (commit `pending`).
 
 ### Cleanup pass (2026-07-21)
 
