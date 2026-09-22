@@ -66,7 +66,7 @@ function escapeHtml(s: string) {
 function highlight(line: string): string {
   let s = escapeHtml(line);
   s = s.replace(/(#[^\n]*)$/g, '<span class="text-ink-500 italic">$1</span>');
-  s = s.replace(/("""|\'\'\'|"|\')([^\n]*?)\1/g, (m) => `<span class="text-emerald-300/90">${m}</span>`);
+  s = s.replace(/("""|'''|"|')([^\n]*?)\1/g, (m) => `<span class="text-emerald-300/90">${m}</span>`);
   s = s.replace(/\b(from|import|as|def|class|return|if|elif|else|for|while|in|not|and|or|with|None|True|False|self)\b/g, '<span class="text-accent-300">$1</span>');
   s = s.replace(/\b(AVQAttention|AVQConfig|AttentionShapeConfig|CodebookConfig|RoutingConfig)\b/g, '<span class="text-glow-soft">$1</span>');
   s = s.replace(/\b([0-9]+)\b/g, '<span class="text-amber-200/80">$1</span>');
