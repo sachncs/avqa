@@ -218,6 +218,19 @@ class TestForwardNaive:
             module(request, request, request, kv_cache=cache)
         assert cache.size == 1
 
+    def test_empty_cache_accepts_first_multi_batch_append(self) -> None:
+        """The empty-cache sentinel does not constrain the first batch size."""
+        config = AVQConfig(
+            attention=AttentionShapeConfig(embed_dim=32, num_heads=4, head_dim=8),
+            refinement=RefinementConfig(enabled=False),
+        )
+        module = AVQAttention(config, in_proj=False, out_proj=False)
+        cache = InMemoryKVCache(num_heads=4, head_dim_k=8, head_dim_v=8)
+        request = torch.randn(2, 1, 32)
+        out = module(request, request, request, kv_cache=cache)
+        assert out.shape == request.shape
+        assert cache.size == 1
+
     def test_cache_storage_dtype_is_normalized_for_attention(self) -> None:
         """Storage dtype conversion does not create mixed-dtype attention."""
         config = AVQConfig(

@@ -440,7 +440,10 @@ class AVQAttention(nn.Module):
                     expected="rank=4",
                     actual=f"key_rank={cached_k.ndim}, value_rank={cached_v.ndim}",
                 )
-            if cached_k.shape[0] != k.shape[0] or cached_v.shape[0] != v.shape[0]:
+            has_cached_tokens = cached_k.shape[-2] > 0
+            if has_cached_tokens and (
+                cached_k.shape[0] != k.shape[0] or cached_v.shape[0] != v.shape[0]
+            ):
                 raise ShapeError(
                     "KV cache batch size must match the current request",
                     expected=f"batch={k.shape[0]}",

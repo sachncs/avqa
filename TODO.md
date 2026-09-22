@@ -284,6 +284,8 @@ are not shipped capabilities. See
       attention pipeline boundary (commit `38381d7`).
 - [x] TASK-P.028 Inject the canonical Python release version into the frontend
       build and remove duplicated public version literals (commit `daac321`).
+- [ ] TASK-P.029 Preserve multi-batch first append for empty KV-cache sentinels
+      (implementation pending).
 
 ### Cleanup pass (2026-07-21)
 
