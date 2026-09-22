@@ -317,6 +317,11 @@ class TestAVQConfigSerialization:
         with pytest.raises(ConfigurationError, match="unknown field"):
             AVQConfig.from_dict({"some_made_up_field": 1.0})
 
+    def test_from_dict_nested_unknown_field_uses_public_error_type(self) -> None:
+        """Nested schema drift also raises ConfigurationError, not TypeError."""
+        with pytest.raises(ConfigurationError, match="attention configuration"):
+            AVQConfig.from_dict({"attention": {"unknown_dimension": 64}})
+
     def test_from_dict_runs_post_init(self) -> None:
         """from_dict re-runs ``__post_init__`` (validation, auto-derivation)."""
         # Negative tolerance should be rejected even when round-tripped.

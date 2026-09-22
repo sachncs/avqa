@@ -497,7 +497,11 @@ class AVQConfig:
             if isinstance(value, dict):
                 target = cls.resolve_field_type(f.type)
                 if target is not object and dataclasses.is_dataclass(target):
-                    value = target(**value)
+                    try:
+                        value = target(**value)
+                    except TypeError as exc:
+                        msg = f"invalid {f.name} configuration: {exc}"
+                        raise ConfigurationError(msg, {"field": f.name}) from exc
             kwargs[f.name] = value
         # mypy can't narrow dict[str, object] through **kwargs into the
         # dataclass's union-of-sub-configs; the runtime constructor
