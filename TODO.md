@@ -242,7 +242,7 @@ are not shipped capabilities. See
 - [x] TASK-P.006 Make in-memory cache append and restore failure-atomic across
       tensor conversion failures (commit `21ced43`).
 - [x] TASK-P.007 Validate integer-only configuration fields before runtime use
-      (commit pending).
+      (commit `f7f0be0`).
 
 ### Cleanup pass (2026-07-21)
 
