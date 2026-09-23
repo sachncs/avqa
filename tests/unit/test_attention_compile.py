@@ -104,7 +104,15 @@ class TestCompileNumericalEquivalence:
     def modules(self) -> tuple[AVQAttention, AVQAttention]:
         """Return (compiled, eager) module pair sharing the same weights."""
         torch.manual_seed(0)
-        compiled = AVQAttention(compile_config(), in_proj=False, out_proj=False)
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always", RuntimeWarning)
+            compiled = AVQAttention(compile_config(), in_proj=False, out_proj=False)
+        if compiled.forward_compiled is None:
+            assert any(
+                issubclass(warning.category, RuntimeWarning)
+                and "using the eager AVQA forward path" in str(warning.message)
+                for warning in emitted
+            )
         compiled.eval()
         eager = AVQAttention(eager_config(), in_proj=False, out_proj=False)
         eager.load_state_dict(compiled.state_dict())

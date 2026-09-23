@@ -19,8 +19,8 @@ because every stage is delegated to the corresponding subsystem.
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING
+import warnings
 
 import torch
 from torch import nn
