@@ -19,6 +19,7 @@ because every stage is delegated to the corresponding subsystem.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import torch
@@ -118,10 +119,25 @@ class AVQAttention(nn.Module):
             # OPT-0002: route the forward through a torch.compile graph.
             # `dynamic=None` lets Dynamo adapt to mask / kv-cache variants
             # while still collapsing the Python overhead per call.
-            self.forward_compiled = torch.compile(
-                self.forward_impl,
-                dynamic=None,
-            )
+            try:
+                self.forward_compiled = torch.compile(
+                    self.forward_impl,
+                    dynamic=None,
+                )
+            except RuntimeError as error:
+                # Some upstream PyTorch builds explicitly disable compile
+                # on prerelease interpreters (currently Python 3.15). Keep
+                # AVQA's CPU eager path usable, but make the fallback visible.
+                if "torch.compile is not supported on Python 3.15+" not in str(error):
+                    raise
+                warnings.warn(
+                    "compile_enabled=True, but this PyTorch build does not "
+                    "support torch.compile on Python 3.15+; using the eager "
+                    "AVQA forward path.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                self.forward_compiled = None
         else:
             self.forward_compiled = None
         E = config.attention.embed_dim

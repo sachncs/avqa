@@ -280,9 +280,11 @@ class ExecutionConfig:
         mode: ``"reference"``, ``"optimized"``, or ``"research"``.
         deterministic: Enable strict deterministic algorithms.
         seed: Optional RNG seed applied at module init.
-        compile_enabled: When ``True`` the AVQAttention forward is
-            wrapped in ``torch.compile`` to reduce Python overhead on
-            CPU (OPT-0002). Requires stable input shapes.
+        compile_enabled: When ``True``, use ``torch.compile`` to reduce Python
+            overhead where supported by the installed PyTorch build. If the
+            build explicitly disables compilation (as current Python 3.15
+            prerelease wheels do), AVQAttention warns and uses eager execution.
+            Requires stable input shapes when enabled.
 
     """
 

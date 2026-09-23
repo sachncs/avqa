@@ -9,6 +9,8 @@ plumbing and document the handoff to the GPU runner.
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 import torch
 
@@ -42,12 +44,43 @@ class TestCompileEnabled:
     """OPT-0002 plumbing checks for the torch.compile opt-in."""
 
     def test_compiled_forward_attached_when_enabled(self) -> None:
-        """compile_enabled=True installs a torch.compile wrapper."""
-        mod = AVQAttention(compile_config(), in_proj=False, out_proj=False)
+        """Compilation attaches where available and otherwise warns/falls back."""
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always")
+            mod = AVQAttention(compile_config(), in_proj=False, out_proj=False)
         mod.eval()
         assert mod.forward_eager is not None
-        assert mod.forward_compiled is not None
-        assert mod.forward_compiled is not mod.forward_impl
+        if mod.forward_compiled is None:
+            assert any(
+                issubclass(warning.category, RuntimeWarning)
+                and "using the eager AVQA forward path" in str(warning.message)
+                for warning in emitted
+            )
+            query = torch.randn(1, 4, 32)
+            output = mod(query, query, query)
+            assert output.shape == query.shape
+            assert torch.isfinite(output).all()
+        else:
+            assert mod.forward_compiled is not mod.forward_impl
+
+    def test_unsupported_python_compile_warns_and_uses_eager(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Python 3.15's explicit PyTorch limitation keeps eager AVQA usable."""
+
+        def unsupported_compile(*args: object, **kwargs: object) -> None:
+            del args, kwargs
+            raise RuntimeError("torch.compile is not supported on Python 3.15+")
+
+        monkeypatch.setattr(torch, "compile", unsupported_compile)
+        with pytest.warns(RuntimeWarning, match="using the eager AVQA forward path"):
+            mod = AVQAttention(compile_config(), in_proj=False, out_proj=False)
+
+        assert mod.forward_compiled is None
+        query = torch.randn(1, 4, 32)
+        output = mod(query, query, query)
+        assert output.shape == query.shape
+        assert torch.isfinite(output).all()
 
     def test_compiled_forward_absent_by_default(self) -> None:
         """compile_enabled=False leaves the compiled forward as None."""
@@ -109,6 +142,8 @@ class TestCompileNumericalEquivalence:
     ) -> None:
         """Compiled forward should match eager forward within tolerance."""
         compiled, eager = modules
+        if compiled.forward_compiled is None:
+            pytest.skip("the installed PyTorch build does not support torch.compile")
         q, k, v = inputs
         with torch.no_grad():
             out_eager = eager.forward_eager(q, k, v, None, None)

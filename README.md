@@ -273,7 +273,9 @@ pytest --cov=avqa tests/unit tests/reference    # with coverage
 
 Python 3.10–3.15 are covered by the CPU runtime CI matrix. Python 3.15 remains
 a prerelease interpreter, so that lane follows upstream PyTorch prerelease
-wheel availability. CUDA execution and CUDA/Triton numerical or performance
+wheel availability. Current upstream PyTorch Python 3.15 wheels reject
+`torch.compile`; AVQA warns and falls back to eager execution when that option
+is requested. CUDA execution and CUDA/Triton numerical or performance
 validation have not been tested in a CUDA environment.
 
 See the [documentation site](https://sachncs.github.io/avqa/docs/) for the

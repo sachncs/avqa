@@ -13,6 +13,8 @@ is still a prerelease interpreter, so the CI lane uses upstream prerelease
 PyTorch wheels when available. Check the
 [official PyTorch installation selector](https://pytorch.org/get-started/locally/)
 for wheel availability for your Python version and platform.
+Current upstream PyTorch Python 3.15 wheels reject `torch.compile`; if compile
+is enabled in the AVQA config, AVQA warns and uses eager execution instead.
 
 ```bash
 git clone https://github.com/sachncs/avqa.git
